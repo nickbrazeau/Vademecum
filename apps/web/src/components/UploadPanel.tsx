@@ -9,7 +9,8 @@
  */
 
 import { useRef, useState } from 'react'
-import { ApiError, api, asApiError } from '../lib/api'
+import { ApiError, IN_CHAT_FILES_MESSAGE, api, asApiError } from '../lib/api'
+import { inChat } from '../lib/host'
 import { TIERS, TIER_LABEL } from '../lib/types'
 import type { Source, Tier, UploadReport, UploadResult } from '../lib/types'
 import { PhiWarning } from './PhiWarning'
@@ -37,15 +38,25 @@ function statusNote(source: Source | null): string | null {
   return null
 }
 
-export function UploadPanel({
-  pileId,
-  defaultConfidence,
-  onUploaded
-}: {
+interface UploadPanelProps {
   pileId: string
   defaultConfidence: Tier
   onUploaded: () => void
-}) {
+}
+
+/** Inside a conversation (ADR 0014) the source folder is the way in, so say so. */
+export function UploadPanel(props: UploadPanelProps) {
+  if (inChat()) {
+    return (
+      <p className="muted small" role="note">
+        {IN_CHAT_FILES_MESSAGE}
+      </p>
+    )
+  }
+  return <UploadForm {...props} />
+}
+
+function UploadForm({ pileId, defaultConfidence, onUploaded }: UploadPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
   const [confidence, setConfidence] = useState<Tier>(defaultConfidence)

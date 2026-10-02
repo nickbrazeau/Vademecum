@@ -45,6 +45,7 @@ import type {
   MapPosition
 } from './types'
 import * as normalize from './normalize'
+import { callTool, inChat } from './host'
 
 export const API_ROOT = '/api'
 
@@ -114,7 +115,60 @@ function kindFor(status: number): FailureKind {
   return 'server'
 }
 
+export const IN_CHAT_FILES_MESSAGE =
+  'In the conversation, files come in through your source folder on the Mac; ask the assistant to sync it.'
+export const IN_CHAT_REMOVAL_MESSAGE =
+  'Removing things is done in the browser dashboard, or by asking the assistant, which will confirm with you first.'
+
+/** The host tool's reply: the API's status and body, or its refusal, as data. */
+interface HostReply {
+  ok: boolean
+  status: number
+  body?: unknown
+  error?: { code?: string; message?: string; fields?: FieldProblem[] }
+}
+
+/**
+ * Inside a conversation there is no network: the request becomes one call to
+ * the server's `app_request` tool, which allows a fixed list of routes and
+ * nothing else (ADR 0014). Uploads and removals are not on that list, and the
+ * message says where they are done instead.
+ */
+async function requestThroughHost<T>(path: string, init: RequestInit): Promise<T> {
+  const method = (init.method ?? 'GET').toUpperCase()
+  if (init.body !== undefined && typeof init.body !== 'string') {
+    throw new ApiError('invalid', IN_CHAT_FILES_MESSAGE)
+  }
+  if (method === 'DELETE') throw new ApiError('invalid', IN_CHAT_REMOVAL_MESSAGE)
+  let result
+  try {
+    result = await callTool('app_request', {
+      method,
+      path: `${API_ROOT}${path}`,
+      ...(typeof init.body === 'string' ? { body: JSON.parse(init.body) as unknown } : {})
+    })
+  } catch {
+    throw new ApiError('unreachable', UNREACHABLE_MESSAGE)
+  }
+  const reply = result.structuredContent as HostReply | undefined
+  if (reply === undefined || typeof reply.ok !== 'boolean') {
+    const text = result.content?.find((block) => block.type === 'text')?.text
+    throw new ApiError(result.isError ? 'invalid' : 'server', text ?? 'The host returned nothing usable.')
+  }
+  if (!reply.ok) {
+    throw new ApiError(
+      reply.status === 0 ? 'unreachable' : kindFor(reply.status),
+      reply.error?.message ?? UNREACHABLE_MESSAGE,
+      reply.status,
+      reply.error?.fields ?? [],
+      reply.error?.code ?? ''
+    )
+  }
+  return reply.body as T
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (inChat()) return requestThroughHost<T>(path, init)
   let response: Response
   // Only a JSON string body gets a JSON content type; a FormData body has to
   // set its own multipart boundary.

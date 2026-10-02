@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
+import { inChat } from './lib/host'
 import { ROUTES, useRoute } from './lib/router'
 import { ImprovementMap } from './pages/ImprovementMap'
 import { Model } from './pages/Model'
@@ -42,6 +43,10 @@ export function App() {
   // connection of the learner's own to show. Until health answers, and on the
   // owner's Mac, nothing changes.
   const [behindGateway, setBehindGateway] = useState(false)
+  // Inside a conversation (ADR 0014) there is no Model page either: the
+  // assistant on the other side of the frame is the model, and a sign-in code
+  // must never pass through a chat host.
+  const compact = inChat()
 
   useEffect(() => {
     let cancelled = false
@@ -108,9 +113,9 @@ export function App() {
         <Nav
           route={route}
           onNavigate={navigate}
-          routes={behindGateway ? ROUTES.filter((entry) => entry.name !== 'model') : ROUTES}
+          routes={behindGateway || compact ? ROUTES.filter((entry) => entry.name !== 'model') : ROUTES}
         />
-        {online ? null : (
+        {online || compact ? null : (
           <p className="offline" role="status">
             This device is offline. The app shell is showing from the local cache; your saved work
             is on the Mac and is untouched.
@@ -124,7 +129,7 @@ export function App() {
         {route === 'tutor' ? <Tutor onNavigate={navigate} /> : null}
         {route === 'sources' ? <Sources /> : null}
         {route === 'map' ? <ImprovementMap reloadToken={reloadToken} /> : null}
-        {route === 'model' ? <Model /> : null}
+        {route === 'model' && !compact ? <Model /> : null}
       </main>
 
       <footer className="footer">

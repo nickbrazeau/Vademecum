@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { inChat } from './host'
 
 export type RouteName = 'today' | 'tutor' | 'sources' | 'map' | 'model'
 
@@ -35,16 +36,19 @@ export function pathFor(name: RouteName): string {
 }
 
 export function useRoute(): [RouteName, (name: RouteName) => void] {
-  const [route, setRoute] = useState<RouteName>(() => routeFor(window.location.pathname))
+  // Inside a conversation (ADR 0014) the frame has no address of its own and
+  // its history is not the owner's: the route lives in state only.
+  const [route, setRoute] = useState<RouteName>(() => (inChat() ? 'today' : routeFor(window.location.pathname)))
 
   useEffect(() => {
+    if (inChat()) return undefined
     const onPop = () => setRoute(routeFor(window.location.pathname))
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   const navigate = useCallback((name: RouteName) => {
-    window.history.pushState({}, '', pathFor(name))
+    if (!inChat()) window.history.pushState({}, '', pathFor(name))
     setRoute(name)
   }, [])
 

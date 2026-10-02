@@ -38,6 +38,8 @@ EXPECTED_TOOLS = {
     "export_workspace",
     "backup_workspace",
     "open_dashboard",
+    "open_vademecum",
+    "app_request",
     "list_learning_points",
     "get_learning_point",
     "flag_knowledge_gap",

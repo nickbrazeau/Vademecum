@@ -9,7 +9,7 @@ import pytest
 from mcp import Client
 from tests.mcp_support import call
 
-from vademecum_mcp.widgets import MIME_TYPE, TODAY_URI, TUTOR_URI
+from vademecum_mcp.widgets import APP_URI, MIME_TYPE, TODAY_URI, TUTOR_URI
 
 pytestmark = pytest.mark.anyio
 
@@ -27,7 +27,7 @@ CALLABLE_FROM_CARD = {"tutor_reveal", "tutor_advance"}
 async def test_the_cards_are_resources_with_the_apps_mime_type(mcp_client: Client) -> None:
     listed = (await mcp_client.list_resources()).resources
     by_uri = {str(resource.uri): resource for resource in listed}
-    assert set(by_uri) == {TODAY_URI, TUTOR_URI}
+    assert set(by_uri) == {TODAY_URI, TUTOR_URI, APP_URI}
     for uri, resource in by_uri.items():
         assert resource.mime_type == MIME_TYPE, uri
         meta = resource.meta or {}
@@ -51,8 +51,10 @@ async def test_the_tools_point_at_their_cards(mcp_client: Client) -> None:
         else:
             assert "visibility" not in meta["ui"], name
             assert "openai/widgetAccessible" not in meta, name
+    assert tools["open_vademecum"].meta["ui"]["resourceUri"] == APP_URI
+    assert tools["app_request"].meta["ui"]["visibility"] == ["app"], "the app's tool, not the model's"
     for name, tool in tools.items():
-        if name not in DRAWN_BY_TUTOR and name != "get_today":
+        if name not in DRAWN_BY_TUTOR and name not in {"get_today", "open_vademecum", "app_request"}:
             assert not (tool.meta or {}).get("ui"), f"{name} has no card"
 
 

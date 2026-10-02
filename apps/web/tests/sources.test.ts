@@ -89,7 +89,14 @@ describe('no network destination other than the local API', () => {
     // OpenAI through Codex rather than implying the connection is inert.
     // Everywhere else, the word appearing at all would mean the app had grown
     // a second destination.
-    const ALLOWED = ['pages/Model.tsx', 'components/PrivacyNote.tsx', 'components/TransmissionDisclosure.tsx']
+    // lib/host.ts names ChatGPT's `window.openai` bridge: the object a ChatGPT
+    // host hands a card, not a destination (ADR 0014).
+    const ALLOWED = [
+      'pages/Model.tsx',
+      'components/PrivacyNote.tsx',
+      'components/TransmissionDisclosure.tsx',
+      'lib/host.ts'
+    ]
     const offenders = sources
       .filter(({ path, text }) => /openai/i.test(text) && !ALLOWED.includes(label(path)))
       .map(({ path }) => label(path))

@@ -110,7 +110,8 @@ The product, on one learner's Mac (ADR 0012):
 
 ```text
 Codex (ChatGPT app) or Claude Desktop          ~/Documents/Vademecum/piles/<tier>/<pile>/
-   |  starts it, stdio                             |  scanned at start, every 20 s, on request
+   |  starts it, stdio; draws the web app          |  scanned at start, every 20 s, on request
+   |  in the chat as an MCP App (ADR 0014)         |
    v                                               v
 Vademecum MCP server  --starts if absent-->  Vademecum API  -->  records directory
    (tools; no auth needed: the                     |             (database, originals, pictures,
@@ -299,6 +300,11 @@ Ready for learners other than the owner only when all of the following are true:
   answers in their own words; ChatGPT grades against the reference; the server records the grade.
 - Evidence links have a current basis and preserved history; a successful recheck may replace the
   basis with clean evidence; corrected or retracted records cannot re-enter it.
+- The web app is the dashboard, and it is the same app in three places: served by the API in the
+  browser, drawn inside the conversation as an MCP App (ADR 0014; `open_vademecum`, with the
+  app's own requests going through `app_request` and its fixed route list), and mirrored by the
+  named tools. Nothing the in-chat app can do removes, retires, exports, backs up, uploads or
+  signs in; those stay where a confirmation exists.
 - Pictures inside sources are kept with their page or slide; a picture file in a pile is a source
   (ADR 0013). The assistant looks at a picture through `view_image`; Vademecum does not interpret
   it. Pages with no text layer are read on the Mac with the system's own recognition and cited

@@ -262,12 +262,23 @@ both processes read; a variable in the environment still wins. The registrations
 else in the assistant's file and leave a backup beside it.
 
 **The dashboard.** The web app is the dashboard: Today, the source library, the Tutor, the
-Improvement Map as a graph, and the model status. The API serves it at <http://127.0.0.1:8765/>
-whenever Vademecum is running and the web app has been built (`install.sh` builds it when Node is
-present; `cd apps/web && npm run build` does it by hand). Ask the assistant to "open the
-dashboard" and the `open_dashboard` tool opens that page in your browser; nothing is served
-anywhere but this Mac. In development, `./scripts/dev.sh` runs it on <http://127.0.0.1:5173>
-instead, and a running API is simply reused by the assistant.
+Improvement Map as a graph, and the model status. It is available two ways from the assistant
+([ADR 0014](docs/adr/0014-the-web-app-inside-the-conversation.md)):
+
+- **Inside the conversation.** Ask for "Vademecum" or "the dashboard" and, where the assistant
+  can draw MCP Apps (Claude Desktop does; ChatGPT does), the `open_vademecum` tool shows the web
+  app right there, in the chat. It is the same app built into one document; everything it shows
+  it asks the host for, and the host asks Vademecum on this Mac. Files still come in through the
+  source folder, and removing, exporting, backing up and signing in stay in the browser dashboard
+  or with the assistant's own tools, each of which confirms with you.
+- **In your browser.** The API serves the web app at <http://127.0.0.1:8765/> whenever Vademecum
+  is running and the app has been built (`install.sh` builds it when Node is present;
+  `cd apps/web && npm run build` does it by hand, and also rebuilds the in-chat document). Ask
+  the assistant to "open the dashboard" and the `open_dashboard` tool opens that page. Nothing is
+  served anywhere but this Mac.
+
+In development, `./scripts/dev.sh` runs the web app on <http://127.0.0.1:5173> instead, and a
+running API is simply reused by the assistant.
 
 ## Optional: the hosted mode, for ChatGPT chat, phones, or several learners
 
@@ -324,7 +335,8 @@ move to the next question, and nothing else. Grading stays in the conversation.
 
 ### What a connected assistant can do
 
-Read Today and the Improvement Map; list piles, sources and learning points; read a source's
+Show the dashboard inside the conversation, or open it in the browser; read Today and the
+Improvement Map; list piles, sources and learning points; read a source's
 extracted text; list and look at the pictures kept from a source; add a pasted note as a source;
 keep a schematic it drew for a learning point and read it back; file and update Knowledge Gap
 Flags; preview and start a build, check it, cancel it; ask the next Tutor question, reveal the

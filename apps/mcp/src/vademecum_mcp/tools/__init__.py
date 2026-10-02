@@ -11,7 +11,9 @@ much the design as what is (ADR 0008):
 * export and backup, which write into the records directory on this Mac and
   return a file name, never a path;
 * open_dashboard, which opens the web app served from this Mac in the owner's
-  own browser: the same records, seen rather than told.
+  own browser, and open_vademecum, which has the host draw the same web app
+  inside the conversation; the app's own requests go through app_request,
+  which allows a fixed list of routes (ADR 0014).
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from mcp.server import MCPServer
 
 from ..api_client import ApiClient
 from ..config import McpSettings
-from . import build, dashboard, folder, gaps, library, literature, media, tutor
+from . import app, build, dashboard, folder, gaps, library, literature, media, tutor
 
 
 def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None = None) -> None:
@@ -28,6 +30,7 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None = None
     media.register(mcp, api)
     folder.register(mcp, api, settings)
     dashboard.register(mcp, api, settings)
+    app.register(mcp, api)
     gaps.register(mcp, api)
     build.register(mcp, api)
     tutor.register(mcp, api)

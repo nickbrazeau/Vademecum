@@ -22,6 +22,8 @@ from mcp.server import MCPServer
 MIME_TYPE = "text/html;profile=mcp-app"
 TODAY_URI = "ui://vademecum/today.html"
 TUTOR_URI = "ui://vademecum/tutor.html"
+# The whole web app, built into one document (ADR 0014; apps/web `build:app`).
+APP_URI = "ui://vademecum/app.html"
 
 TODAY_DESCRIPTION = (
     "The learner's cover sheet: learning points worth a look, what is held, where "
@@ -30,6 +32,10 @@ TODAY_DESCRIPTION = (
 TUTOR_DESCRIPTION = (
     "One Tutor question with where the cycle stands; after grading, the reference "
     "answer and the feedback. The learner answers in the conversation."
+)
+APP_DESCRIPTION = (
+    "The Vademecum dashboard: Today, the source library, the Tutor and the Improvement "
+    "Map, as the web app shows them. Reads and writes through the app_request tool only."
 )
 
 
@@ -88,3 +94,13 @@ def register(mcp: MCPServer, *, domain: str | None = None) -> None:
     )
     def tutor_card() -> str:
         return _read("tutor.html")
+
+    @mcp.resource(
+        APP_URI,
+        name="Vademecum dashboard",
+        description=APP_DESCRIPTION,
+        mime_type=MIME_TYPE,
+        meta=_resource_meta(domain, APP_DESCRIPTION),
+    )
+    def app_document() -> str:
+        return _read("app.html")
