@@ -37,6 +37,7 @@ EXPECTED_TOOLS = {
     "sync_sources",
     "export_workspace",
     "backup_workspace",
+    "phone_pack",
     "open_dashboard",
     "open_vademecum",
     "app_request",

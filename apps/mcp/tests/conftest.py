@@ -46,6 +46,9 @@ from vademecum_mcp.server import create_server  # noqa: E402
 def no_settings_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """The owner's real settings file must never reach a test (ADR 0012)."""
     monkeypatch.setenv("VADEMECUM_SETTINGS_FILE", str(tmp_path / "no-settings.env"))
+    # Nor must the owner's real source folder: a test that passes no folder
+    # gets one of its own, never ~/Documents/Vademecum.
+    monkeypatch.setenv("VADEMECUM_SOURCES_DIR", str(tmp_path / "source-folder"))
 
 
 @pytest.fixture(autouse=True)

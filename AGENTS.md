@@ -306,6 +306,9 @@ Ready for learners other than the owner only when all of the following are true:
   app's own requests going through `app_request` and its fixed route list), and mirrored by the
   named tools. Nothing the in-chat app can do removes, retires, exports, backs up, uploads or
   signs in; those stay where a confirmation exists.
+- The phone pack (ADR 0016) is the no-hosting route: the bank as one file in a Project, the
+  assistant there grading directly, the session log back through the source folder's inbox.
+  A grade from the phone is recorded as given outside a checked turn, and says so.
 - Two Vademecums may sync (ADR 0015): home (the Mac) owns what is made from files; shared
   records merge by later write or by union; home initiates; nothing applied from a peer is
   logged again. Never add a sync path that bypasses the change log or the ownership rules.

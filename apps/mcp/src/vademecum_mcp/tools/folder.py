@@ -65,6 +65,23 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None) -> No
         return await call(api.post("/api/export"))
 
     @mcp.tool(annotations=WRITE)
+    async def phone_pack() -> dict[str, Any]:
+        """Write the phone pack: the owner's learning points, Tutor questions
+        with reference answers and rubrics, open flags and the Tutor rules, as
+        one Markdown file in the `phone` folder of their source folder. They
+        drop it into a ChatGPT or Claude Project beside their material; the
+        assistant there tutors and grades from it, and writes a session log
+        the owner saves into the `inbox` folder, which the Mac records on its
+        next scan. Make a fresh pack after a build. Returns the file name."""
+        written = await call(api.post("/api/pack"))
+        written["next"] = (
+            "Add this file to your Project's files beside your material. Ask the assistant there "
+            "to tutor you from the pack. Save each session log it writes as a file into the inbox "
+            "folder of your source folder."
+        )
+        return written
+
+    @mcp.tool(annotations=WRITE)
     async def backup_workspace() -> dict[str, Any]:
         """Write a restorable backup bundle, the database plus every stored
         original, into the backups directory beside the records. Returns the

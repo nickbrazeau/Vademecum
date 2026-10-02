@@ -303,6 +303,23 @@ running API is simply reused by the assistant.
   servers must be able to reach Vademecum. A pinned Project with the same one-line instruction
   is the unit there too.
 
+## On the phone, with nothing hosted: the phone pack
+
+Your piles are the context, the assistant is the intermediary, Vademecum keeps the records
+([ADR 0016](docs/adr/0016-the-phone-pack.md)). Ask the assistant on the Mac for a **phone pack**
+and one Markdown file lands in the `phone` folder of your source folder: your learning points
+with their support labels and citations, every eligible Tutor question with its reference answer
+and rubric, your open flags, and the Tutor rules. Drop it into a ChatGPT or Claude Project beside
+your material. The assistant there tutors you from it and grades in its own words, because it is
+the model. At the end of a session it writes a **session log** in the one format the pack
+specifies; save that as a file into the `inbox` folder of your source folder, and the Mac records
+the attempts and flags on its next scan, once, and leaves the file where it is.
+
+What you keep on the phone: the Tutor, grading, flags, your piles as context, and work on both
+sides that links up at the next scan. What stays on the Mac: the dashboard, pictures, the map,
+builds and the mechanical checks. A grade given on the phone is recorded as a model grade given
+outside a checked turn, and the history says so. Make a fresh pack after each build.
+
 ## Optional: a second Vademecum that syncs
 
 For the phone while the Mac sleeps ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)):
@@ -373,8 +390,8 @@ move to the next question, and nothing else. Grading stays in the conversation.
 
 ### What a connected assistant can do
 
-Show the dashboard inside the conversation, or open it in the browser; read Today and the
-Improvement Map; list piles, sources and learning points; read a source's
+Show the dashboard inside the conversation, or open it in the browser; write the phone pack;
+read Today and the Improvement Map; list piles, sources and learning points; read a source's
 extracted text; list and look at the pictures kept from a source; add a pasted note as a source;
 keep a schematic it drew for a learning point and read it back; file and update Knowledge Gap
 Flags; preview and start a build, check it, cancel it; ask the next Tutor question, reveal the

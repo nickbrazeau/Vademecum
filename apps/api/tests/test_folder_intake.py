@@ -54,7 +54,8 @@ def titles(client: TestClient) -> dict[str, dict]:
     return {pile["title"]: pile for pile in client.get("/api/piles").json()}
 
 
-def test_the_folder_defaults_to_documents_and_never_the_checkout(tmp_path: Path) -> None:
+def test_the_folder_defaults_to_documents_and_never_the_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("VADEMECUM_SOURCES_DIR")  # the suite's own isolation; here the default is the point
     default = Settings(data_dir=tmp_path / "d").resolve_sources_dir()
     assert default is not None and default.parts[-2:] == ("Documents", "Vademecum")
     repo = find_repo_root()
@@ -189,6 +190,7 @@ def test_a_folder_chosen_while_running_is_used_at_the_next_scan(
 
     settings_file = tmp_path / "settings.env"
     monkeypatch.setenv("VADEMECUM_SETTINGS_FILE", str(settings_file))
+    monkeypatch.delenv("VADEMECUM_SOURCES_DIR")  # the settings file is what is under test
     first, second = tmp_path / "First", tmp_path / "Second"
     write_setting("SOURCES_DIR", str(first), path=settings_file)
     settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765)
