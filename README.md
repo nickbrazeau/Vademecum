@@ -283,6 +283,25 @@ Improvement Map as a graph, and the model status. It is available two ways from 
 In development, `./scripts/dev.sh` runs the web app on <http://127.0.0.1:5173> instead, and a
 running API is simply reused by the assistant.
 
+**Always ready: the Dock, and a pinned place in each assistant.**
+
+- `./scripts/mcp.sh setup login` (the installer offers it) keeps Vademecum running from login,
+  as a launchd user agent on this Mac, so the dashboard answers before any assistant has
+  started. In Safari, open <http://127.0.0.1:8765> and choose File → Add to Dock: Vademecum is
+  then an app icon that opens straight onto the dashboard. If an assistant had already started
+  Vademecum, the login copy waits for it to finish and takes over; assistants reuse whichever is
+  running. After updating Vademecum, run `setup login` again to restart it on the new code;
+  `setup login --remove` stops it starting at login.
+- **Codex.** Open your source folder as the project: its `AGENTS.md` makes every new thread
+  there start with the dashboard. That project is your pinned Vademecum in the Codex sidebar.
+- **Claude Desktop.** Create a project called Vademecum, pin it, and paste this into its
+  instructions: *"Start every chat by calling open_vademecum, then answer in a sentence or two.
+  Everything here is educational; never put patient identifiers in a tool."* Every new chat in
+  that project opens on the dashboard.
+- **ChatGPT itself**, beside Health and Finances, needs the hosted mode below, because ChatGPT's
+  servers must be able to reach Vademecum. A pinned Project with the same one-line instruction
+  is the unit there too.
+
 ## Optional: the hosted mode, for ChatGPT chat, phones, or several learners
 
 Everything below is kept and tested but is not the path the product takes to a learner. It is

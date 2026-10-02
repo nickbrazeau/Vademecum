@@ -46,9 +46,12 @@ def _parser() -> argparse.ArgumentParser:
     disable.add_argument("handle")
     reset = commands.add_parser("reset", help="set a new passphrase for a learner who lost theirs")
     reset.add_argument("handle")
-    setup = commands.add_parser("setup", help="register with Codex or Claude Desktop, or choose the source folder")
-    setup.add_argument("target", choices=["codex", "claude", "folder"])
+    setup = commands.add_parser(
+        "setup", help="register with Codex or Claude Desktop, choose the source folder, or start at login"
+    )
+    setup.add_argument("target", choices=["codex", "claude", "folder", "login"])
     setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be")
+    setup.add_argument("--remove", action="store_true", help="for `login`: stop starting at login")
     return parser
 
 
@@ -81,6 +84,8 @@ def run(argv: list[str] | None = None) -> int:
     if command == "setup":
         if args.target == "folder":
             return _setup_folder(args.path)
+        if args.target == "login":
+            return _setup_login(settings, remove=args.remove)
         return _setup(settings, args.target)
     if getattr(args, "stdio", False):
         return _serve_stdio(settings)
@@ -297,6 +302,37 @@ def _setup(settings: McpSettings, target: str) -> int:
     print(f"Launcher: {command} {' '.join(args)}")
     print(restart)
     print("The API starts itself when the assistant starts Vademecum; nothing else to run.")
+    return 0
+
+
+def _setup_login(settings: McpSettings, *, remove: bool = False) -> int:
+    """Keep the API running from login, so the Dock app is always ready."""
+    from vademecum.config import find_repo_root
+
+    if sys.platform != "darwin":
+        print("Starting at login is set up with launchd and needs macOS.", file=sys.stderr)
+        return 2
+    if remove:
+        if local.remove_login_agent(local.LOGIN_AGENT):
+            print("Vademecum no longer starts at login. An assistant still starts it when needed.")
+        else:
+            print("Vademecum was not set to start at login.")
+        return 0
+    root = find_repo_root()
+    if root is None:
+        print("cannot find the checkout; run setup from inside it", file=sys.stderr)
+        return 2
+    log_path = settings.resolve_data_dir() / "logs" / "api.log"
+    local.write_login_agent(
+        local.LOGIN_AGENT, python=sys.executable, working_directory=root, log_path=log_path
+    )
+    if not local.load_login_agent(local.LOGIN_AGENT):
+        print(f"Wrote {local.LOGIN_AGENT} but launchd did not accept it; see `launchctl` output.", file=sys.stderr)
+        return 1
+    print(f"Vademecum starts at login and stays running ({local.LOGIN_AGENT.name}).")
+    print(f"The dashboard is always at {settings.api_base_url} ; in Safari, File > Add to Dock puts it in the Dock.")
+    print("If an assistant had already started Vademecum, the login copy waits for it to finish, then takes over.")
+    print("After updating Vademecum, run this again to restart it on the new code.")
     return 0
 
 

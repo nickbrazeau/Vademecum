@@ -146,3 +146,22 @@ def test_the_api_stops_when_the_process_that_started_it_is_gone(monkeypatch, tmp
     monkeypatch.setattr(signal, "raise_signal", lambda signum: raised.append(signum))
     asyncio.run(_watch_parent(4242, interval=0.001))
     assert raised == [signal.SIGTERM]
+
+
+def test_a_second_vademecum_waits_for_the_port_instead_of_failing() -> None:
+    """ADR 0014: the login copy waits for an assistant's child, then takes over."""
+    import socket
+
+    from vademecum.main import port_in_use, wait_for_port
+
+    with socket.socket() as held:
+        held.bind(("127.0.0.1", 0))
+        held.listen(1)
+        port = held.getsockname()[1]
+        assert port_in_use("127.0.0.1", port) is True
+    assert port_in_use("127.0.0.1", port) is False
+
+    states = iter([True, True, False])
+    naps: list[float] = []
+    waited = wait_for_port("127.0.0.1", port, pause=0.1, in_use=lambda h, p: next(states), sleep=naps.append)
+    assert waited == 2 and naps == [0.1, 0.1]

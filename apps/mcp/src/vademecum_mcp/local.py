@@ -180,6 +180,64 @@ def write_claude_config(path: Path, *, command: str, args: list[str]) -> Path | 
     return backup
 
 
+# --- start at login (ADR 0014) -------------------------------------------------
+#
+# A launchd user agent keeps the API running from login, so the web app in
+# the Dock is always ready and every assistant finds Vademecum answering.
+# The agent runs the same `python -m vademecum` the stdio server would start,
+# in host mode, logging to the same file. When an assistant's own child is
+# already on the port, the agent's copy waits (see vademecum.main) rather than
+# fighting it, and takes over when that child exits.
+
+LOGIN_LABEL = "com.vademecum.api"
+LOGIN_AGENT = Path.home() / "Library" / "LaunchAgents" / f"{LOGIN_LABEL}.plist"
+
+
+def write_login_agent(path: Path, *, python: str, working_directory: Path, log_path: Path) -> None:
+    import plistlib
+
+    agent = {
+        "Label": LOGIN_LABEL,
+        "ProgramArguments": [python, "-m", "vademecum"],
+        "WorkingDirectory": str(working_directory),
+        "EnvironmentVariables": {"VADEMECUM_MODEL_PROVIDER": "host"},
+        "RunAtLoad": True,
+        "KeepAlive": True,
+        "ThrottleInterval": 10,
+        "ProcessType": "Background",
+        "StandardOutPath": str(log_path),
+        "StandardErrorPath": str(log_path),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with path.open("wb") as handle:
+        plistlib.dump(agent, handle)
+
+
+def _launchctl(*args: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(["launchctl", *args], check=False, capture_output=True)
+
+
+def load_login_agent(path: Path) -> bool:
+    """(Re)load the agent and start it now. True when launchd accepted it."""
+    domain = f"gui/{os.getuid()}"
+    _launchctl("bootout", domain, str(path))  # a previous copy, if any; harmless otherwise
+    result = _launchctl("bootstrap", domain, str(path))
+    if result.returncode != 0:
+        return False
+    _launchctl("kickstart", "-k", f"{domain}/{LOGIN_LABEL}")
+    return True
+
+
+def remove_login_agent(path: Path) -> bool:
+    """Stop the agent and delete it. True when there was one."""
+    if not path.exists():
+        return False
+    _launchctl("bootout", f"gui/{os.getuid()}", str(path))
+    path.unlink()
+    return True
+
+
 def launcher() -> tuple[str, list[str]]:
     """The command an assistant runs: this checkout's launcher, absolute."""
     from vademecum.config import find_repo_root

@@ -183,3 +183,39 @@ def test_the_api_child_is_told_who_started_it(monkeypatch, tmp_path) -> None:
     assert captured["env"]["VADEMECUM_PARENT_PID"] == str(os.getpid())
     assert captured["env"]["VADEMECUM_MODEL_PROVIDER"] == "host"
     assert captured["args"][-2:] == ["-m", "vademecum"]
+
+
+def test_the_login_agent_runs_the_api_in_host_mode_and_logs_to_the_records(tmp_path: Path) -> None:
+    import plistlib
+
+    from vademecum_mcp import local
+
+    plist = tmp_path / "LaunchAgents" / "com.vademecum.api.plist"
+    local.write_login_agent(plist, python="/venv/bin/python", working_directory=tmp_path / "checkout", log_path=tmp_path / "data" / "logs" / "api.log")
+    agent = plistlib.loads(plist.read_bytes())
+    assert agent["Label"] == "com.vademecum.api"
+    assert agent["ProgramArguments"] == ["/venv/bin/python", "-m", "vademecum"]
+    assert agent["EnvironmentVariables"] == {"VADEMECUM_MODEL_PROVIDER": "host"}
+    assert agent["RunAtLoad"] is True and agent["KeepAlive"] is True
+    assert agent["StandardOutPath"].endswith("logs/api.log")
+    assert (tmp_path / "data" / "logs").is_dir()
+
+
+def test_loading_and_removing_the_login_agent_go_through_launchctl(monkeypatch, tmp_path: Path) -> None:
+    from vademecum_mcp import local
+
+    calls: list[list[str]] = []
+
+    class Done:
+        returncode = 0
+
+    monkeypatch.setattr(local.subprocess, "run", lambda args, **kwargs: calls.append(args) or Done())
+    plist = tmp_path / "com.vademecum.api.plist"
+    plist.write_bytes(b"<plist/>")
+    assert local.load_login_agent(plist) is True
+    assert [c[1] for c in calls] == ["bootout", "bootstrap", "kickstart"]
+    assert all(c[0] == "launchctl" for c in calls)
+    calls.clear()
+    assert local.remove_login_agent(plist) is True
+    assert [c[1] for c in calls] == ["bootout"] and not plist.exists()
+    assert local.remove_login_agent(plist) is False

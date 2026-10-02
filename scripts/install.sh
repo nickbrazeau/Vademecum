@@ -99,6 +99,15 @@ if [ "$REGISTERED" -eq 0 ]; then
   say "Neither the ChatGPT app (Codex) nor Claude Desktop was found. Install one, then run: ./scripts/mcp.sh setup codex   or   ./scripts/mcp.sh setup claude"
 fi
 
+# --- 6. always ready ----------------------------------------------------------
+
+printf 'Start Vademecum at login, so the dashboard in your browser or Dock is always ready? [Y/n] '
+read -r at_login
+case "${at_login:-Y}" in
+  [Yy]*) "$VENV/bin/python" -m vademecum_mcp setup login || say "Could not set Vademecum to start at login; the assistant still starts it when needed." ;;
+  *) say "Skipped. Run ./scripts/mcp.sh setup login later to change your mind." ;;
+esac
+
 cat <<EOF
 
   Vademecum is installed.
@@ -108,6 +117,7 @@ cat <<EOF
   Your records:   ~/Library/Application Support/Vademecum
   In Codex:       restart the ChatGPT app, then ask "show me my Vademecum cover sheet"
   In Claude:      the same, once Claude Desktop is restarted
+  In the Dock:    open http://127.0.0.1:8765 in Safari and choose File > Add to Dock
 
   Vademecum is educational. Never put patient identifiers in the folder or the chat.
 
