@@ -219,3 +219,24 @@ def test_loading_and_removing_the_login_agent_go_through_launchctl(monkeypatch, 
     assert local.remove_login_agent(plist) is True
     assert [c[1] for c in calls] == ["bootout"] and not plist.exists()
     assert local.remove_login_agent(plist) is False
+
+
+def test_setup_sync_records_the_seat_in_the_settings_file(monkeypatch, tmp_path: Path) -> None:
+    from vademecum.config import get_settings
+    from vademecum_mcp.main import _setup_sync
+
+    get_settings.cache_clear()
+
+    settings_file = tmp_path / "settings.env"
+    monkeypatch.setenv("VADEMECUM_SETTINGS_FILE", str(settings_file))
+    assert _setup_sync("http://seat.example", token="x" * 20) == 2, "https only"
+    assert _setup_sync("https://seat.example/", token="short") == 2
+    assert _setup_sync("https://vademecum-seat.example.workers.dev/", token="a-long-random-token-value") == 0
+    text = settings_file.read_text()
+    assert 'VADEMECUM_SYNC_PEER_URL="https://vademecum-seat.example.workers.dev"' in text
+    assert "a-long-random-token-value" in text
+    assert get_settings().sync_peer_url == "https://vademecum-seat.example.workers.dev"
+    assert _setup_sync(None, remove=True) == 0
+    get_settings.cache_clear()
+    assert get_settings().sync_peer_url == ""
+    get_settings.cache_clear()

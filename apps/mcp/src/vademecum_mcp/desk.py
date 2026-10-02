@@ -36,12 +36,13 @@ from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Re
 
 from .api_client import TOKEN_HEADER, ApiClient, ApiError
 from .auth import consent, pages
-from .auth.store import AccessStore, InviteError
+from .auth.store import OWNER_SUBJECT, AccessStore, InviteError
 from .config import SCOPE
 
 logger = logging.getLogger("vademecum_mcp.desk")
 
 COOKIE = "vademecum_desk"
+SYNC_HEADER = "X-Vademecum-Sync"
 DESK_CLIENT = "desk"
 LOGIN_PATH = "/login"
 LOGOUT_PATH = "/logout"
@@ -82,8 +83,10 @@ def register(
     public_url: str,
     session_ttl: int,
     dist: Path | None,
+    tenancy: str = "multi",
 ) -> None:
     origin = public_url.rstrip("/").lower()
+    single = tenancy == "single"
     secure = urlsplit(public_url).scheme == "https"
 
     def token_of(request: Request) -> str | None:
@@ -109,12 +112,19 @@ def register(
         return response
 
     def login_page(error: str = "", *, status: int = 200) -> Response:
+        if single:
+            # One learner, the owner (ADR 0017): the same passphrase the
+            # assistants are approved with.
+            form = pages.owner_form(LOGIN_PATH, "")
+            lead = "Your Vademecum: Today, your sources, the Tutor and the Improvement Map."
+        else:
+            form = pages.learner_forms(LOGIN_PATH, "", approve_label="Sign in", register_label="Create my workspace", deny=False)
+            lead = "Your desk: upload material, manage your sources, export or delete your workspace."
         body = f"""
 <h1>Sign in to Vademecum</h1>
-<p>Your desk: upload material, manage your sources, export or delete your workspace. Building
-and grading happen in ChatGPT. {pages.BOUNDARY}</p>
+<p>{lead} Building and grading happen in your assistant. {pages.BOUNDARY}</p>
 {pages.notice(error)}
-{pages.learner_forms(LOGIN_PATH, "", approve_label="Sign in", register_label="Create my workspace", deny=False)}
+{form}
 """
         return pages.page(body, status=status, raw=True)
 
@@ -130,7 +140,16 @@ and grading happen in ChatGPT. {pages.BOUNDARY}</p>
             return login_page("That request did not come from this site.", status=403)
         raw = await request.form()
         form = {key: str(value) for key, value in raw.items() if isinstance(value, str)}
-        if form.get("action") == "register":
+        if single:
+            remaining = store.lockout_remaining()
+            if remaining:
+                logger.warning("desk_locked_out")
+                return login_page(consent.locked(remaining), status=429)
+            if not store.verify_passphrase(form.get("passphrase", "")):
+                logger.info("desk_sign_in_refused")
+                return login_page(consent.WRONG)
+            learner_id = OWNER_SUBJECT
+        elif form.get("action") == "register":
             outcome = consent.register_learner(store, form)
             if isinstance(outcome, InviteError):
                 logger.info("desk_registration_refused")
@@ -171,6 +190,33 @@ and grading happen in ChatGPT. {pages.BOUNDARY}</p>
         response = RedirectResponse(LOGIN_PATH, status_code=303, headers=pages.SECURITY_HEADERS)
         response.delete_cookie(COOKIE, path="/")
         return response
+
+    # --- sync, passed through (ADR 0015, 0017) --------------------------------------
+    #
+    # The home node reaches the away node's sync routes through this address.
+    # No desk session: the API checks the peer token itself, and answers as if
+    # the routes did not exist when it is wrong or absent.
+
+    @mcp.custom_route("/api/sync/{path:path}", methods=["GET", "POST", "PUT"], include_in_schema=False)
+    async def sync_passthrough(request: Request) -> Response:
+        peer = request.headers.get(SYNC_HEADER)
+        if peer is None:
+            return JSONResponse({"error": {"code": "not_found", "message": "No such route."}}, status_code=404, headers={"Cache-Control": "no-store"})
+        headers = {name: value for name, value in request.headers.items() if name.lower() in FORWARDED_REQUEST_HEADERS}
+        headers[SYNC_HEADER] = peer
+        try:
+            upstream = await api.forward(
+                request.method,
+                f"/api/sync/{request.path_params['path']}",
+                params=request.query_params,
+                headers=headers,
+                content=request.stream() if request.method in MUTATING else None,
+            )
+        except ApiError as exc:
+            return JSONResponse({"error": {"code": exc.code, "message": exc.message, "fields": []}}, status_code=503, headers={"Cache-Control": "no-store"})
+        passed = {name: value for name, value in upstream.headers.items() if name in FORWARDED_RESPONSE_HEADERS}
+        passed.setdefault("cache-control", "no-store")
+        return StreamingResponse(upstream.body, status_code=upstream.status, headers=passed, background=BackgroundTask(upstream.aclose))
 
     # --- the API, proxied ----------------------------------------------------------
 

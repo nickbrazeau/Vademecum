@@ -192,19 +192,20 @@ def build_http_app(settings: McpSettings, api: ApiClient, store: AccessStore) ->
     async def health(request: Request) -> Response:
         return JSONResponse({"status": "ok", "version": __version__}, headers={"Cache-Control": "no-store"})
 
-    # The desk, in multi tenancy: sign-in, the proxied API and the web app at
-    # the root (ADR 0011). Registered last, because its catch-all must come
-    # after every other route. In single tenancy the root is a notice.
-    desk_dist = settings.resolve_desk_dist() if settings.tenancy == "multi" else None
-    if settings.tenancy == "multi":
-        desk.register(
-            mcp,
-            store,
-            api=api,
-            public_url=public_url,
-            session_ttl=settings.mcp_desk_session_ttl,
-            dist=desk_dist,
-        )
+    # The desk: sign-in, the proxied API, the sync passthrough and the web app
+    # at the root (ADR 0011; in single tenancy behind the owner's passphrase,
+    # ADR 0017). Registered last, because its catch-all must come after every
+    # other route. Without a built web app the root is a notice.
+    desk_dist = settings.resolve_desk_dist()
+    desk.register(
+        mcp,
+        store,
+        api=api,
+        public_url=public_url,
+        session_ttl=settings.mcp_desk_session_ttl,
+        dist=desk_dist,
+        tenancy=settings.tenancy,
+    )
     if desk_dist is None:
 
         @mcp.custom_route("/", methods=["GET"], include_in_schema=False)

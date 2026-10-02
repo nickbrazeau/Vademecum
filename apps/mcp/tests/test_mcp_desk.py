@@ -241,14 +241,75 @@ async def test_deleting_the_workspace_from_the_desk_ends_the_session(gateway) ->
     assert (await ada.get("/api/piles")).status_code == 401
 
 
-async def test_single_tenancy_has_no_desk_here(mcp_settings, api, tmp_path: Path, dist: Path) -> None:
-    settings = mcp_settings.model_copy(update={"mcp_desk_dist": dist})
+async def test_single_tenancy_without_a_built_web_app_shows_the_notice(mcp_settings, api, tmp_path: Path) -> None:
+    """The desk's sign-in exists for one owner too (ADR 0017), but with no build
+    the root is the notice and the API is not reachable without a session."""
+    settings = mcp_settings.model_copy(update={"mcp_desk_dist": tmp_path / "nowhere"})
     store = AccessStore(settings.access_db_path)
     store.set_passphrase(PASS)
     app = build_http_app(settings, api, store)
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=MCP_ORIGIN) as web:
-            assert (await web.get("/login")).status_code == 404
+            assert (await web.get("/login")).status_code == 200
             root = await web.get("/")
             assert root.status_code == 200 and "MCP endpoint" in root.text
-            assert (await web.get("/api/piles")).status_code == 404
+            assert (await web.get("/api/piles")).status_code == 401
+
+
+# --- one learner, the owner: the seat's gateway (ADR 0017) ----------------------------
+
+
+@pytest.fixture
+async def seat(tmp_path: Path, dist: Path, provider: FakeProvider):
+    mcp_settings = McpSettings(
+        data_dir=tmp_path / "data", host="127.0.0.1", port=8765, mcp_port=8766,
+        mcp_public_url=MCP_ORIGIN, tenancy="single", mcp_desk_dist=dist, mcp_desk_session_ttl=3600,
+    )
+    api_settings = ApiSettings(
+        data_dir=tmp_path / "data", host="127.0.0.1", port=8765, model_provider="host",
+        sync_role="away", sync_accept_token="the-peer-token-the-mac-presents",
+    )
+    store = AccessStore(mcp_settings.access_db_path)
+    store.set_passphrase(PASS)
+    api_app = create_app(
+        api_settings,
+        transport_factory=factory(ScriptedTransport(responder=AccountScript())),
+        provider_factory=lambda: provider,
+    )
+    async with api_app.router.lifespan_context(api_app):
+        api = ApiClient(API_ORIGIN, timeout=30, transport=httpx.ASGITransport(app=api_app))
+        app = build_http_app(mcp_settings, api, store)
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=MCP_ORIGIN) as web:
+                yield web, store
+
+
+async def test_the_owner_signs_in_with_the_passphrase_alone(seat) -> None:
+    web, _ = seat
+    page = await web.get("/login")
+    assert page.status_code == 200
+    assert "Vademecum passphrase" in page.text and "handle" not in page.text.lower()
+
+    browser_like = {"Origin": MCP_ORIGIN, "Sec-Fetch-Site": "same-origin"}
+    wrong = await web.post("/login", data={"passphrase": "not it"}, headers=browser_like)
+    assert wrong.status_code == 200 and "not right" in wrong.text
+    assert (await web.get("/")).status_code == 303, "no session, no desk"
+
+    right = await web.post("/login", data={"passphrase": PASS}, headers=browser_like)
+    assert right.status_code == 303 and "vademecum_desk" in right.headers.get("set-cookie", "")
+    cookie = right.cookies.get("vademecum_desk")
+    desk = await web.get("/", cookies={"vademecum_desk": cookie})
+    assert desk.status_code == 200 and "Vademecum desk" in desk.text
+    today = await web.get("/api/today", cookies={"vademecum_desk": cookie})
+    assert today.status_code == 200 and "worth_a_look" in today.json()
+
+
+async def test_sync_passes_through_the_gateway_on_the_peer_token_alone(seat) -> None:
+    web, _ = seat
+    assert (await web.get("/api/sync/status")).status_code == 404
+    assert (await web.get("/api/sync/status", headers={"X-Vademecum-Sync": "wrong"})).status_code == 404
+    status = await web.get("/api/sync/status", headers={"X-Vademecum-Sync": "the-peer-token-the-mac-presents"})
+    assert status.status_code == 200
+    assert status.json()["role"] == "away" and status.json()["node_id"].startswith("node_")
+    changes = await web.get("/api/sync/changes?since=0", headers={"X-Vademecum-Sync": "the-peer-token-the-mac-presents"})
+    assert changes.status_code == 200 and changes.json()["done"] is True

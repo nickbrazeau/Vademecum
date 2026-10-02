@@ -1,0 +1,37 @@
+{
+  // The Worker that fronts the seat (ADR 0017). Deploy from this directory:
+  //   npm install && npx wrangler deploy
+  // The image is built from the repository root so it can copy apps/.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vademecum-seat",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  "containers": [
+    {
+      "class_name": "VademecumSeat",
+      "image": "../Dockerfile",
+      "image_build_context": "../../..",
+      "max_instances": 1,
+      "instance_type": "standard"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SEAT", "class_name": "VademecumSeat" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VademecumSeat"] }],
+  "vars": {
+    // The public HTTPS origin of this Worker: what assistants connect to and
+    // what the gateway's sign-in checks against. Set after the first deploy
+    // (the *.workers.dev address, or your own domain).
+    "PUBLIC_URL": "https://vademecum-seat.example.workers.dev",
+    "R2_BUCKET": "vademecum",
+    // https://<account id>.r2.cloudflarestorage.com
+    "R2_ENDPOINT": "https://ACCOUNT_ID.r2.cloudflarestorage.com"
+  }
+  // Secrets, set once with `npx wrangler secret put <NAME>`:
+  //   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY   an R2 API token for the bucket
+  //   VADEMECUM_SYNC_ACCEPT_TOKEN              what the Mac presents to sync
+  //   VADEMECUM_MCP_PASSPHRASE                 the passphrase assistants and the
+  //                                            web app sign in with
+}

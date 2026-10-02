@@ -49,8 +49,8 @@ def _parser() -> argparse.ArgumentParser:
     setup = commands.add_parser(
         "setup", help="register with Codex or Claude Desktop, choose the source folder, or start at login"
     )
-    setup.add_argument("target", choices=["codex", "claude", "folder", "login"])
-    setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be")
+    setup.add_argument("target", choices=["codex", "claude", "folder", "login", "sync"])
+    setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be; for `sync`: the seat's https address")
     setup.add_argument("--remove", action="store_true", help="for `login`: stop starting at login")
     return parser
 
@@ -86,6 +86,8 @@ def run(argv: list[str] | None = None) -> int:
             return _setup_folder(args.path)
         if args.target == "login":
             return _setup_login(settings, remove=args.remove)
+        if args.target == "sync":
+            return _setup_sync(args.path, remove=args.remove)
         return _setup(settings, args.target)
     if getattr(args, "stdio", False):
         return _serve_stdio(settings)
@@ -336,6 +338,41 @@ def _setup_login(settings: McpSettings, *, remove: bool = False) -> int:
     return 0
 
 
+def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None = None) -> int:
+    """Record the seat as this Mac's peer (ADR 0015, 0017), in the settings file."""
+    from urllib.parse import urlsplit
+
+    from vademecum.config import settings_file_path, write_setting
+
+    if remove:
+        write_setting("SYNC_PEER_URL", "")
+        write_setting("SYNC_TOKEN", "")
+        print("This Mac no longer syncs with a seat.")
+        return 0
+    if not peer_url:
+        print("Give the seat's https address: setup sync https://...", file=sys.stderr)
+        return 64
+    parts = urlsplit(peer_url.strip())
+    if parts.scheme != "https" or not parts.hostname:
+        print("The seat's address must be an https:// origin.", file=sys.stderr)
+        return 2
+    if token is None:
+        if not sys.stdin.isatty():
+            print("Set the sync token from a terminal; it is not read from a pipe.", file=sys.stderr)
+            return 2
+        token = getpass.getpass("The seat's sync token (VADEMECUM_SYNC_ACCEPT_TOKEN there): ").strip()
+    if len(token) < 16:
+        print("The token is too short to be the seat's.", file=sys.stderr)
+        return 2
+    origin = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+    write_setting("SYNC_PEER_URL", origin)
+    write_setting("SYNC_TOKEN", token)
+    print(f"This Mac syncs with {origin} (recorded in {settings_file_path().name}).")
+    print("Vademecum syncs every five minutes while it runs; `python -m vademecum sync` runs one round now.")
+    print("Restart Vademecum (or the assistant) so the running copy picks this up.")
+    return 0
+
+
 def _serve_http(settings: McpSettings, data_dir) -> int:
     try:
         public_url = settings.resolve_public_url()
@@ -343,6 +380,11 @@ def _serve_http(settings: McpSettings, data_dir) -> int:
         print(f"Vademecum MCP will not start: {exc}", file=sys.stderr)
         return 2
     store = AccessStore(settings.access_db_path)
+    if settings.tenancy == "single" and not store.has_passphrase() and len(settings.mcp_passphrase) >= MIN_LENGTH:
+        # A seat has no terminal to type into (ADR 0017): the passphrase
+        # arrives once as a secret and is stored hashed like any other.
+        store.set_passphrase(settings.mcp_passphrase)
+        logger.info("passphrase_seeded")
     if settings.tenancy == "single" and not store.has_passphrase():
         print(
             "No passphrase is set yet: assistants can find this server but nothing can be "

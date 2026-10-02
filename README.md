@@ -332,7 +332,16 @@ carried to the other; a rating or exclusion changed on the phone is not carried.
 and its routes are built and tested with two in-process nodes; where the away node runs is
 still your choice, and it is not Cloudflare's compute.
 
-Set on away: `VADEMECUM_SYNC_ROLE=away` and `VADEMECUM_SYNC_ACCEPT_TOKEN`. Set on home:
+**The seat on Cloudflare** ([ADR 0017](docs/adr/0017-the-seat-on-cloudflare.md),
+`deploy/cloudflare/`) is the away node ready to run: the same Vademecum in one container
+behind a Worker, its records snapshotted to an R2 bucket every five minutes and restored at
+boot, the dashboard behind your passphrase, the assistants' tools at `/mcp`, and the Mac
+syncing to it with `./scripts/mcp.sh setup sync https://<your seat>`. Deploying needs your own
+Cloudflare account; the README there is the whole procedure. The seat can lose up to five
+minutes of phone-side work if its container is replaced, and the Mac is never behind by more
+than its last sync.
+
+By hand: set on away `VADEMECUM_SYNC_ROLE=away` and `VADEMECUM_SYNC_ACCEPT_TOKEN`; set on home
 `VADEMECUM_SYNC_PEER_URL` (its HTTPS origin) and `VADEMECUM_SYNC_TOKEN`.
 
 ## Optional: the hosted mode, for ChatGPT chat, phones, or several learners

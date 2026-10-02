@@ -74,6 +74,9 @@ class McpSettings(BaseSettings):
     # The built web app to serve at the public root. Unset: the checkout's
     # apps/web/dist when it exists, else no desk.
     mcp_desk_dist: Path | None = None
+    # The owner's passphrase, seeded at start when none is set yet: how a seat
+    # (ADR 0017) gets one without a terminal. Read once, never logged.
+    mcp_passphrase: str = ""
     mcp_desk_session_ttl: int = Field(default=14 * 86400, ge=600, le=90 * 86400)
 
     def resolve_desk_dist(self) -> Path | None:

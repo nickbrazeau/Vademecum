@@ -48,3 +48,7 @@ Vademecum_arxive/
 
 # The in-chat build staging folder; its product is widgets/app.html (ADR 0014).
 dist-app/
+
+# The Worker in front of the seat (deploy/cloudflare/worker): its own install.
+deploy/cloudflare/worker/node_modules/
+deploy/cloudflare/worker/.wrangler/
