@@ -58,6 +58,10 @@ def start_api(log_path: Path, env: dict[str, str] | None = None) -> subprocess.P
     """
     environment = dict(os.environ if env is None else env)
     environment.setdefault("VADEMECUM_MODEL_PROVIDER", "host")
+    # The child watches for this process going away and stops itself, so an
+    # assistant that kills this server outright never leaves an API behind
+    # running yesterday's code (ADR 0012).
+    environment["VADEMECUM_PARENT_PID"] = str(os.getpid())
     log_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     log = open(log_path, "ab")  # noqa: SIM115 - held by the child until it exits
     return subprocess.Popen(

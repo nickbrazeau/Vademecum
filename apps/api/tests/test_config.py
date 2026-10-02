@@ -126,3 +126,23 @@ def test_the_bridge_timeouts_are_bounded() -> None:
         Settings(appserver_startup_timeout=10_000)
     assert Settings().appserver_request_timeout == 30.0
     assert Settings().appserver_startup_timeout == 20.0
+
+
+def test_the_api_stops_when_the_process_that_started_it_is_gone(monkeypatch, tmp_path) -> None:
+    """ADR 0012: an orphaned API must not keep an old build on the port."""
+    import asyncio
+    import signal
+
+    from vademecum.app import _watch_parent
+    from vademecum.config import Settings
+
+    assert Settings(data_dir=tmp_path / "d").parent_pid is None
+    monkeypatch.setenv("VADEMECUM_PARENT_PID", "4242")
+    assert Settings(data_dir=tmp_path / "d").parent_pid == 4242
+
+    raised: list[int] = []
+    parents = iter([4242, 4242, 1])
+    monkeypatch.setattr("os.getppid", lambda: next(parents))
+    monkeypatch.setattr(signal, "raise_signal", lambda signum: raised.append(signum))
+    asyncio.run(_watch_parent(4242, interval=0.001))
+    assert raised == [signal.SIGTERM]

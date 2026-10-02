@@ -163,3 +163,23 @@ def test_the_launcher_is_this_checkouts_script() -> None:
     assert command.endswith("/scripts/mcp.sh")
     assert Path(command).is_file()
     assert args == ["--stdio"]
+
+
+def test_the_api_child_is_told_who_started_it(monkeypatch, tmp_path) -> None:
+    """ADR 0012: the child watches this pid and stops itself when it goes."""
+    import os
+
+    from vademecum_mcp import local
+
+    captured: dict = {}
+
+    class FakePopen:
+        def __init__(self, args, **kwargs):
+            captured["args"] = args
+            captured["env"] = kwargs["env"]
+
+    monkeypatch.setattr(local.subprocess, "Popen", FakePopen)
+    local.start_api(tmp_path / "logs" / "api.log", env={})
+    assert captured["env"]["VADEMECUM_PARENT_PID"] == str(os.getpid())
+    assert captured["env"]["VADEMECUM_MODEL_PROVIDER"] == "host"
+    assert captured["args"][-2:] == ["-m", "vademecum"]

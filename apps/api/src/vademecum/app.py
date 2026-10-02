@@ -182,6 +182,26 @@ async def _watch_folder(app: FastAPI, database_path: Path, source_dir: Path, int
             logger.error("folder_scan_failed error=%s", type(exc).__name__)
 
 
+async def _watch_parent(parent_pid: int, interval: float = 2.0) -> None:
+    """Stop this process when the one that started it is gone (ADR 0012).
+
+    The MCP server starts the API as a child and stops it on exit, but an
+    assistant that kills the server outright gives it no chance to. The child
+    notices its parent has changed (to launchd, on macOS) and asks itself to
+    shut down the way a Ctrl-C would, so the next server start finds the port
+    free and starts current code.
+    """
+    import os
+    import signal
+
+    while True:
+        await asyncio.sleep(interval)
+        if os.getppid() != parent_pid:
+            logger.info("parent_gone pid=%d; stopping", parent_pid)
+            signal.raise_signal(signal.SIGTERM)
+            return
+
+
 def _status_change_handler(database_path: Path):
     """Hold dependent material when a watched paper is retracted or corrected.
 
@@ -337,6 +357,9 @@ def create_app(
         app.state.sources_folder = None
         folder_task: asyncio.Task[None] | None = None
         backfill_task: asyncio.Task[dict] | None = None
+        parent_task: asyncio.Task[None] | None = None
+        if resolved.parent_pid is not None:
+            parent_task = asyncio.create_task(_watch_parent(resolved.parent_pid))
         if resolved.tenancy == "single":
             # The owner's workspace, opened at startup so migrations run before
             # the first request, as they always have. The handles below are
@@ -370,7 +393,7 @@ def create_app(
         try:
             yield
         finally:
-            for task in (folder_task, backfill_task):
+            for task in (folder_task, backfill_task, parent_task):
                 if task is None:
                     continue
                 task.cancel()

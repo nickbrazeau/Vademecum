@@ -162,6 +162,12 @@ class Settings(BaseSettings):
     sources_folder_enabled: bool = True
     sources_scan_interval: float = Field(default=20.0, ge=2, le=3600)
 
+    # --- started by the MCP server (ADR 0012) ---
+    # The pid of the process that started this one, when there is one. The
+    # API watches it and stops itself when it goes, so no assistant restart
+    # leaves an API running yesterday's code on the port.
+    parent_pid: int | None = None
+
     # --- how many learners (ADR 0010) ---
     # `single`: the owner's Mac, one workspace, no identity. `multi`: the
     # hosted product, a workspace per learner under `learners/`, every request
