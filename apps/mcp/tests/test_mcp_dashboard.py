@@ -29,6 +29,18 @@ async def test_the_dashboard_opens_in_a_browser_on_this_mac(mcp_client: Client, 
         assert "/" not in result["note"]
 
 
+async def test_a_host_that_forbids_launching_still_gets_the_address(mcp_client: Client, monkeypatch) -> None:
+    def refuse(url: str) -> bool:
+        raise OSError("sandbox")
+
+    monkeypatch.setattr(dashboard.webbrowser, "open", refuse)
+    result = await call(mcp_client, "open_dashboard", {})
+    if static_root() is not None:
+        assert result["opened"] is False
+        assert result["url"] == "http://127.0.0.1:8765"
+        assert "link" in result["note"]
+
+
 async def test_the_tool_is_read_only_and_local(mcp_client: Client) -> None:
     tool = next(t for t in (await mcp_client.list_tools()).tools if t.name == "open_dashboard")
     assert tool.annotations.read_only_hint is True

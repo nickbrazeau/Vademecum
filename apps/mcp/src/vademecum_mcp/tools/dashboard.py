@@ -58,11 +58,18 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None) -> No
             await api.get_bytes("/")
         except ApiError:
             return {"opened": False, "url": url, "note": NOT_BUILT}
-        opened = await asyncio.to_thread(webbrowser.open, url)
+        try:
+            opened = await asyncio.to_thread(webbrowser.open, url)
+        except Exception:  # noqa: BLE001 - a host sandbox may forbid launching apps
+            opened = False
         return {
             "opened": bool(opened),
             "url": url,
             "note": (
-                "Opened in the owner's browser." if opened else "Could not open a browser; give the owner the address."
+                "Opened in the owner's browser. Also give them the address as a link, in case the "
+                "window is behind this one."
+                if opened
+                else "This host did not let Vademecum open a browser. Give the owner the address as "
+                "a link; it opens on this Mac only."
             ),
         }
