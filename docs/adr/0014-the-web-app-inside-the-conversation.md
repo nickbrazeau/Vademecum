@@ -61,11 +61,17 @@ message the browser would. It is declared `visibility: ["app"]` for hosts that h
 `openai/widgetAccessible` for ChatGPT; its description tells a model that sees it anyway to use
 the named tools. A model that calls it reaches nothing its own tools do not already reach.
 
-### 4. `open_vademecum` is the model's handle
+### 4. The dashboard is the default: `open_vademecum` and the cover sheet both draw it
 
-A read-only tool whose result is drawn by the app resource. It returns almost nothing; the
-app loads what it shows through `app_request`. If the host cannot draw it, `open_dashboard`
-opens the same web app in the browser.
+`open_vademecum(view)` is a read-only tool whose result is drawn by the app resource; it returns
+the view to open on (today, tutor, sources, map) and nothing else, and the app loads what it
+shows through `app_request`. The cover sheet, `get_today`, is drawn by the same resource, so
+the hand-written Today card is retired; the Tutor card stays, because reveal and advance from
+inside the card are its point. The server's instructions say to open the dashboard first
+whenever the owner opens Vademecum or asks what is new; a prompt named `open_vademecum` does
+the same for hosts that offer prompts as quick actions; and the source folder gets an
+`AGENTS.md` saying so, for a learner who opens that folder as a Codex project. If the host
+cannot draw it, `open_dashboard` opens the same web app in the browser.
 
 ## Consequences
 

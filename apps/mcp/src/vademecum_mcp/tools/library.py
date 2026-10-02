@@ -8,7 +8,7 @@ from mcp.server import MCPServer
 from pydantic import Field
 
 from ..api_client import ApiClient
-from ..widgets import TODAY_URI, tool_meta
+from ..widgets import APP_URI, tool_meta
 from ._shared import READ, WRITE, call, listing
 
 Confidence = Literal["low", "mid", "high"]
@@ -25,7 +25,7 @@ MAX_PASTE_TITLE = 150
 def register(mcp: MCPServer, api: ApiClient) -> None:
     @mcp.tool(
         annotations=READ,
-        meta=tool_meta(TODAY_URI, invoking="Opening your cover sheet…", invoked="Cover sheet"),
+        meta=tool_meta(APP_URI, invoking="Opening Vademecum…", invoked="Vademecum"),
     )
     async def get_today() -> dict[str, Any]:
         """The owner's cover sheet: learning points worth a look, what is held for

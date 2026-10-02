@@ -1,5 +1,5 @@
-"""The two cards (ADR 0009 phase 3): registered as MCP Apps resources, linked
-from the tools whose results they draw, self-contained, and honest."""
+"""The dashboard and the Tutor card (ADR 0009 phase 3, ADR 0014): registered as
+MCP Apps resources, linked from the tools whose results they draw, self-contained, and honest."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 from mcp import Client
 from tests.mcp_support import call
 
-from vademecum_mcp.widgets import APP_URI, MIME_TYPE, TODAY_URI, TUTOR_URI
+from vademecum_mcp.widgets import APP_URI, MIME_TYPE, TUTOR_URI
 
 pytestmark = pytest.mark.anyio
 
@@ -27,7 +27,7 @@ CALLABLE_FROM_CARD = {"tutor_reveal", "tutor_advance"}
 async def test_the_cards_are_resources_with_the_apps_mime_type(mcp_client: Client) -> None:
     listed = (await mcp_client.list_resources()).resources
     by_uri = {str(resource.uri): resource for resource in listed}
-    assert set(by_uri) == {TODAY_URI, TUTOR_URI, APP_URI}
+    assert set(by_uri) == {TUTOR_URI, APP_URI}
     for uri, resource in by_uri.items():
         assert resource.mime_type == MIME_TYPE, uri
         meta = resource.meta or {}
@@ -39,8 +39,9 @@ async def test_the_cards_are_resources_with_the_apps_mime_type(mcp_client: Clien
 
 async def test_the_tools_point_at_their_cards(mcp_client: Client) -> None:
     tools = {tool.name: tool for tool in (await mcp_client.list_tools()).tools}
-    assert tools["get_today"].meta["ui"]["resourceUri"] == TODAY_URI
-    assert tools["get_today"].meta["openai/outputTemplate"] == TODAY_URI
+    # The cover sheet is drawn by the dashboard: opening Vademecum means seeing it.
+    assert tools["get_today"].meta["ui"]["resourceUri"] == APP_URI
+    assert tools["get_today"].meta["openai/outputTemplate"] == APP_URI
     for name in DRAWN_BY_TUTOR:
         meta = tools[name].meta or {}
         assert meta["ui"]["resourceUri"] == TUTOR_URI, name
@@ -59,7 +60,7 @@ async def test_the_tools_point_at_their_cards(mcp_client: Client) -> None:
 
 
 async def test_each_card_is_complete_as_served(mcp_client: Client) -> None:
-    for uri in (TODAY_URI, TUTOR_URI):
+    for uri in (TUTOR_URI,):
         result = await mcp_client.read_resource(uri)
         html = result.contents[0].text
         assert html.lstrip().lower().startswith("<!doctype html>")

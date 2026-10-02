@@ -83,7 +83,8 @@ it -- and each folder inside a tier is a pile:
 Vademecum reads PDF, PowerPoint (.pptx), Word (.docx), text, Markdown and
 pictures (.png, .jpg). Pictures inside files are kept too, and pages with no
 text layer are read on this Mac. Schematics your assistant draws are filed
-under "schematics" here.
+under "schematics" here. Open this folder as a project in Codex and ask for
+Vademecum: the dashboard opens in the conversation (AGENTS.md says so).
 It reads the folder every few seconds while it is running, and whenever you
 ask your assistant to sync. Move a pile's folder to another tier to change
 its rating. Removing a file here does not remove it from Vademecum; ask your
@@ -91,6 +92,22 @@ assistant to remove the source.
 
 Vademecum is educational. Never put anything with a patient's identifiers in
 this folder.
+"""
+
+
+# Codex reads AGENTS.md from the folder a project is opened in. A learner who
+# opens their source folder as a Codex project gets the dashboard first.
+AGENTS_NAME = "AGENTS.md"
+AGENTS = """# Vademecum
+
+This folder is a Vademecum source folder (see README.txt). Vademecum is the
+owner's private clinical-learning workspace; its tools are the `vademecum`
+MCP server.
+
+At the start of a conversation here, call `open_vademecum` first so the
+dashboard is in view, then answer in a sentence or two. Material comes in
+through the `piles` folders; never put a patient's identifiers in them.
+Everything is educational, never clinical advice.
 """
 
 
@@ -112,6 +129,10 @@ def scaffold(folder: Path) -> list[str]:
     if not readme.exists():
         readme.write_text(README, encoding="utf-8")
         created.append(README_NAME)
+    agents = folder / AGENTS_NAME
+    if not agents.exists():
+        agents.write_text(AGENTS, encoding="utf-8")
+        created.append(AGENTS_NAME)
     return created
 
 

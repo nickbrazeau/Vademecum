@@ -46,6 +46,8 @@ let ready: Promise<HostKind> | null = null
 let nextId = 1
 const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>()
 const themeListeners = new Set<(theme: 'light' | 'dark') => void>()
+const resultListeners = new Set<(result: unknown) => void>()
+let lastResult: unknown = undefined
 
 /** Called once by the in-chat entry point. Nothing else flips this. */
 export function markInChat(): void {
@@ -64,6 +66,24 @@ export function resetHost(): void {
   ready = null
   pending.clear()
   themeListeners.clear()
+  resultListeners.clear()
+  lastResult = undefined
+}
+
+function deliverResult(result: unknown): void {
+  if (result === undefined || result === null) return
+  lastResult = result
+  for (const listener of resultListeners) listener(result)
+}
+
+/**
+ * The structured content of the tool whose result this frame draws. The
+ * dashboard uses it for one thing: which page to open on (`view`).
+ */
+export function onToolResult(listener: (result: unknown) => void): () => void {
+  resultListeners.add(listener)
+  if (lastResult !== undefined) listener(lastResult)
+  return () => resultListeners.delete(listener)
 }
 
 function openai(): OpenAiBridge | null {
@@ -117,6 +137,10 @@ function onMessage(event: MessageEvent): void {
     const params = message.params as { theme?: unknown } | undefined
     applyTheme(params?.theme)
   }
+  if (message.method === 'ui/notifications/tool-result') {
+    const params = message.params as { structuredContent?: unknown } | undefined
+    deliverResult(params?.structuredContent)
+  }
 }
 
 /**
@@ -130,7 +154,11 @@ export function detectHost(): Promise<HostKind> {
     const bridge = openai()
     if (bridge !== null && typeof bridge.callTool === 'function') {
       applyTheme(bridge.theme)
-      window.addEventListener('openai:set_globals', () => applyTheme(openai()?.theme))
+      deliverResult(bridge.toolOutput)
+      window.addEventListener('openai:set_globals', () => {
+        applyTheme(openai()?.theme)
+        deliverResult(openai()?.toolOutput)
+      })
       return (kind = 'chatgpt')
     }
     if (window.parent === window) return (kind = 'none')

@@ -7,8 +7,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
-import { inChat } from './lib/host'
-import { ROUTES, useRoute } from './lib/router'
+import { inChat, onToolResult } from './lib/host'
+import { ROUTES, isRouteName, useRoute } from './lib/router'
 import { ImprovementMap } from './pages/ImprovementMap'
 import { Model } from './pages/Model'
 import { Sources } from './pages/Sources'
@@ -62,6 +62,16 @@ export function App() {
       cancelled = true
     }
   }, [])
+
+  // Inside a conversation, the tool that opened the dashboard may say which
+  // page: open_vademecum(view="tutor") lands on the Tutor.
+  useEffect(() => {
+    if (!compact) return undefined
+    return onToolResult((result) => {
+      const view = (result as { view?: unknown } | null)?.view
+      if (isRouteName(view) && view !== 'model') navigate(view)
+    })
+  }, [compact, navigate])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

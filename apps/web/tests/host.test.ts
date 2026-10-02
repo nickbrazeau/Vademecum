@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, IN_CHAT_FILES_MESSAGE, IN_CHAT_REMOVAL_MESSAGE, api } from '../src/lib/api'
-import { callTool, detectHost, markInChat, resetHost } from '../src/lib/host'
+import { callTool, detectHost, markInChat, onToolResult, resetHost } from '../src/lib/host'
 
 interface Sent {
   jsonrpc: string
@@ -116,6 +116,26 @@ describe('inside an MCP Apps host', () => {
       })
     )
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
+})
+
+describe('the tool result', () => {
+  it('reaches a listener, including one that subscribes after it arrived', async () => {
+    markInChat()
+    fakeHost(() => ({ ok: true, status: 200, body: {} }))
+    await detectHost()
+    const seen: unknown[] = []
+    onToolResult((result) => seen.push(result))
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: { structuredContent: { view: 'tutor' } } },
+        source: window.parent
+      })
+    )
+    expect(seen).toEqual([{ view: 'tutor' }])
+    const late: unknown[] = []
+    onToolResult((result) => late.push(result))
+    expect(late).toEqual([{ view: 'tutor' }])
   })
 })
 

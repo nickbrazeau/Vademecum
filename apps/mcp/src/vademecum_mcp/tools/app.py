@@ -99,15 +99,22 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         annotations=READ,
         meta=tool_meta(APP_URI, invoking="Opening Vademecum…", invoked="Vademecum"),
     )
-    async def open_vademecum() -> dict[str, Any]:
-        """Show the Vademecum dashboard inside this conversation: Today, the
-        source library, the Tutor, and the Improvement Map as a graph, drawn by
-        the host. Use it when the owner asks to see Vademecum, the dashboard,
-        the web app or the map here in the chat. If the host cannot draw it,
-        open_dashboard opens the same thing in their browser. Everything the
-        dashboard shows comes from this Mac."""
+    async def open_vademecum(
+        view: Annotated[
+            Literal["today", "tutor", "sources", "map"],
+            Field(description="Which page to open on: today (the cover sheet), tutor, sources, or map."),
+        ] = "today",
+    ) -> dict[str, Any]:
+        """Show the Vademecum dashboard inside this conversation, drawn by the
+        host: Today, the source library, the Tutor, and the Improvement Map as
+        a graph. Call this first whenever the owner opens Vademecum, starts a
+        session, or asks to see Vademecum, the dashboard, the web app, their
+        sources, the Tutor or the map; pick the view that matches. If the host
+        cannot draw it, open_dashboard opens the same thing in their browser.
+        Everything the dashboard shows comes from this Mac."""
         return {
             "app": "vademecum",
+            "view": view,
             "note": "The dashboard is drawn by the host. If nothing appears, offer open_dashboard.",
         }
 

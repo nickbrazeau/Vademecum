@@ -265,12 +265,15 @@ else in the assistant's file and leave a backup beside it.
 Improvement Map as a graph, and the model status. It is available two ways from the assistant
 ([ADR 0014](docs/adr/0014-the-web-app-inside-the-conversation.md)):
 
-- **Inside the conversation.** Ask for "Vademecum" or "the dashboard" and, where the assistant
-  can draw MCP Apps (Claude Desktop does; ChatGPT does), the `open_vademecum` tool shows the web
-  app right there, in the chat. It is the same app built into one document; everything it shows
-  it asks the host for, and the host asks Vademecum on this Mac. Files still come in through the
-  source folder, and removing, exporting, backing up and signing in stay in the browser dashboard
-  or with the assistant's own tools, each of which confirms with you.
+- **Inside the conversation, by default.** Where the assistant can draw MCP Apps (Codex does;
+  Claude Desktop does; ChatGPT does), opening Vademecum means seeing it: the cover sheet and the
+  `open_vademecum` tool are both drawn as the web app, right there in the chat, and the
+  assistant is instructed to open it first. Ask for the Tutor, your sources or the map and it
+  opens on that page. Open your source folder as a Codex project and its `AGENTS.md` says the
+  same. It is the same app built into one document; everything it shows it asks the host for,
+  and the host asks Vademecum on this Mac. Files still come in through the source folder, and
+  removing, exporting, backing up and signing in stay in the browser dashboard or with the
+  assistant's own tools, each of which confirms with you.
 - **In your browser.** The API serves the web app at <http://127.0.0.1:8765/> whenever Vademecum
   is running and the app has been built (`install.sh` builds it when Node is present;
   `cd apps/web && npm run build` does it by hand, and also rebuilds the in-chat document). Ask

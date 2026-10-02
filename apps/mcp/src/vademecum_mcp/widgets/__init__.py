@@ -1,10 +1,13 @@
-"""The two cards ChatGPT can render inline: Today, and the Tutor question.
+"""What a host can draw inline: the dashboard, and the Tutor question card.
 
 Each is one self-contained HTML document -- inline style, inline script, no
 external asset, no network of its own -- registered as an MCP resource with
 the MCP Apps mime type and linked from the tools whose results it draws. The
 host renders it in a sandboxed frame and hands it the tool's structured
-content; the card is a view of that content and nothing else.
+content. The Tutor card is a view of that content and nothing else; the
+dashboard (ADR 0014) is the web app itself, which loads what it shows through
+the app_request tool. The cover sheet (get_today) and open_vademecum are both
+drawn by the dashboard, so opening Vademecum means seeing it.
 
 What a card may do: show the result, ask for the reference answer, move to the
 next question. What it may not do: grade, build, or reach anything the tools
@@ -20,15 +23,10 @@ from typing import Any
 from mcp.server import MCPServer
 
 MIME_TYPE = "text/html;profile=mcp-app"
-TODAY_URI = "ui://vademecum/today.html"
 TUTOR_URI = "ui://vademecum/tutor.html"
 # The whole web app, built into one document (ADR 0014; apps/web `build:app`).
 APP_URI = "ui://vademecum/app.html"
 
-TODAY_DESCRIPTION = (
-    "The learner's cover sheet: learning points worth a look, what is held, where "
-    "Tutor stands, unread literature and recent knowledge-gap flags."
-)
 TUTOR_DESCRIPTION = (
     "One Tutor question with where the cycle stands; after grading, the reference "
     "answer and the feedback. The learner answers in the conversation."
@@ -75,16 +73,6 @@ def tool_meta(uri: str, *, invoking: str, invoked: str, callable_from_card: bool
 
 
 def register(mcp: MCPServer, *, domain: str | None = None) -> None:
-    @mcp.resource(
-        TODAY_URI,
-        name="Today card",
-        description=TODAY_DESCRIPTION,
-        mime_type=MIME_TYPE,
-        meta=_resource_meta(domain, TODAY_DESCRIPTION),
-    )
-    def today_card() -> str:
-        return _read("today.html")
-
     @mcp.resource(
         TUTOR_URI,
         name="Tutor card",

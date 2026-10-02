@@ -39,7 +39,17 @@ async def test_open_vademecum_is_drawn_by_the_app(mcp_client: Client) -> None:
     assert tool.meta["ui"]["resourceUri"] == APP_URI
     assert tool.annotations.read_only_hint is True
     result = await call(mcp_client, "open_vademecum", {})
-    assert result["app"] == "vademecum"
+    assert result["app"] == "vademecum" and result["view"] == "today"
+    assert (await call(mcp_client, "open_vademecum", {"view": "map"}))["view"] == "map"
+    assert (await mcp_client.call_tool("open_vademecum", {"view": "settings"})).is_error
+    assert "Call this first" in tool.description
+
+
+async def test_a_prompt_opens_the_dashboard(mcp_client: Client) -> None:
+    prompts = {p.name: p for p in (await mcp_client.list_prompts()).prompts}
+    assert "open_vademecum" in prompts
+    got = await mcp_client.get_prompt("open_vademecum", {})
+    assert "open_vademecum" in got.messages[0].content.text
 
 
 async def test_app_request_reaches_the_dashboard_routes_and_only_those(mcp_client: Client) -> None:

@@ -85,6 +85,17 @@ describe.skipIf(!existsSync(DOCUMENT))('the in-chat document', () => {
     const nav = [...document.querySelectorAll('nav a')].map((a) => a.textContent)
     expect(nav).toEqual(['Today', 'Tutor', 'Sources', 'Improvement Map'])
     for (const call of requested) expect(call.path.startsWith('/api/')).toBe(true)
+
+    // The tool that opened it says which page: the Tutor, here.
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: { structuredContent: { app: 'vademecum', view: 'tutor' } } },
+        source: window.parent
+      })
+    )
+    await vi.waitFor(() =>
+      expect(document.querySelector('nav a[aria-current="page"]')?.textContent).toBe('Tutor')
+    )
     vi.unstubAllGlobals()
   })
 })

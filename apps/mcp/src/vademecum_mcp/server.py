@@ -50,11 +50,12 @@ INSTRUCTIONS = (
     "with no text layer are read on the Mac and cited with an '(OCR)' locator. "
     "When a learning point would be clearer as a drawing, draw a self-contained SVG and "
     "keep it with save_schematic; it is filed against that point and copied into the "
-    "owner's source folder. open_vademecum shows the web app (Today, sources, Tutor, the "
-    "Improvement Map graph) inside this conversation when the host can draw it, and "
-    "open_dashboard opens the same thing in the owner's browser on this Mac; offer them "
-    "when the owner would rather look than be told. app_request belongs to that app, not "
-    "to you. "
+    "owner's source folder. The dashboard is the default view: when the owner opens "
+    "Vademecum, starts a session, or asks what is new, call open_vademecum (or get_today) "
+    "first so the host draws the web app -- Today, sources, Tutor, the Improvement Map -- "
+    "in the conversation, then answer in a sentence or two; open_vademecum takes a view "
+    "for the page they asked about. If the host cannot draw it, open_dashboard opens the "
+    "same thing in their browser on this Mac. app_request belongs to that app, not to you. "
     "Transmission: build_start sends previewed excerpts, and tutor_grade sends one question, "
     "its reference and the owner's answer, to OpenAI through the Codex process on the Mac; "
     "literature_check sends short public topic phrases to PubMed. Before build_start, show "
@@ -90,6 +91,11 @@ def create_server(
     )
     tools.register(mcp, api, settings)
     widgets.register(mcp, domain=public_url)
+
+    @mcp.prompt(name="open_vademecum", title="Open Vademecum", description="Show the Vademecum dashboard here.")
+    def open_prompt() -> str:
+        """A one-line way in, for hosts that offer prompts as quick actions."""
+        return "Open Vademecum here with open_vademecum, then tell me in a sentence what is worth a look today."
     return mcp
 
 

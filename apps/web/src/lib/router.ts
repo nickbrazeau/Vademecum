@@ -25,6 +25,10 @@ export const ALIASES: Record<string, RouteName> = {
   '/piles': 'sources'
 }
 
+export function isRouteName(value: unknown): value is RouteName {
+  return typeof value === 'string' && ROUTES.some((route) => route.name === value)
+}
+
 export function routeFor(pathname: string): RouteName {
   const match = ROUTES.find((route) => route.path === pathname)
   if (match !== undefined) return match.name
