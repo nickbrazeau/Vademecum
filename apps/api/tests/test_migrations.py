@@ -39,10 +39,23 @@ EXPECTED_TABLES = {
     "tutor_cycle_entries",
     "tutor_question_anchors",
     "tutor_questions",
+    "sync_state",
+    "sync_log",
 }
 
 # Pinned so a future migration that changes a column has to say so here.
 EXPECTED_COLUMNS = {
+    "sync_state": {
+        "id",
+        "node_id",
+        "applying",
+        "peer_node_id",
+        "pulled_through",
+        "pushed_through",
+        "last_sync_at",
+        "last_sync_note",
+    },
+    "sync_log": {"seq", "table_name", "row_key", "op", "at"},
     "app_state": {
         "key",
         "updated_at",
@@ -363,6 +376,7 @@ def test_applying_every_migration_produces_the_expected_schema(tmp_path: Path) -
         "0004_map_specialties_and_positions",
         "0005_pending_turns",
         "0006_images_and_schematics",
+        "0007_sync_log",
     ]
     assert _tables(connection) == EXPECTED_TABLES
     for table, columns in EXPECTED_COLUMNS.items():
@@ -412,7 +426,7 @@ def test_upgrade_preserves_existing_notes_flags_and_confidence(
     # Reopen as startup does, apply forward-only migrations, and verify repeat startup.
     connection = connect(database)
     applied = apply_migrations(connection)
-    assert applied[-1] == "0006_images_and_schematics"
+    assert applied[-1] == "0007_sync_log"
     assert apply_migrations(connection) == []
     for name in tables:
         assert [tuple(row) for row in connection.execute(f"SELECT * FROM {name}")] == before[name]

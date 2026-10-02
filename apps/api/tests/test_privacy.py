@@ -347,6 +347,11 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/images/{image_id}",
         "/api/points/{point_id}/schematics",
         "/api/schematics/{schematic_id}",
+        # Two Vademecums that sync (ADR 0015): served only with a peer token.
+        "/api/sync/status",
+        "/api/sync/changes",
+        "/api/sync/apply",
+        "/api/sync/file/{kind}/{name}",
     }
 
 

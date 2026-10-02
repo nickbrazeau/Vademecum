@@ -15,9 +15,15 @@ from .config import ConfigError, get_settings
 from .logging_setup import configure_logging
 
 
-def run() -> int:
+def run(argv: list[str] | None = None) -> int:
     configure_logging()
     settings = get_settings()
+    arguments = sys.argv[1:] if argv is None else argv
+    if arguments == ["sync"]:
+        return sync_now(settings)
+    if arguments:
+        print("usage: python -m vademecum [sync]", file=sys.stderr)
+        return 64
     try:
         settings.check_bind()
         data_dir = settings.resolve_data_dir()
@@ -42,6 +48,28 @@ def run() -> int:
         # Our own middleware logs requests without free text; uvicorn's access
         # log would repeat the line including the query string.
         access_log=False,
+    )
+    return 0
+
+
+def sync_now(settings) -> int:
+    """One sync round with the configured peer, from the terminal (ADR 0015)."""
+    from .app import prepare_database, sync_with_peer
+    from .config import SOURCE_FILES_DIRNAME
+    from .sync import SyncError
+
+    if not settings.sync_peer_url or not settings.sync_token:
+        print("No peer is configured: set VADEMECUM_SYNC_PEER_URL and VADEMECUM_SYNC_TOKEN.", file=sys.stderr)
+        return 2
+    try:
+        database_path, data_dir = prepare_database(settings)
+        result = sync_with_peer(database_path, data_dir / SOURCE_FILES_DIRNAME, settings)
+    except (ConfigError, SyncError) as exc:
+        print(f"Sync did not complete: {exc}", file=sys.stderr)
+        return 1
+    print(
+        f"Synced: pulled {result['pulled']} (applied {result['applied']}, deferred {result['deferred']}), "
+        f"pushed {result['pushed']}."
     )
     return 0
 

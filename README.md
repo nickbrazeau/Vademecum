@@ -83,6 +83,7 @@ also contact OpenAI through Codex; they do not send your study material.
 | **Build learning material** | Selected excerpts, filenames, confidence labels and locators. Follow-up checks send generated claims and their context with retrieved abstracts, then questions, reference answers and rubrics with selected passages and abstracts. | OpenAI, through the Codex process on this Mac, on your ChatGPT sign-in |
 | **Grade** | The question on screen, its reference answer and rubric, and the answer you typed. Nothing else. | Same |
 | **Check literature**, a Build's evidence lookup, or an enabled weekly check | Short public topic phrases (derived during Build; reviewable/editable for watched topics) and public PubMed identifiers for retrieval/status checks. Never source excerpts, filenames or learner answers. | PubMed (NCBI E-utilities) |
+| **Sync**, only if you configured a second Vademecum ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)) | Your own workspace: the rows of every record and the stored files, both ways. | Your own second Vademecum, at the address you set, over HTTPS, with the token you set. Nowhere else, and nothing at all unless configured. |
 
 No API key is used, ever. Consent is to *specific characters*: if a source is excluded, renamed,
 re-rated or re-read between the preview and the send, the send is refused and you get a fresh
@@ -302,6 +303,21 @@ running API is simply reused by the assistant.
   servers must be able to reach Vademecum. A pinned Project with the same one-line instruction
   is the unit there too.
 
+## Optional: a second Vademecum that syncs
+
+For the phone while the Mac sleeps ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)):
+two whole Vademecums, the Mac as **home** (files, reading, builds) and an always-awake copy as
+**away** (the dashboard, the Tutor and grading through your assistant, flags, text-only intake
+from the phone). Home pulls away's changes and pushes its own, every five minutes while it runs
+and on `python -m vademecum sync`. Ownership, not cleverness, keeps them agreeing: what is made
+from files belongs to home; what you do on the phone merges back; a removal on one side is
+carried to the other; a rating or exclusion changed on the phone is not carried. The engine
+and its routes are built and tested with two in-process nodes; where the away node runs is
+still your choice, and it is not Cloudflare's compute.
+
+Set on away: `VADEMECUM_SYNC_ROLE=away` and `VADEMECUM_SYNC_ACCEPT_TOKEN`. Set on home:
+`VADEMECUM_SYNC_PEER_URL` (its HTTPS origin) and `VADEMECUM_SYNC_TOKEN`.
+
 ## Optional: the hosted mode, for ChatGPT chat, phones, or several learners
 
 Everything below is kept and tested but is not the path the product takes to a learner. It is
@@ -458,6 +474,11 @@ checkout supports the personal path and does not attempt a listing.
 | `VADEMECUM_TENANCY` | `single` | `single`: one owner, one workspace, no identity. `multi`: a workspace per learner under `learners/`, every request identified by its token; requires host mode. |
 | `VADEMECUM_MODEL_PROVIDER` | `codex` | Who does the model work: `codex` (the local Codex child) or `host` (the assistant, through pending turns; this process never calls a model). |
 | `VADEMECUM_HOST_TURN_TTL` | `1800` | Seconds a pending host turn may wait for the assistant before the run fails. |
+| `VADEMECUM_SYNC_ROLE` | `home` | `home` keeps the files and does the reading; `away` is the copy a phone reaches while the Mac sleeps (ADR 0015). |
+| `VADEMECUM_SYNC_PEER_URL` | unset | Home only: the HTTPS origin of the away node. Unset means no sync at all. |
+| `VADEMECUM_SYNC_TOKEN` | unset | Home only: the token the away node requires. |
+| `VADEMECUM_SYNC_ACCEPT_TOKEN` | unset | Away only: the token home must present; without it the sync routes do not exist. |
+| `VADEMECUM_SYNC_INTERVAL` | `300` | Seconds between sync rounds while home runs; `python -m vademecum sync` runs one now. |
 | `VADEMECUM_LITERATURE_NCBI_KEY` | unset | NCBI's E-utilities courtesy key: a public database's rate-limit identifier (ten requests a second instead of three), shared by every workspace in the process. Not a model credential. |
 | `VADEMECUM_MCP_PORT` | `8766` | MCP server port, on `127.0.0.1` (`scripts/mcp.sh`). |
 | `VADEMECUM_MCP_PUBLIC_URL` | unset | The HTTPS origin the tunnel presents; required in HTTP mode. `--tunnel` sets it. |

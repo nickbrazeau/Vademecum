@@ -42,6 +42,9 @@ BACKUP_FORMAT_VERSION = 1
 # Every table the owner would miss. Derived from the live schema at runtime as
 # well (see `_all_tables`), so a future migration cannot silently leave a new
 # table out of the export -- the mismatch is reported instead.
+# This node's own bookkeeping: never exported, never synced (ADR 0015).
+INTERNAL_TABLES: tuple[str, ...] = ("schema_migrations", "sync_state", "sync_log")
+
 EXPORTED_TABLES: tuple[str, ...] = (
     "piles",
     "learning_items",
@@ -131,7 +134,7 @@ def missing_from_export(connection: sqlite3.Connection) -> list[str]:
     Asserted by a test. A new migration that adds a table and forgets to add it
     here fails the suite rather than producing a quietly partial export.
     """
-    known = set(EXPORTED_TABLES) | {"schema_migrations"}
+    known = set(EXPORTED_TABLES) | set(INTERNAL_TABLES)
     return [name for name in _all_tables(connection) if name not in known]
 
 

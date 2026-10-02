@@ -168,6 +168,17 @@ class Settings(BaseSettings):
     # leaves an API running yesterday's code on the port.
     parent_pid: int | None = None
 
+    # --- a second Vademecum to sync with (ADR 0015) ---
+    # `home` keeps the files and does the reading; `away` is the copy a phone
+    # reaches while the Mac sleeps. Only home initiates. `sync_peer_url` and
+    # `sync_token` are home's view of away; `sync_accept_token` is what away
+    # requires of home. All empty means no sync at all.
+    sync_role: Literal["home", "away"] = "home"
+    sync_peer_url: str = ""
+    sync_token: str = ""
+    sync_accept_token: str = ""
+    sync_interval: float = Field(default=300.0, ge=10, le=86400)
+
     # --- how many learners (ADR 0010) ---
     # `single`: the owner's Mac, one workspace, no identity. `multi`: the
     # hosted product, a workspace per learner under `learners/`, every request

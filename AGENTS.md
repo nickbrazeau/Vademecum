@@ -83,6 +83,7 @@ institutional guidance, or consultation with an appropriate specialist.
 | `evidence_pending` → `submit_evidence`, `assessment_pending` → `submit_assessment` | Claim, context, passage and retrieved abstract text go out in a result; a judged relation or verdict comes back | Same |
 | `tutor_grade` → `record_grade` | Question, reference answer, rubric and the learner's typed answer go out; a structured grade comes back | Same |
 | Literature check, build evidence lookup, weekly check | Short public topic phrases and public PMIDs | Vademecum's server, to PubMed only |
+| Sync, only when a second Vademecum is configured (ADR 0015) | The learner's own workspace, rows and files, both ways | Home, to the learner's own away node, over HTTPS with the token they set |
 
 Vademecum's server sends nothing to any model provider. It does not have one.
 
@@ -305,6 +306,9 @@ Ready for learners other than the owner only when all of the following are true:
   app's own requests going through `app_request` and its fixed route list), and mirrored by the
   named tools. Nothing the in-chat app can do removes, retires, exports, backs up, uploads or
   signs in; those stay where a confirmation exists.
+- Two Vademecums may sync (ADR 0015): home (the Mac) owns what is made from files; shared
+  records merge by later write or by union; home initiates; nothing applied from a peer is
+  logged again. Never add a sync path that bypasses the change log or the ownership rules.
 - Pictures inside sources are kept with their page or slide; a picture file in a pile is a source
   (ADR 0013). The assistant looks at a picture through `view_image`; Vademecum does not interpret
   it. Pages with no text layer are read on the Mac with the system's own recognition and cited

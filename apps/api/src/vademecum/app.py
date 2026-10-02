@@ -31,6 +31,7 @@ from .api import (
     routes_overview,
     routes_piles,
     routes_sources,
+    routes_sync,
     routes_tutor,
     routes_workspace,
 )
@@ -202,6 +203,30 @@ async def _watch_parent(parent_pid: int, interval: float = 2.0) -> None:
             return
 
 
+def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) -> dict:
+    """One sync round with the configured peer, on its own connection (ADR 0015)."""
+    from .sync import HttpTransport, Peer, sync_once
+
+    peer = Peer(HttpTransport(settings.sync_peer_url), settings.sync_token)
+    connection = connect(database_path)
+    try:
+        return sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role)
+    finally:
+        connection.close()
+
+
+async def _sync_loop(database_path: Path, source_dir: Path, settings: Settings) -> None:
+    """Sync every `sync_interval` seconds; a failed round is logged, not fatal."""
+    while True:
+        await asyncio.sleep(settings.sync_interval)
+        try:
+            await asyncio.to_thread(sync_with_peer, database_path, source_dir, settings)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - the loop reports and continues
+            logger.error("sync_failed error=%s", type(exc).__name__)
+
+
 def _status_change_handler(database_path: Path):
     """Hold dependent material when a watched paper is retracted or corrected.
 
@@ -360,6 +385,7 @@ def create_app(
         parent_task: asyncio.Task[None] | None = None
         if resolved.parent_pid is not None:
             parent_task = asyncio.create_task(_watch_parent(resolved.parent_pid))
+        sync_task: asyncio.Task[None] | None = None
         if resolved.tenancy == "single":
             # The owner's workspace, opened at startup so migrations run before
             # the first request, as they always have. The handles below are
@@ -389,11 +415,17 @@ def create_app(
                 asyncio.to_thread(backfill_pictures, owner.database_path, owner.source_dir)
             )
             app.state.backfill_task = backfill_task
+            if resolved.sync_peer_url and resolved.sync_token:
+                # Home pulls from and pushes to its away node (ADR 0015),
+                # on a timer, never at startup itself.
+                sync_task = asyncio.create_task(
+                    _sync_loop(owner.database_path, owner.source_dir, resolved)
+                )
 
         try:
             yield
         finally:
-            for task in (folder_task, backfill_task, parent_task):
+            for task in (folder_task, backfill_task, parent_task, sync_task):
                 if task is None:
                     continue
                 task.cancel()
@@ -446,6 +478,7 @@ def create_app(
         routes_model.router,
         routes_workspace.router,
         routes_media.router,
+        routes_sync.router,
     ):
         app.include_router(router, prefix=API_PREFIX)
 
