@@ -14,29 +14,46 @@ sys.modules["seat"] = seat
 spec.loader.exec_module(seat)
 
 
-def fake_runner(calls: list[tuple[str, ...]]):
-    def run(*args: str) -> int:
-        calls.append(args)
-        return 0
+class MemoryStore:
+    """The snapshot store, in memory: what the Worker does with its bucket."""
 
-    return run
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.puts: list[str] = []
+
+    def list(self, prefix: str) -> list[tuple[str, int]]:
+        return [(key, len(data)) for key, data in sorted(self.objects.items()) if key.startswith(prefix)]
+
+    def get(self, key: str) -> bytes | None:
+        return self.objects.get(key)
+
+    def put(self, key: str, data: bytes) -> bool:
+        self.objects[key] = data
+        self.puts.append(key)
+        return True
 
 
-def test_restore_pulls_the_databases_and_the_files_only_when_there_are_no_records(tmp_path: Path) -> None:
+def test_a_fresh_container_restores_the_databases_first_and_the_files_later(tmp_path: Path) -> None:
+    store = MemoryStore()
     data = tmp_path / "data"
-    calls: list[tuple[str, ...]] = []
-    assert seat.restore(data, "r2:bucket", fake_runner(calls)) == "fresh"
-    assert [c[0] for c in calls] == ["copy", "copy", "copy"]
-    assert calls[0][1] == "r2:bucket/db" and calls[1][1] == "r2:bucket/mcp" and calls[2][1] == "r2:bucket/attachments"
-    assert (data / "mcp").is_dir()
+    assert seat.restore_databases(data, store) == "fresh"
 
-    (data / "vademecum.sqlite3").write_bytes(b"x")
-    calls.clear()
-    assert seat.restore(data, "r2:bucket", fake_runner(calls)) == "present"
-    assert calls == []
+    store.objects["db/vademecum.sqlite3"] = b"records"
+    store.objects["mcp/access.sqlite3"] = b"access"
+    store.objects["attachments/sources/abc.pdf"] = b"%PDF-"
+    data2 = tmp_path / "data2"
+    assert seat.restore_databases(data2, store) == "restored"
+    assert (data2 / "vademecum.sqlite3").read_bytes() == b"records"
+    assert (data2 / "mcp" / "access.sqlite3").read_bytes() == b"access"
+    assert not (data2 / "attachments").exists(), "files come later, in the background"
+    assert seat.restore_files(data2, store) == 1
+    assert (data2 / "attachments" / "sources" / "abc.pdf").read_bytes() == b"%PDF-"
+    assert seat.restore_files(data2, store) == 0, "already there, same size"
+    assert seat.restore_databases(data2, store) == "present"
 
 
-def test_snapshot_copies_each_database_consistently_then_syncs(tmp_path: Path) -> None:
+def test_snapshot_copies_each_database_consistently_and_uploads_only_new_files(tmp_path: Path) -> None:
+    store = MemoryStore()
     data = tmp_path / "data"
     (data / "mcp").mkdir(parents=True)
     (data / "attachments" / "sources").mkdir(parents=True)
@@ -45,24 +62,34 @@ def test_snapshot_copies_each_database_consistently_then_syncs(tmp_path: Path) -
         live.execute("INSERT INTO t VALUES (1)")
     with sqlite3.connect(data / "mcp" / "access.sqlite3") as live:
         live.execute("CREATE TABLE a (y)")
-    calls: list[tuple[str, ...]] = []
-    result = seat.snapshot(data, "r2:bucket", fake_runner(calls))
-    assert result == {"db": 0, "mcp": 0, "attachments": 0}
-    assert [(c[0], c[2]) for c in calls] == [
-        ("sync", "r2:bucket/db"),
-        ("sync", "r2:bucket/mcp"),
-        ("sync", "r2:bucket/attachments"),
-    ]
-    copy = data / ".snapshot" / "db" / "vademecum.sqlite3"
+    (data / "attachments" / "sources" / "abc.pdf").write_bytes(b"%PDF-1")
+    (data / "attachments" / "sources" / ".part").write_bytes(b"half")
+
+    first = seat.snapshot(data, store)
+    assert first == {"db": 2, "files": 1, "skipped": 0}
+    assert sorted(store.objects) == ["attachments/sources/abc.pdf", "db/vademecum.sqlite3", "mcp/access.sqlite3"]
+    copy = tmp_path / "copy.sqlite3"
+    copy.write_bytes(store.objects["db/vademecum.sqlite3"])
     with sqlite3.connect(copy) as backup:
         assert backup.execute("SELECT x FROM t").fetchone() == (1,)
-    assert (data / ".snapshot" / "mcp" / "access.sqlite3").exists()
+
+    second = seat.snapshot(data, store)
+    assert second == {"db": 2, "files": 0, "skipped": 0}, "databases always, files only when new"
 
 
 def test_the_seat_refuses_to_start_without_its_secrets(monkeypatch) -> None:
-    for name in ("VADEMECUM_MCP_PUBLIC_URL", "VADEMECUM_SYNC_ACCEPT_TOKEN", "VADEMECUM_MCP_PASSPHRASE"):
+    for name in ("VADEMECUM_MCP_PUBLIC_URL", "VADEMECUM_SYNC_ACCEPT_TOKEN", "VADEMECUM_MCP_PASSPHRASE", "SEAT_STORE_URL", "SEAT_KEY"):
         monkeypatch.delenv(name, raising=False)
     assert seat.run() == 2
+
+
+def test_the_store_insists_on_https() -> None:
+    import pytest
+
+    with pytest.raises(ValueError):
+        seat.WorkerStore("http://seat.example/__seat/", "k")
+    store = seat.WorkerStore("https://seat.example/__seat/", "k")
+    assert store._prefix == "/__seat"  # noqa: SLF001
 
 
 def test_the_api_on_the_seat_is_away_single_tenancy_host_mode(monkeypatch) -> None:

@@ -20,18 +20,16 @@
     "bindings": [{ "name": "SEAT", "class_name": "VademecumSeat" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VademecumSeat"] }],
+  // The snapshot bucket, reached only through this Worker (no API token).
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "vademecum" }],
   "vars": {
-    // The public HTTPS origin of this Worker: what assistants connect to and
-    // what the gateway's sign-in checks against. Set after the first deploy
-    // (the *.workers.dev address, or your own domain).
-    "PUBLIC_URL": "https://vademecum-seat.example.workers.dev",
-    "R2_BUCKET": "vademecum",
-    // https://<account id>.r2.cloudflarestorage.com
-    "R2_ENDPOINT": "https://ACCOUNT_ID.r2.cloudflarestorage.com"
+    // The public HTTPS origin of this Worker: what assistants connect to,
+    // what the gateway's sign-in checks against, and where the container
+    // finds its snapshot store. Set after the first deploy.
+    "PUBLIC_URL": "https://vademecum-seat.example.workers.dev"
   }
   // Secrets, set once with `npx wrangler secret put <NAME>`:
-  //   R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY   an R2 API token for the bucket
-  //   VADEMECUM_SYNC_ACCEPT_TOKEN              what the Mac presents to sync
-  //   VADEMECUM_MCP_PASSPHRASE                 the passphrase assistants and the
-  //                                            web app sign in with
+  //   SEAT_KEY                       what the container presents to the snapshot store
+  //   VADEMECUM_SYNC_ACCEPT_TOKEN    what the Mac presents to sync
+  //   VADEMECUM_MCP_PASSPHRASE       the passphrase assistants and the web app sign in with
 }

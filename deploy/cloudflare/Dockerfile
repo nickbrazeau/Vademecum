@@ -16,7 +16,7 @@ RUN npm run build
 FROM python:3.12-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN apt-get update \
- && apt-get install -y --no-install-recommends rclone ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY apps/api /app/apps/api

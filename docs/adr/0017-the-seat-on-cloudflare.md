@@ -29,8 +29,10 @@ until the Mac has it.
 ### 2. Durability is a snapshot, and the Mac is still home
 
 Every few minutes a consistent copy of each SQLite database (the records and the access store)
-and the stored files go to an R2 bucket through `rclone`; at boot they come back if the
-container's disk is empty. Between snapshots the seat can lose a few minutes of phone-side work
+and every stored file not yet there go to an R2 bucket, through the Worker in front: the
+container presents a key only the two of them know, and the Worker answers from a bucket
+binding, so no R2 API token exists anywhere. At boot the databases come back before anything
+starts and the files come back in the background. Between snapshots the seat can lose a few minutes of phone-side work
 if the container dies, which for one learner is acceptable and is said plainly. The Mac remains
 home: files, reading, builds, and the copy that is never behind.
 

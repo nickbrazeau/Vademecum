@@ -8,37 +8,36 @@ dashboard and the assistants' tools through it.
 
 What is here:
 
-- `Dockerfile` — builds the web app, installs the API and the MCP server, adds `rclone`.
-- `seat.py` — the supervisor: restore from R2, start the API and the gateway, snapshot every
-  five minutes and at shutdown. `tests/test_seat.py` covers it.
+- `Dockerfile` — builds the web app, installs the API and the MCP server.
+- `seat.py` — the supervisor: restore the databases from the snapshot store, start the API
+  and the gateway, bring the stored files back in the background, snapshot every five minutes
+  and at shutdown. `tests/test_seat.py` covers it.
 - `worker/` — the Worker and its `wrangler.jsonc`: a Durable Object that holds the one
-  container and forwards every request to the gateway's port.
+  container and forwards every request to the gateway's port, and the snapshot store under
+  `/__seat/`, answered from the R2 bucket binding to a caller presenting `SEAT_KEY`.
 
 ## Deploy, once
 
-You need a Cloudflare account on the Workers paid plan (containers need it), `node` and
-`npm` on the Mac, and nothing else. Everything below runs from this directory.
+You need a Cloudflare account on the Workers paid plan (containers need it), with R2 enabled
+(both are one click each in the dashboard), `node` and `npm` on the Mac, and a container CLI
+for the image build: Docker, or `brew install podman && podman machine init && podman machine
+start` with `WRANGLER_DOCKER_BIN=podman`. Everything below runs from `worker/`.
 
-1. **A bucket for the snapshots.** In the Cloudflare dashboard, R2 → Create bucket, named
-   `vademecum`. Then R2 → Manage API tokens → create a token with object read and write on
-   that bucket; keep its access key id and secret. Note the S3 endpoint it shows,
-   `https://<account id>.r2.cloudflarestorage.com`.
-2. **Fill in the Worker's variables.** In `worker/wrangler.jsonc` set `R2_ENDPOINT` to that
-   endpoint. Leave `PUBLIC_URL` for a moment.
-3. **Secrets.** From `worker/`:
+1. **Sign in and make the bucket.** `npx wrangler login`, then
+   `npx wrangler r2 bucket create vademecum`. No R2 API token is needed: the Worker reaches
+   the bucket through a binding, and the container reaches it through the Worker.
+2. **Deploy once** to create the Worker and build the image: `npm install && npx wrangler
+   deploy`. The output names the address, `https://vademecum-seat.<you>.workers.dev`.
+3. **Secrets.** Three, each a long random string except the passphrase, which you will type:
 
    ```sh
-   npm install
-   npx wrangler login
-   npx wrangler secret put R2_ACCESS_KEY_ID
-   npx wrangler secret put R2_SECRET_ACCESS_KEY
-   npx wrangler secret put VADEMECUM_SYNC_ACCEPT_TOKEN     # a long random string; the Mac will present it
+   npx wrangler secret put SEAT_KEY                        # the container's key to the snapshot store
+   npx wrangler secret put VADEMECUM_SYNC_ACCEPT_TOKEN     # what the Mac presents to sync
    npx wrangler secret put VADEMECUM_MCP_PASSPHRASE        # at least 12 characters; you sign in with it
    ```
 
-4. **Deploy.** `npx wrangler deploy`. The output names the Worker's address,
-   `https://vademecum-seat.<you>.workers.dev`. Put that into `PUBLIC_URL` in `wrangler.jsonc`
-   and deploy once more, so the gateway knows its own origin.
+4. **Tell the Worker its own address.** Put the address from step 2 into `PUBLIC_URL` in
+   `wrangler.jsonc` and `npx wrangler deploy` once more.
 5. **Check.** Open the address in a browser: the Vademecum sign-in page, asking for the
    passphrase. `https://<address>/health` answers `{"status": "ok"}`.
 
@@ -65,6 +64,8 @@ now. The first round carries the whole bank up.
 
 - Between snapshots the seat can lose up to five minutes of phone-side work if the container
   is replaced. The Mac is never behind by more than its last sync.
+- A single stored file over about 95 MB is not snapshotted (the Worker in front will not
+  carry more in one request); it stays on the Mac, which is home anyway.
 - The seat has no macOS frameworks: a file taken in on the phone is text-only until the Mac
   has synced and read it properly.
 - After updating Vademecum, `npx wrangler deploy` again; the seat restores its records at boot.

@@ -2,10 +2,14 @@
  * The Worker in front of the seat (ADR 0017).
  *
  * Every request to this Worker's address goes to the one container, on the
- * gateway's port. The container sleeps when nothing has reached it for a
- * while and wakes on the next request; its records come back from object
- * storage at boot (seat.py). Secrets reach the container as environment
- * variables set here, from `wrangler secret put`.
+ * gateway's port, except the seat's own snapshot store under `/__seat/`,
+ * which the Worker answers itself from an R2 bucket binding. The container
+ * sleeps when nothing has reached it for a while and wakes on the next
+ * request; its records come back from the bucket at boot (seat.py).
+ *
+ * The container reaches the store through this Worker's public address,
+ * presenting `SEAT_KEY`, a secret only the two of them know. No R2 API
+ * token exists anywhere: the binding is the only path to the bucket.
  */
 
 import { Container, getContainer } from '@cloudflare/containers'
@@ -13,14 +17,16 @@ import type { DurableObject } from 'cloudflare:workers'
 
 interface Env {
   SEAT: DurableObjectNamespace<VademecumSeat>
+  BUCKET: R2Bucket
   PUBLIC_URL: string
-  R2_ENDPOINT: string
-  R2_BUCKET: string
-  R2_ACCESS_KEY_ID: string
-  R2_SECRET_ACCESS_KEY: string
+  SEAT_KEY: string
   VADEMECUM_SYNC_ACCEPT_TOKEN: string
   VADEMECUM_MCP_PASSPHRASE: string
 }
+
+const STORE_PREFIX = '/__seat/'
+const KEY_HEADER = 'x-seat-key'
+const MAX_LIST = 1000
 
 export class VademecumSeat extends Container<Env> {
   defaultPort = 8766
@@ -33,21 +39,61 @@ export class VademecumSeat extends Container<Env> {
       VADEMECUM_MCP_PUBLIC_URL: env.PUBLIC_URL,
       VADEMECUM_SYNC_ACCEPT_TOKEN: env.VADEMECUM_SYNC_ACCEPT_TOKEN,
       VADEMECUM_MCP_PASSPHRASE: env.VADEMECUM_MCP_PASSPHRASE,
-      SEAT_REMOTE: `r2:${env.R2_BUCKET}`,
-      // rclone's own configuration, from the environment: an S3 remote
-      // named "r2" pointing at the account's R2 endpoint.
-      RCLONE_CONFIG_R2_TYPE: 's3',
-      RCLONE_CONFIG_R2_PROVIDER: 'Cloudflare',
-      RCLONE_CONFIG_R2_ENDPOINT: env.R2_ENDPOINT,
-      RCLONE_CONFIG_R2_ACCESS_KEY_ID: env.R2_ACCESS_KEY_ID,
-      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: env.R2_SECRET_ACCESS_KEY,
-      RCLONE_CONFIG_R2_ACL: 'private'
+      SEAT_STORE_URL: `${env.PUBLIC_URL.replace(/\/$/, '')}${STORE_PREFIX}`,
+      SEAT_KEY: env.SEAT_KEY
     }
   }
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let out = 0
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return out === 0
+}
+
+/** Keys are `db/...`, `mcp/...` or `attachments/<kind>/<name>`: nothing else, nothing upward. */
+function validKey(key: string): boolean {
+  return /^(db|mcp|attachments)\/[A-Za-z0-9._\/-]{1,200}$/.test(key) && !key.includes('..')
+}
+
+async function store(request: Request, env: Env, url: URL): Promise<Response> {
+  const presented = request.headers.get(KEY_HEADER) ?? ''
+  if (!env.SEAT_KEY || !timingSafeEqual(presented, env.SEAT_KEY)) {
+    return new Response('not found', { status: 404 })
+  }
+  const rest = url.pathname.slice(STORE_PREFIX.length)
+  if (rest === 'list') {
+    const prefix = url.searchParams.get('prefix') ?? ''
+    if (prefix && !validKey(prefix + 'x')) return new Response('bad prefix', { status: 400 })
+    const objects: { key: string; size: number }[] = []
+    let cursor: string | undefined
+    do {
+      const page = await env.BUCKET.list({ prefix, cursor, limit: MAX_LIST })
+      for (const object of page.objects) objects.push({ key: object.key, size: object.size })
+      cursor = page.truncated ? page.cursor : undefined
+    } while (cursor)
+    return Response.json({ objects })
+  }
+  if (!rest.startsWith('object/')) return new Response('not found', { status: 404 })
+  const key = rest.slice('object/'.length)
+  if (!validKey(key)) return new Response('bad key', { status: 400 })
+  if (request.method === 'PUT') {
+    await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: 'application/octet-stream' } })
+    return Response.json({ stored: key })
+  }
+  if (request.method === 'GET') {
+    const object = await env.BUCKET.get(key)
+    if (object === null) return new Response('not found', { status: 404 })
+    return new Response(object.body, { headers: { 'content-type': 'application/octet-stream', 'cache-control': 'no-store' } })
+  }
+  return new Response('method not allowed', { status: 405 })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+    if (url.pathname.startsWith(STORE_PREFIX)) return store(request, env, url)
     const seat = getContainer(env.SEAT, 'vademecum')
     return seat.fetch(request)
   }
