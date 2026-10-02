@@ -1,0 +1,257 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/* Vademecum design tokens — lifted verbatim from apps/web/src/styles.css,
+   then extended for the classes the pages use but the stylesheet never
+   defined (badges, support-*, tags, provenance, quote, prompt, disclosure,
+   attempt, point, update). Evolution, not replacement. */
+
+:root {
+  --paper: #f7f5f0;
+  --ink: #1c1e22;
+  --muted: #5c6470;
+  --line: #dcd7cc;
+  --card: #fffefb;
+  --accent: #2f5d50;
+  --accent-ink: #ffffff;
+  --accent-tint: #e6efec;
+  --accent-line: #b8d3ca;
+  --warn: #7a4a12;
+  --warn-bg: #fdf3e3;
+  --fail: #8a2020;
+  --fail-bg: #f6e3e3;
+  --fail-line: #d9a3a3;
+  --tag-bg: #edeae2;
+  --tier-low: #7b8794;
+  --tier-mid: #b07d2b;
+  --tier-high: #2f5d50;
+  --radius: 12px;
+  --tap: 44px;
+  --sans: -apple-system, 'Helvetica Neue', system-ui, sans-serif;
+  --serif: Georgia, 'Times New Roman', serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dark {
+  --paper: #14161a;
+  --ink: #e8e6e1;
+  --muted: #9aa2ad;
+  --line: #2b2f36;
+  --card: #1b1e23;
+  --accent: #6fae9b;
+  --accent-ink: #10221d;
+  --accent-tint: #1d2c28;
+  --accent-line: #35594f;
+  --warn: #e0b877;
+  --warn-bg: #2a2318;
+  --fail: #e08b8b;
+  --fail-bg: #2c1b1b;
+  --fail-line: #6b3535;
+  --tag-bg: #23272e;
+  --tier-low: #8d97a3;
+  --tier-mid: #cf9c4a;
+  --tier-high: #6fae9b;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 var(--serif); -webkit-text-size-adjust: 100%; }
+a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--ink); }
+p { margin: 0; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--sans); }
+
+/* Wordmark and the calm section label (evolved: was 16px sans 600) */
+h1 { font-size: 20px; letter-spacing: 0.01em; font-weight: 600; }
+h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h3 { font-size: 17px; font-weight: 600; }
+h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--tap); }
+.nav { display: flex; gap: 4px; margin: 12px 0; border-bottom: 1px solid var(--line); overflow-x: auto; font-family: var(--sans); font-size: 15px; }
+.nav a { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 12px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.nav a.current { color: var(--ink); border-bottom-color: var(--accent); }
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.list > li { padding-bottom: 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.list > li:last-child { border-bottom: none; padding-bottom: 0; }
+
+.title { font-weight: 600; }
+.body { color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 14px; line-height: 1.45; }
+.ok { color: var(--accent); }
+.failure { color: var(--fail); }
+
+/* The question itself leads the page */
+.prompt { font-size: 20px; line-height: 1.4; text-wrap: pretty; }
+
+/* Badges: one pill shape, meaning carried by tint */
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font: 500 13px/1.5 var(--sans); border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+.support-evidence_supported { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); }
+.support-source_supported { background: var(--paper); border-color: var(--line); color: var(--muted); }
+.support-uncertain, .support-conflicting, .badge-held, .badge-corrected { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.badge-retracted { background: var(--fail-bg); border-color: var(--fail-line); color: var(--fail); }
+
+.tags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font: 12px/1.5 var(--sans); padding: 2px 8px; border-radius: 4px; background: var(--tag-bg); color: var(--muted); }
+
+.tier { display: inline-flex; align-items: center; justify-content: center; min-width: 56px; padding: 1px 8px; border-radius: 999px; font: 500 12px/1.6 var(--sans); color: #ffffff; }
+.tier-low { background: var(--tier-low); }
+.tier-mid { background: var(--tier-mid); }
+.tier-high { background: var(--tier-high); }
+.tiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tiers li { display: flex; align-items: center; gap: 8px; }
+
+/* Where a claim came from: a hairline break, then the evidence, quotes hanging */
+.provenance { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.provenance .list { gap: 8px; }
+.provenance .list > li { border-bottom: none; padding-bottom: 0; gap: 4px; }
+.quote { margin: 4px 0 0; padding-left: 12px; border-left: 2px solid var(--line); font-style: italic; font-size: 15px; line-height: 1.5; color: var(--ink); }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font: 14px/1.4 var(--sans); color: var(--muted); }
+.textarea { font: 16px/1.55 var(--serif); min-height: 112px; padding: 10px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; white-space: pre-wrap; }
+.textarea .placeholder { color: var(--muted); opacity: 0.7; }
+.input { font: 16px/1.55 var(--serif); min-height: var(--tap); padding: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+
+.button { font: 16px/1 var(--sans); min-height: var(--tap); min-width: var(--tap); padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.button.ghost { background: transparent; }
+.button.disabled { opacity: 0.5; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+kbd { font: 12px/1 var(--sans); opacity: 0.8; padding: 2px 5px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; }
+
+.phi-warning { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14px; line-height: 1.45; }
+.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: var(--radius); padding: 10px 12px; }
+
+/* What leaves this Mac, said before the button that sends it */
+.disclosure-panel { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.disclosure-headline { font: 600 14px/1.4 var(--sans); }
+.disclosure-list { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 2px; }
+
+/* A grade, with its outcome marked once */
+.attempt-head { display: flex; align-items: center; gap: 8px; }
+.attempt-head svg { flex: none; }
+.attempt-self { border-style: dashed; }
+
+.usage-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.usage-fill { height: 100%; background: var(--accent); }
+
+.offline { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.privacy dt { font: 600 15px/1.5 var(--sans); margin-top: 8px; }
+.privacy dd { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.privacy dl { margin: 0; }
+.footer { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.device-code { font: 20px/1.4 var(--mono); letter-spacing: 0.12em; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+
+
+    .row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .row:last-child { border-bottom: none; }
+    .row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .row-title { font-weight: 600; font-size: 15px; line-height: 1.35; }
+    .row-meta { font: 12px/1.4 var(--sans); color: var(--muted); }
+    .mini-bar { width: 56px; height: 4px; border-radius: 999px; background: var(--line); overflow: hidden; flex: none; }
+    .mini-fill { height: 100%; background: var(--accent); }
+    .file-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+    .file-row:last-child { border-bottom: none; }
+    .file-icon { flex: none; width: 28px; height: 34px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); display: flex; align-items: flex-end; justify-content: center; font: 600 9px/1 var(--sans); color: var(--muted); padding-bottom: 4px; letter-spacing: 0.04em; }
+    .button.small { min-height: 32px; font-size: 13px; padding: 0 10px; }
+    .select { font: 13px/1 var(--sans); min-height: 32px; padding: 0 28px 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); display: inline-flex; align-items: center; position: relative; }
+    .select svg { position: absolute; right: 8px; top: 8px; }
+    .tier-option { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; font: 14px/1 var(--sans); }
+    .tier-option.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .dot { width: 10px; height: 10px; border-radius: 999px; }
+  
+  </style>
+</helmet>
+<div class="" style="width: 390px; min-height: 100%; background: var(--paper); color: var(--ink); padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 16px;"><header style="display: flex; flex-direction: column; gap: 0;">
+  <div class="header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+    <h1>Vademecum</h1>
+    <div class="button primary" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px;">Flag a gap</div>
+  </div>
+  <nav class="nav" style="display: flex; gap: 4px; margin: 12px 0 0;"><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Today</a><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Tutor</a><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Sources</a><a href="#" class="current" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Improvement Map</a><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Model</a></nav>
+</header><main class="stack" style="display: flex; flex-direction: column; gap: 16px;">
+<section class="card" style="display: flex; flex-direction: column; gap: 10px; padding: 12px;">
+  <h2>Where the gaps are</h2>
+  <p class="muted small">Where the gaps are, as a map rather than a list. Drag a topic to move it, tap it to see its flags, pinch or scroll to zoom. Nothing here is a queue; it describes, it does not assign.</p>
+  <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+    <span class="badge" style="background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent);">Open flags</span>
+    <span class="badge">All</span>
+    <span class="badge">By specialty</span>
+    <span style="flex: 1 1 auto;"></span>
+    <span class="button" style="min-width: 36px; min-height: 36px; padding: 0; font-family: var(--sans);">−</span><span class="button" style="min-width: 36px; min-height: 36px; padding: 0; font-family: var(--sans);">+</span><span class="button" style="min-height: 36px; font-size: 13px; padding: 0 10px; font-family: var(--sans);">Fit</span>
+  </div>
+  <svg width="332" height="420" viewBox="0 0 332 420" role="img" aria-label="Topic graph" style="display: block; background: var(--paper); border-radius: 8px; border: 1px solid var(--line); max-width: 100%;">
+      <line x1="112.6" y1="133.1" x2="158.4" y2="220.6" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="158.4" y1="220.6" x2="211.8" y2="142.9" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="112.6" y1="133.1" x2="127.9" y2="376.0" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="158.4" y1="220.6" x2="177.4" y2="346.9" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="66.9" y1="201.1" x2="78.3" y2="298.3" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="242.3" y1="259.4" x2="211.8" y2="142.9" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="265.1" y1="55.4" x2="288.0" y2="162.3" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="112.6" y1="133.1" x2="66.9" y2="201.1" stroke="#dcd7cc" stroke-width="1.5"></line><line x1="177.4" y1="346.9" x2="127.9" y2="376.0" stroke="#dcd7cc" stroke-width="1.5"></line><circle cx="112.6" cy="133.1" r="28.200000000000003" fill="none" stroke="#2f5d50" stroke-width="1.5" stroke-dasharray="3 3"></circle><circle cx="112.6" cy="133.1" r="23.200000000000003" fill="#e6efec" stroke="#2f5d50" stroke-width="2"></circle>
+      <text x="112.6" y="169.3" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="12" font-weight="600" fill="#1c1e22">Influenza</text><circle cx="158.4" cy="220.6" r="18.8" fill="#e6efec" stroke="#2f5d50" stroke-width="2"></circle>
+      <text x="158.4" y="252.4" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">Pneumonia</text><circle cx="211.8" cy="142.9" r="14.4" fill="#e6efec" stroke="#2f5d50" stroke-width="2"></circle>
+      <text x="211.8" y="170.3" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">Antimicrobial stewardship</text><circle cx="78.3" cy="298.3" r="11.200000000000001" fill="#e6efec" stroke="#2f5d50" stroke-width="2"></circle>
+      <text x="78.3" y="322.5" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">Strongyloides</text><circle cx="242.3" cy="259.4" r="13.600000000000001" fill="#e6efec" stroke="#2f5d50" stroke-width="2"></circle>
+      <text x="242.3" y="286.0" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">Endocarditis</text><circle cx="66.9" cy="201.1" r="15.600000000000001" fill="#e6efec" stroke="#2f5d50" stroke-width="2"></circle>
+      <text x="66.9" y="229.7" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">Transplant ID</text><circle cx="177.4" cy="346.9" r="11.200000000000001" fill="#fdf3e3" stroke="#b07d2b" stroke-width="2"></circle>
+      <text x="177.4" y="371.1" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">ARDS</text><circle cx="127.9" cy="376.0" r="12.4" fill="#fdf3e3" stroke="#b07d2b" stroke-width="2"></circle>
+      <text x="127.9" y="401.4" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">Mechanical ventilation</text><circle cx="265.1" cy="55.4" r="11.200000000000001" fill="#eef0f2" stroke="#7b8794" stroke-width="2"></circle>
+      <text x="265.1" y="79.6" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">AKI</text><circle cx="288.0" cy="162.3" r="10.4" fill="#eef0f2" stroke="#7b8794" stroke-width="1"></circle>
+      <text x="288.0" y="185.7" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#1c1e22">Hyponatremia</text><circle cx="44.0" cy="36.0" r="17.6" fill="#edeae2" stroke="#9aa2ad" stroke-width="2"></circle>
+      <text x="44.0" y="66.6" text-anchor="middle" font-family="-apple-system, 'Helvetica Neue', system-ui, sans-serif" font-size="11" font-weight="400" fill="#5c6470">Not filed yet</text>
+    </svg>
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; font: 12px/1.4 var(--sans); color: var(--muted); align-items: center;">
+    <span style="display: inline-flex; align-items: center; gap: 5px;"><span class="dot" style="background: #e6efec; border: 2px solid #2f5d50;"></span>Infectious disease</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px;"><span class="dot" style="background: #fdf3e3; border: 2px solid #b07d2b;"></span>Pulmonary / critical care</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px;"><span class="dot" style="background: #eef0f2; border: 2px solid #7b8794;"></span>Nephrology</span>
+    <span style="display: inline-flex; align-items: center; gap: 5px;"><span class="dot" style="background: #edeae2; border: 1px solid #9aa2ad;"></span>Not filed</span>
+    <span>· size = open flags · line = shared source or learning point</span>
+  </div>
+  <p class="muted small">3 flags have no topic yet. Filing them is the system’s job; they are safe where they are.</p>
+</section>
+<section class="card" style="display: flex; flex-direction: column; gap: 8px; border-color: var(--accent-line);">
+    <div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+      <h3>Influenza</h3><span class="muted small">4 open · 2 addressed · linked to Pneumonia, Transplant ID, Mechanical ventilation</span>
+    </div>
+    <ul class="list" style="display: flex; flex-direction: column; gap: 8px;">
+      <li style="display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+    <span class="title" style="font-size: 15px;">Unsure how long to continue antivirals in a ventilated flu patient</span>
+    <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"><span class="muted small">flagged 2 days ago</span><span class="button ghost small" style="min-height: 28px; font-size: 12px; padding: 0 8px;">Mark addressed</span></span>
+  </li>
+      <li style="display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+    <span class="title" style="font-size: 15px;">Baloxavir vs oseltamivir for PEP in immunocompromised contacts</span>
+    <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"><span class="muted small">flagged 5 days ago</span><span class="button ghost small" style="min-height: 28px; font-size: 12px; padding: 0 8px;">Mark addressed</span></span>
+  </li>
+      <li style="display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+    <span class="title" style="font-size: 15px;">When to add empiric MRSA coverage in post-influenza pneumonia</span>
+    <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"><span class="muted small">flagged 1 week ago</span><span class="button ghost small" style="min-height: 28px; font-size: 12px; padding: 0 8px;">Mark addressed</span></span>
+  </li>
+      <li style="display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+    <span class="title" style="font-size: 15px;">Timing of influenza vaccination after rituximab</span>
+    <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"><span class="muted small">flagged 2 weeks ago</span><span class="button ghost small" style="min-height: 28px; font-size: 12px; padding: 0 8px;">Mark addressed</span></span>
+  </li>
+      <li style="display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+    <span class="title" style="font-size: 15px;">Oseltamivir dosing in CRRT</span>
+    <span style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;"><span class="muted small">flagged 3 weeks ago</span><span class="badge" style="font-size: 12px;">Addressed</span></span>
+  </li>
+    </ul>
+    <p class="muted small">Tutor has 14 questions on this topic ready and 1 held. <a href="#">Open Sources</a> to see which pile they came from.</p>
+  </section>
+<section class="card" style="display: flex; flex-direction: column; gap: 8px;">
+  <h2>Material behind it</h2>
+  <ul class="tiers" style="display: flex; flex-direction: column; gap: 6px;">
+    <li style="display: flex; align-items: center; gap: 8px;"><span class="tier tier-high">High</span><span class="muted small">2 piles · 5 files</span></li>
+    <li style="display: flex; align-items: center; gap: 8px;"><span class="tier tier-mid">Medium</span><span class="muted small">3 piles · 6 files</span></li>
+    <li style="display: flex; align-items: center; gap: 8px;"><span class="tier tier-low">Low</span><span class="muted small">1 pile · 1 file</span></li>
+  </ul>
+</section></main><footer class="footer" style="margin-top: 16px; padding-top: 16px;">
+  <p class="muted small">A personal learning workspace, augmented by AI. Educational only — not a substitute for clinical judgment, current institutional guidance, or an appropriate specialist.</p>
+</footer></div>
+</x-dc>
+</body>
+</html>

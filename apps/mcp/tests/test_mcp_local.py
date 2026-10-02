@@ -1,0 +1,165 @@
+"""The local product (ADR 0012): the API started beside the stdio server, and
+registration with Codex and Claude Desktop without disturbing their files."""
+
+from __future__ import annotations
+
+import json
+import tomllib
+from pathlib import Path
+
+import httpx
+import pytest
+
+from vademecum_mcp import local
+from vademecum_mcp.api_client import ApiClient
+
+pytestmark = pytest.mark.anyio
+
+
+class FakeChild:
+    def __init__(self, *, exits: int | None = None) -> None:
+        self.exits = exits
+        self.terminated = False
+
+    def poll(self) -> int | None:
+        return self.exits
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def wait(self, timeout: float = 0) -> int:
+        return 0
+
+
+class Flaky:
+    """An API that starts answering after a few probes."""
+
+    def __init__(self, after: int) -> None:
+        self.after = after
+        self.calls = 0
+
+    async def handle(self, request: httpx.Request) -> httpx.Response:
+        self.calls += 1
+        if self.calls <= self.after:
+            raise httpx.ConnectError("not yet")
+        return httpx.Response(200, json={"status": "ok"})
+
+
+async def test_the_api_is_started_when_nothing_answers_and_stopped_afterwards() -> None:
+    flaky = Flaky(after=3)
+    api = ApiClient("http://127.0.0.1:8765", timeout=1, transport=httpx.MockTransport(flaky.handle))
+    started: list[FakeChild] = []
+
+    def start() -> FakeChild:
+        child = FakeChild()
+        started.append(child)
+        return child
+
+    child = await local.ensure_api(api, start=start, pause=0)
+    assert child is started[0]
+    assert flaky.calls == 4, "one probe before starting, then polling until it answered"
+    local.stop_child(child)
+    assert child.terminated
+
+
+async def test_a_running_api_is_left_alone() -> None:
+    api = ApiClient("http://127.0.0.1:8765", timeout=1, transport=httpx.MockTransport(Flaky(after=0).handle))
+    assert await local.ensure_api(api, start=lambda: pytest.fail("must not start"), pause=0) is None
+
+
+async def test_an_api_that_dies_while_starting_is_reported() -> None:
+    api = ApiClient("http://127.0.0.1:8765", timeout=1, transport=httpx.MockTransport(Flaky(after=99).handle))
+    with pytest.raises(RuntimeError, match="stopped while starting"):
+        await local.ensure_api(api, start=lambda: FakeChild(exits=1), pause=0)
+
+
+async def test_an_api_that_never_answers_is_stopped_and_reported() -> None:
+    api = ApiClient("http://127.0.0.1:8765", timeout=1, transport=httpx.MockTransport(Flaky(after=99).handle))
+    child = FakeChild()
+    with pytest.raises(RuntimeError, match="did not answer"):
+        await local.ensure_api(api, start=lambda: child, attempts=3, pause=0)
+    assert child.terminated
+
+
+async def test_a_vanished_api_is_started_again_on_the_next_call() -> None:
+    """The stdio server's client recovers once, then retries the request."""
+    flaky = Flaky(after=1)
+    api = ApiClient("http://127.0.0.1:8765", timeout=1, transport=httpx.MockTransport(flaky.handle))
+    recovered: list[int] = []
+
+    async def recover() -> None:
+        recovered.append(1)
+
+    api.recover = recover
+    assert (await api.get("/api/health")) == {"status": "ok"}
+    assert recovered == [1]
+    assert flaky.calls == 2
+
+
+async def test_without_a_recovery_hook_an_unreachable_api_is_reported() -> None:
+    api = ApiClient("http://127.0.0.1:8765", timeout=1, transport=httpx.MockTransport(Flaky(after=99).handle))
+    from vademecum_mcp.api_client import ApiError
+
+    with pytest.raises(ApiError) as refused:
+        await api.get("/api/health")
+    assert refused.value.code == "unreachable"
+
+
+def test_codex_registration_replaces_ours_and_keeps_the_rest(tmp_path: Path) -> None:
+    config = tmp_path / "config.toml"
+    config.write_text(
+        'model = "gpt-5"\n\n'
+        "[mcp_servers.node_repl]\n"
+        'command = "node_repl"\n'
+        "args = []\n\n"
+        "[mcp_servers.vademecum]\n"
+        "enabled = true\n"
+        'url = "https://old.example/mcp"\n\n'
+        "[mcp_servers.vademecum.env]\n"
+        'X = "1"\n\n'
+        "[desktop]\n"
+        "sansFontSize = 14\n",
+        encoding="utf-8",
+    )
+    backup = local.write_codex_config(config, command="/checkout/scripts/mcp.sh", args=["--stdio"])
+    assert backup is not None and backup.exists()
+    data = tomllib.loads(config.read_text(encoding="utf-8"))
+    assert data["model"] == "gpt-5"
+    assert data["mcp_servers"]["node_repl"]["command"] == "node_repl"
+    assert data["desktop"]["sansFontSize"] == 14
+    ours = data["mcp_servers"]["vademecum"]
+    assert ours == {
+        "enabled": True,
+        "command": "/checkout/scripts/mcp.sh",
+        "args": ["--stdio"],
+        "startup_timeout_sec": 60,
+    }
+    assert "url" not in ours and "env" not in ours, "the old tunnel entry is gone"
+
+
+def test_codex_registration_creates_the_file_when_absent(tmp_path: Path) -> None:
+    config = tmp_path / "codex" / "config.toml"
+    assert local.write_codex_config(config, command="/c/mcp.sh", args=["--stdio"]) is None
+    data = tomllib.loads(config.read_text(encoding="utf-8"))
+    assert data["mcp_servers"]["vademecum"]["command"] == "/c/mcp.sh"
+
+
+def test_claude_registration_merges_into_the_existing_file(tmp_path: Path) -> None:
+    config = tmp_path / "claude_desktop_config.json"
+    config.write_text(
+        json.dumps({"preferences": {"sidebarMode": "chat"}, "mcpServers": {"other": {"command": "x"}}}),
+        encoding="utf-8",
+    )
+    backup = local.write_claude_config(config, command="/c/mcp.sh", args=["--stdio"])
+    assert backup is not None
+    data = json.loads(config.read_text(encoding="utf-8"))
+    assert data["preferences"] == {"sidebarMode": "chat"}
+    assert data["mcpServers"]["other"] == {"command": "x"}
+    assert data["mcpServers"]["vademecum"] == {"command": "/c/mcp.sh", "args": ["--stdio"]}
+
+
+def test_the_launcher_is_this_checkouts_script() -> None:
+    command, args = local.launcher()
+    assert command.endswith("/scripts/mcp.sh")
+    assert Path(command).is_file()
+    assert args == ["--stdio"]

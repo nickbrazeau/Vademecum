@@ -1,0 +1,357 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/* Vademecum design tokens — lifted verbatim from apps/web/src/styles.css,
+   then extended for the classes the pages use but the stylesheet never
+   defined (badges, support-*, tags, provenance, quote, prompt, disclosure,
+   attempt, point, update). Evolution, not replacement. */
+
+:root {
+  --paper: #f7f5f0;
+  --ink: #1c1e22;
+  --muted: #5c6470;
+  --line: #dcd7cc;
+  --card: #fffefb;
+  --accent: #2f5d50;
+  --accent-ink: #ffffff;
+  --accent-tint: #e6efec;
+  --accent-line: #b8d3ca;
+  --warn: #7a4a12;
+  --warn-bg: #fdf3e3;
+  --fail: #8a2020;
+  --fail-bg: #f6e3e3;
+  --fail-line: #d9a3a3;
+  --tag-bg: #edeae2;
+  --tier-low: #7b8794;
+  --tier-mid: #b07d2b;
+  --tier-high: #2f5d50;
+  --radius: 12px;
+  --tap: 44px;
+  --sans: -apple-system, 'Helvetica Neue', system-ui, sans-serif;
+  --serif: Georgia, 'Times New Roman', serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dark {
+  --paper: #14161a;
+  --ink: #e8e6e1;
+  --muted: #9aa2ad;
+  --line: #2b2f36;
+  --card: #1b1e23;
+  --accent: #6fae9b;
+  --accent-ink: #10221d;
+  --accent-tint: #1d2c28;
+  --accent-line: #35594f;
+  --warn: #e0b877;
+  --warn-bg: #2a2318;
+  --fail: #e08b8b;
+  --fail-bg: #2c1b1b;
+  --fail-line: #6b3535;
+  --tag-bg: #23272e;
+  --tier-low: #8d97a3;
+  --tier-mid: #cf9c4a;
+  --tier-high: #6fae9b;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 var(--serif); -webkit-text-size-adjust: 100%; }
+a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--ink); }
+p { margin: 0; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--sans); }
+
+/* Wordmark and the calm section label (evolved: was 16px sans 600) */
+h1 { font-size: 20px; letter-spacing: 0.01em; font-weight: 600; }
+h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h3 { font-size: 17px; font-weight: 600; }
+h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--tap); }
+.nav { display: flex; gap: 4px; margin: 12px 0; border-bottom: 1px solid var(--line); overflow-x: auto; font-family: var(--sans); font-size: 15px; }
+.nav a { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 12px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.nav a.current { color: var(--ink); border-bottom-color: var(--accent); }
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.list > li { padding-bottom: 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.list > li:last-child { border-bottom: none; padding-bottom: 0; }
+
+.title { font-weight: 600; }
+.body { color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 14px; line-height: 1.45; }
+.ok { color: var(--accent); }
+.failure { color: var(--fail); }
+
+/* The question itself leads the page */
+.prompt { font-size: 20px; line-height: 1.4; text-wrap: pretty; }
+
+/* Badges: one pill shape, meaning carried by tint */
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font: 500 13px/1.5 var(--sans); border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+.support-evidence_supported { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); }
+.support-source_supported { background: var(--paper); border-color: var(--line); color: var(--muted); }
+.support-uncertain, .support-conflicting, .badge-held, .badge-corrected { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.badge-retracted { background: var(--fail-bg); border-color: var(--fail-line); color: var(--fail); }
+
+.tags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font: 12px/1.5 var(--sans); padding: 2px 8px; border-radius: 4px; background: var(--tag-bg); color: var(--muted); }
+
+.tier { display: inline-flex; align-items: center; justify-content: center; min-width: 56px; padding: 1px 8px; border-radius: 999px; font: 500 12px/1.6 var(--sans); color: #ffffff; }
+.tier-low { background: var(--tier-low); }
+.tier-mid { background: var(--tier-mid); }
+.tier-high { background: var(--tier-high); }
+.tiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tiers li { display: flex; align-items: center; gap: 8px; }
+
+/* Where a claim came from: a hairline break, then the evidence, quotes hanging */
+.provenance { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.provenance .list { gap: 8px; }
+.provenance .list > li { border-bottom: none; padding-bottom: 0; gap: 4px; }
+.quote { margin: 4px 0 0; padding-left: 12px; border-left: 2px solid var(--line); font-style: italic; font-size: 15px; line-height: 1.5; color: var(--ink); }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font: 14px/1.4 var(--sans); color: var(--muted); }
+.textarea { font: 16px/1.55 var(--serif); min-height: 112px; padding: 10px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; white-space: pre-wrap; }
+.textarea .placeholder { color: var(--muted); opacity: 0.7; }
+.input { font: 16px/1.55 var(--serif); min-height: var(--tap); padding: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+
+.button { font: 16px/1 var(--sans); min-height: var(--tap); min-width: var(--tap); padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.button.ghost { background: transparent; }
+.button.disabled { opacity: 0.5; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+kbd { font: 12px/1 var(--sans); opacity: 0.8; padding: 2px 5px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; }
+
+.phi-warning { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14px; line-height: 1.45; }
+.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: var(--radius); padding: 10px 12px; }
+
+/* What leaves this Mac, said before the button that sends it */
+.disclosure-panel { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.disclosure-headline { font: 600 14px/1.4 var(--sans); }
+.disclosure-list { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 2px; }
+
+/* A grade, with its outcome marked once */
+.attempt-head { display: flex; align-items: center; gap: 8px; }
+.attempt-head svg { flex: none; }
+.attempt-self { border-style: dashed; }
+
+.usage-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.usage-fill { height: 100%; background: var(--accent); }
+
+.offline { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.privacy dt { font: 600 15px/1.5 var(--sans); margin-top: 8px; }
+.privacy dd { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.privacy dl { margin: 0; }
+.footer { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.device-code { font: 20px/1.4 var(--mono); letter-spacing: 0.12em; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+
+
+  </style>
+</helmet>
+<div style="width: 960px; min-height: 100%; background: var(--paper); color: var(--ink); padding: 32px; display: flex; flex-direction: column; gap: 28px;">
+  <div style="display: flex; flex-direction: column; gap: 4px;">
+    <h1>Vademecum — design tokens</h1>
+    <p class="muted">Values are the ones in <code>apps/web/src/styles.css</code>; the five tints (accent tint/line, fail bg/line, tag bg) are additions this pass proposes.</p>
+  </div>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <h2>Color — light</h2>
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #f7f5f0; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">paper</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#f7f5f0</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #fffefb; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">card</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#fffefb</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #dcd7cc; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">line</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#dcd7cc</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #1c1e22; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">ink</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#1c1e22</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #5c6470; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">muted</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#5c6470</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #2f5d50; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">accent</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#2f5d50</p>
+  </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #e6efec; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">accent tint</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#e6efec</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #7a4a12; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">warn</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#7a4a12</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #fdf3e3; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">warn bg</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#fdf3e3</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #8a2020; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">fail</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#8a2020</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #f6e3e3; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">fail bg</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#f6e3e3</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #edeae2; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">tag bg</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#edeae2</p>
+  </div>
+    </div>
+  </section>
+
+  <section class="dark" style="display: flex; flex-direction: column; gap: 10px; background: var(--paper); color: var(--ink); padding: 16px; border-radius: 12px;">
+    <h2>Color — dark</h2>
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #14161a; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">paper</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#14161a</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #1b1e23; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">card</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#1b1e23</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #2b2f36; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">line</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#2b2f36</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #e8e6e1; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">ink</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#e8e6e1</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #9aa2ad; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">muted</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#9aa2ad</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #6fae9b; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">accent</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#6fae9b</p>
+  </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #1d2c28; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">accent tint</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#1d2c28</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #e0b877; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">warn</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#e0b877</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #2a2318; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">warn bg</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#2a2318</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #e08b8b; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">fail</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#e08b8b</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #2c1b1b; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">fail bg</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#2c1b1b</p>
+  </div><div style="display: flex; flex-direction: column; gap: 4px;">
+    <div style="height: 48px; border-radius: 8px; background: #23272e; border: 1px solid rgba(0,0,0,0.08);"></div>
+    <p class="small" style="font-family: var(--sans); font-size: 12px;">tag bg</p>
+    <p class="muted small" style="font-family: var(--mono); font-size: 11px;">#23272e</p>
+  </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <h2>Type</h2>
+    <div style="display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 8px 24px; align-items: baseline;">
+      <p class="muted small">Wordmark · sans 20/600</p><h1>Vademecum</h1>
+      <p class="muted small">Section label · sans 12/600 caps</p><h2>Worth a look</h2>
+      <p class="muted small">Card heading · sans 17/600</p><h3>Reference answer</h3>
+      <p class="muted small">Sub-label · sans 12/600 caps</p><h4>What you did well</h4>
+      <p class="muted small">Question · serif 20/1.4</p><p class="prompt">Which findings should prompt empiric MRSA coverage?</p>
+      <p class="muted small">Body · serif 16/1.55</p><p>Body text is 16px or larger so iOS Safari does not zoom on focus.</p>
+      <p class="muted small">Small · serif 14/1.45</p><p class="small muted">Matched your topic · checked 20 minutes ago</p>
+      <p class="muted small">Quote · serif italic 15</p><blockquote class="quote">Clinicians should start antiviral treatment as soon as possible.</blockquote>
+      <p class="muted small">Code · mono 20, 0.12em</p><span class="device-code" style="justify-self: start;">ABCD-EFGH</span>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <h2>Badges — support, holds, notices</h2>
+    <div class="badges" style="display: flex; flex-wrap: wrap; gap: 8px;">
+      <span class="badge support-evidence_supported">Evidence-supported, machine reviewed</span>
+      <span class="badge support-source_supported">Draft (source-supported)</span>
+      <span class="badge support-uncertain">Uncertain</span>
+      <span class="badge support-conflicting">Conflicting</span>
+      <span class="badge badge-held">Held for review</span>
+      <span class="badge badge-corrected">Correction or concern notice</span>
+      <span class="badge badge-retracted">Retracted</span>
+      <span class="badge">First seen here today</span>
+    </div>
+    <p class="muted small">One pill, four tints. Green is reserved for the single strongest claim the product makes; amber for anything held; red only for a retraction.</p>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <h2>Source confidence and topics</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+      <span class="tier tier-high">High</span><span class="tier tier-mid">Medium</span><span class="tier tier-low">Low</span>
+      <span class="muted small" style="margin-left: 8px;">Filled pills = the owner’s trust in the material, never mastery or evidence.</span>
+    </div>
+    <ul class="tags" style="display: flex; flex-wrap: wrap; gap: 6px;"><li class="tag">Influenza</li><li class="tag">Antivirals</li><li class="tag">Inpatient</li></ul>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <h2>Controls · 44px targets, 999px radius</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+      <div class="button primary">Grade with the model</div>
+      <div class="button">Show reference answer</div>
+      <div class="button ghost">Next question</div>
+      <div class="button primary disabled">Save flag</div>
+      <div class="button primary" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px;">Flag a gap <kbd>⌘K</kbd></div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <h2>Outcome marks · 20px stroke icons</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 24px;">
+      <div class="attempt-head" style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#2f5d50" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="8"></circle><path d="M6.5 10.5l2.5 2.5 4.5-5"></path></svg><h3>Correct</h3></div>
+      <div class="attempt-head" style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#b07d2b" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="8"></circle><path d="M10 2a8 8 0 0 1 0 16z" fill="#b07d2b" stroke="none"></path></svg><h3>Partially correct</h3></div>
+      <div class="attempt-head" style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#8a2020" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="8"></circle><path d="M7.5 7.5l5 5m0-5l-5 5"></path></svg><h3>Incorrect</h3></div>
+      <div class="attempt-head" style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#5c6470" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="7" r="3.25"></circle><path d="M4 17a6 6 0 0 1 12 0"></path></svg><h3>Self-assessed</h3></div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 10px;">
+    <h2>Surfaces</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <div class="card" style="display: flex; flex-direction: column; gap: 6px;"><h2>Card</h2><p class="body">card / line / 12px radius / 16px padding</p></div>
+      <section class="disclosure-panel" style="display: flex; flex-direction: column; gap: 6px;">
+  <p class="disclosure-headline">Pressing Grade sends three things, and nothing else:</p>
+  <ul class="disclosure-list" style="display: flex; flex-direction: column; gap: 2px;">
+    <li>the question on screen</li>
+    <li>its reference answer and rubric</li>
+    <li>the answer you have typed</li>
+  </ul>
+  <p class="muted small"><strong>Where it goes:</strong> OpenAI, through Codex on this Mac. No API key is used.</p>
+</section>
+      <div style="display: flex; flex-direction: column; gap: 8px;"><p class="phi-warning"><strong>No patient identifiers or HIPAA material.</strong></p><p class="warn small" style="padding: 8px 12px;">Held: warn on warn-bg with a 1px warn border.</p></div>
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

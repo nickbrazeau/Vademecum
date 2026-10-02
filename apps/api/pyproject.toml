@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vademecum-api"
+version = "0.1.0"
+description = "Local-first clinical-learning workspace: local API and storage"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    # Reads PDF page text. Pure Python, no native build, no network, and it
+    # opens nothing but the file object it is handed (ingest/extract.py).
+    "pypdf>=5.1",
+    # Parses OOXML parts and PubMed XML with DTDs and entity expansion refused.
+    # The alternative is trusting expat's defaults, which is the whole XXE and
+    # billion-laughs surface (ingest/extract.py, literature/pubmed.py).
+    "defusedxml>=0.7",
+    # FastAPI needs this to accept multipart/form-data, which is how source
+    # files are uploaded. Without it every upload is a 500.
+    "python-multipart>=0.0.9",
+    # Pictures in a document (ADR 0013): decodes what pypdf and the OOXML
+    # archives hand over, bounds it, and writes PNG or JPEG. No network.
+    "pillow>=10",
+    # On-device page rendering and text recognition on macOS (ADR 0013): thin
+    # bindings to Quartz and Vision, the frameworks Preview uses. Imported
+    # lazily; without them there is no OCR and the coverage record says so.
+    "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
+    "pyobjc-framework-Vision>=10; sys_platform == 'darwin'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "httpx>=0.27",
+    # Drives installed Chrome against an isolated local app with fake providers.
+    "playwright>=1.45",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vademecum = ["db/migrations/*.sql"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

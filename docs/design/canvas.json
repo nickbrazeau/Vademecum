@@ -1,0 +1,247 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Today + Tutor"
+    },
+    {
+      "id": "page-3",
+      "name": "Sources · Map · Model"
+    },
+    {
+      "id": "page-2",
+      "name": "Tokens"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Today — iPhone",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 4600,
+      "page": "page-1"
+    },
+    {
+      "file": "TodayDesktop.dc.html",
+      "title": "Today — desktop",
+      "x": 480,
+      "y": 0,
+      "w": 1440,
+      "h": 3400,
+      "page": "page-1"
+    },
+    {
+      "file": "TutorAnswering.dc.html",
+      "title": "Tutor — answering",
+      "x": 0,
+      "y": 4740,
+      "w": 390,
+      "h": 1420,
+      "page": "page-1"
+    },
+    {
+      "file": "TutorGraded.dc.html",
+      "title": "Tutor — graded",
+      "x": 480,
+      "y": 4740,
+      "w": 390,
+      "h": 2300,
+      "page": "page-1"
+    },
+    {
+      "file": "TutorUnavailable.dc.html",
+      "title": "Tutor — model unavailable",
+      "x": 960,
+      "y": 4740,
+      "w": 390,
+      "h": 2450,
+      "page": "page-1"
+    },
+    {
+      "file": "TutorDark.dc.html",
+      "title": "Tutor — dark",
+      "x": 1440,
+      "y": 4740,
+      "w": 390,
+      "h": 1420,
+      "page": "page-1"
+    },
+    {
+      "file": "FlagDialog.dc.html",
+      "title": "Flag a gap (⌘K)",
+      "x": 1920,
+      "y": 4740,
+      "w": 390,
+      "h": 844,
+      "page": "page-1"
+    },
+    {
+      "file": "TutorDesktop.dc.html",
+      "title": "Tutor — desktop, graded",
+      "x": 0,
+      "y": 7330,
+      "w": 1440,
+      "h": 1550,
+      "page": "page-1"
+    },
+    {
+      "file": "Tokens.dc.html",
+      "title": "Design tokens",
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 1800,
+      "page": "page-2"
+    },
+    {
+      "file": "Sources.dc.html",
+      "title": "Sources — iPhone",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 2520,
+      "page": "page-3"
+    },
+    {
+      "file": "SourcesDesktop.dc.html",
+      "title": "Sources — desktop",
+      "x": 480,
+      "y": 0,
+      "w": 1440,
+      "h": 1950,
+      "page": "page-3"
+    },
+    {
+      "file": "ImprovementMap.dc.html",
+      "title": "Improvement Map — iPhone",
+      "x": 0,
+      "y": 2660,
+      "w": 390,
+      "h": 1900,
+      "page": "page-3"
+    },
+    {
+      "file": "ImprovementMapDesktop.dc.html",
+      "title": "Improvement Map — desktop",
+      "x": 480,
+      "y": 2660,
+      "w": 1440,
+      "h": 1060,
+      "page": "page-3"
+    },
+    {
+      "file": "Model.dc.html",
+      "title": "Model — signed in",
+      "x": 2000,
+      "y": 2660,
+      "w": 390,
+      "h": 1130,
+      "page": "page-3"
+    },
+    {
+      "file": "ModelSignIn.dc.html",
+      "title": "Model — sign in",
+      "x": 2480,
+      "y": 2660,
+      "w": 390,
+      "h": 1250,
+      "page": "page-3"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-scope",
+      "x": 0,
+      "y": -200,
+      "w": 380,
+      "page": "page-1",
+      "text": "Today + Tutor, evolved from the current paper/ink look. Token values are lifted from apps/web/src/styles.css. Sample clinical content is illustrative; PMIDs and DOIs are placeholders."
+    },
+    {
+      "id": "note-unstyled",
+      "x": 480,
+      "y": -200,
+      "w": 420,
+      "page": "page-1",
+      "text": "Nine classes the pages already emit have no CSS today (badges, support-*, tags, provenance, quote, prompt, disclosure-panel, attempt, point). This pass gives each a style; the Tokens page collects them."
+    },
+    {
+      "id": "note-labels",
+      "x": 1500,
+      "y": -200,
+      "w": 380,
+      "page": "page-1",
+      "text": "Section headings become small uppercase labels (sans 12/600) so the serif content leads. Card headings stay sans 17/600."
+    },
+    {
+      "id": "note-graded",
+      "x": 480,
+      "y": 4570,
+      "w": 380,
+      "page": "page-1",
+      "text": "After a grade the textarea becomes a read-only copy of the answer and the actions collapse to Next question. Today the textarea stays editable under the result."
+    },
+    {
+      "id": "note-unavailable",
+      "x": 960,
+      "y": 4570,
+      "w": 380,
+      "page": "page-1",
+      "text": "Model unavailable: nothing is dressed as a grade. The failure line is red text, not a card; the self-assessment offer is its own card and its outcome carries a person mark, never a check."
+    },
+    {
+      "id": "note-tokens",
+      "x": 1000,
+      "y": 0,
+      "w": 380,
+      "page": "page-2",
+      "text": "Proposed additions to :root — accent-tint, accent-line, fail-bg, fail-line, tag-bg — with dark-mode counterparts. Everything else is already in styles.css."
+    },
+    {
+      "id": "note-column",
+      "x": 1000,
+      "y": -200,
+      "w": 420,
+      "page": "page-1",
+      "text": "Decided 2026-09-17: one reading column at every width (max 46rem), accept the scroll. Desktop differs only in the header, where the nav sits beside the wordmark."
+    },
+    {
+      "id": "note-collapse",
+      "x": 480,
+      "y": 4570,
+      "w": 380,
+      "page": "page-1",
+      "text": "Decided: after a grade the question card collapses to prompt + support + a read-only copy of the answer, so the feedback sits higher on a phone. Next question moves below the reference."
+    },
+    {
+      "id": "note-sources",
+      "x": 0,
+      "y": -170,
+      "w": 420,
+      "page": "page-3",
+      "text": "Sources is the intake surface, so it is denser: 44px rows, 12px sans metadata, a 56px coverage mini-bar per pile, files as compact rows with a type chip. One pile is shown expanded."
+    },
+    {
+      "id": "note-map",
+      "x": 480,
+      "y": -170,
+      "w": 460,
+      "page": "page-3",
+      "text": "Improvement Map as a graph (Obsidian-style): nodes are topics, size = open flags, colour = specialty cluster, edges = topics sharing a source pile or learning point. Drag, tap to select, pinch/scroll to zoom. Needs a `links` field the API does not return yet — see DESIGN.md."
+    },
+    {
+      "id": "note-model",
+      "x": 2000,
+      "y": -170,
+      "w": 420,
+      "page": "page-3",
+      "text": "Model: two states shown. The one-time code lives in component state only; the verification link is a link, never auto-opened."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-3"
+  }
+}

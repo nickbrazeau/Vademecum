@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vademecum tutor</title>
+<style>
+:root { color-scheme: light dark; --fg: #1d1d1f; --bg: transparent; --muted: #5c5c60; --line: #d9d9de;
+  --accent: #2b5d8c; --held: #8a5a00; --ok: #2f6b3a; --warn: #a52a2a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --fg: #ececec; --muted: #a9a9b0;
+  --line: #34353a; --accent: #8fb8e8; --held: #e0b25a; --ok: #8fd19e; --warn: #ff8a80; } }
+:root[data-theme="dark"] { --fg: #ececec; --muted: #a9a9b0; --line: #34353a; --accent: #8fb8e8;
+  --held: #e0b25a; --ok: #8fd19e; --warn: #ff8a80; }
+body { margin: 0; padding: 12px 16px 14px; background: var(--bg); color: var(--fg);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+h1 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 .4rem; }
+h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 1rem 0 .3rem; }
+p { margin: 0 0 .5rem; }
+.prompt { font-size: 1.1rem; font-weight: 600; line-height: 1.35; margin: 0 0 .5rem; }
+.badge { display: inline-block; font-size: .75rem; padding: .1rem .5rem; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); margin-right: .4rem; }
+.badge.evidence { color: var(--ok); border-color: var(--ok); }
+.outcome { font-weight: 600; }
+.outcome.correct { color: var(--ok); } .outcome.partially_correct { color: var(--held); }
+.outcome.incorrect, .outcome.unable_to_grade { color: var(--warn); }
+.muted { color: var(--muted); } .small { font-size: .85rem; }
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+button { font: inherit; font-weight: 600; padding: .55rem .9rem; min-height: 40px; border-radius: 8px;
+  border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+button.secondary { background: transparent; color: var(--accent); }
+button[disabled] { opacity: .6; cursor: default; }
+blockquote { margin: .25rem 0 .5rem; padding: .1rem 0 .1rem .75rem; border-left: 3px solid var(--line); }
+footer { margin-top: 1rem; padding-top: .6rem; border-top: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main id="root" aria-live="polite"><p class="muted">Loading the question…</p></main>
+<footer>Educational only. Not a substitute for clinical judgment, current institutional guidance or a specialist.
+Reference-based feedback on your own material; nothing here is clinically validated.</footer>
+<script>
+(function () {
+  "use strict";
+  var root = document.getElementById("root");
+  var state = { out: null, busy: false };
+  var OUTCOME = {
+    correct: "Correct", partially_correct: "Partially correct", incorrect: "Incorrect",
+    unable_to_grade: "Unable to grade", self_assessed: "You judged this yourself"
+  };
+
+  function esc(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function n(value) { var v = Number(value); return isFinite(v) ? v : 0; }
+  function canCall() {
+    try { return !!(window.openai && typeof window.openai.callTool === "function"); } catch (error) { return false; }
+  }
+
+  function render(out) {
+    state.out = out;
+    if (!out || typeof out !== "object") {
+      root.innerHTML = '<p class="muted">Nothing to show yet.</p>';
+      fit();
+      return;
+    }
+    var question = out.question || null;
+    var attempt = out.attempt || null;
+    var cycle = out.cycle || {};
+    var html = "";
+
+    if (!question) {
+      html += "<h1>Tutor</h1><p>" + esc(out.empty_reason || out.message || "No question right now.") + "</p>";
+      root.innerHTML = html;
+      fit();
+      return;
+    }
+
+    html += "<h1>Tutor";
+    if (n(cycle.total) > 0) html += ' · <span class="muted">' + n(cycle.remaining) + " left in this pass</span>";
+    html += "</h1>";
+    html += '<p class="prompt">' + esc(question.prompt) + "</p>";
+    var support = question.support_label || "";
+    if (support) html += '<span class="badge ' + (question.support === "evidence_supported" ? "evidence" : "") + '">' + esc(support) + "</span>";
+    if (question.evidence_grade_label) html += '<span class="badge">' + esc(question.evidence_grade_label) + "</span>";
+
+    if (out.pending) {
+      html += '<p class="muted small" style="margin-top:.6rem">Your assistant is grading your answer now.</p>';
+    } else if (out.message && !attempt) {
+      html += '<p class="small" style="margin-top:.6rem">' + esc(out.message) + "</p>";
+    } else if (out.unavailable) {
+      html += '<p class="small" style="margin-top:.6rem">' + esc(out.unavailable) + "</p>";
+    } else if (!attempt && question.reference_answer === undefined) {
+      html += '<p class="muted small" style="margin-top:.6rem">Answer in your own words in the chat. Then ask to grade it, or reveal the reference.</p>';
+    }
+
+    if (attempt) {
+      var key = attempt.outcome || "";
+      html += "<h2>Result</h2>";
+      html += '<p class="outcome ' + esc(key) + '">' + esc(OUTCOME[key] || key) + "</p>";
+      if (attempt.feedback) html += "<p>" + esc(attempt.feedback) + "</p>";
+      if (attempt.strengths) html += '<p class="small"><strong>Did well:</strong> ' + esc(attempt.strengths) + "</p>";
+      if (attempt.missing_or_unsafe) html += '<p class="small"><strong>Missing or unsafe:</strong> ' + esc(attempt.missing_or_unsafe) + "</p>";
+      if (attempt.improved_answer) html += '<p class="small"><strong>A better answer:</strong> ' + esc(attempt.improved_answer) + "</p>";
+      if (attempt.uncertainty) html += '<p class="muted small">' + esc(attempt.uncertainty) + "</p>";
+    }
+
+    if (question.reference_answer !== undefined) {
+      html += "<h2>Reference answer</h2><blockquote>" + esc(question.reference_answer) + "</blockquote>";
+      if (question.rubric) html += '<p class="muted small"><strong>Rubric:</strong> ' + esc(question.rubric) + "</p>";
+    }
+
+    if (canCall()) {
+      html += '<div class="actions">';
+      if (question.reference_answer === undefined && !out.pending) {
+        html += '<button type="button" class="secondary" data-act="reveal">Reveal reference</button>';
+      }
+      html += '<button type="button" data-act="next">Next question</button>';
+      html += "</div>";
+    }
+    root.innerHTML = html;
+    fit();
+  }
+
+  root.addEventListener("click", function (event) {
+    var button = event.target && event.target.closest ? event.target.closest("button[data-act]") : null;
+    if (!button || state.busy || !state.out || !state.out.question) return;
+    var id = state.out.question.id;
+    var act = button.getAttribute("data-act");
+    state.busy = true;
+    button.disabled = true;
+    var call = act === "reveal"
+      ? window.openai.callTool("tutor_reveal", { question_id: id })
+      : window.openai.callTool("tutor_advance", { question_id: id });
+    Promise.resolve(call).then(function (result) {
+      var out = result && (result.structuredContent || result.structured_content || result.result || result);
+      if (act === "reveal" && out && out.question) {
+        render(Object.assign({}, state.out, { question: out.question }));
+      } else if (out && typeof out === "object") {
+        render(out);
+      }
+    }).catch(function () {
+      state.busy = false;
+      button.disabled = false;
+    }).then(function () { state.busy = false; });
+  });
+
+  function fit() {
+    try {
+      if (window.openai && typeof window.openai.notifyIntrinsicHeight === "function") {
+        window.openai.notifyIntrinsicHeight(document.documentElement.scrollHeight);
+      }
+    } catch (error) { /* the host decides the height */ }
+  }
+  function theme() {
+    try {
+      var t = window.openai && window.openai.theme;
+      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (error) { /* system preference applies */ }
+  }
+  function current() {
+    try { return window.openai && window.openai.toolOutput ? window.openai.toolOutput : null; } catch (error) { return null; }
+  }
+
+  window.addEventListener("message", function (event) {
+    if (event.source !== window.parent) return;
+    var message = event.data;
+    if (message && message.method === "ui/notifications/tool-result") {
+      render(message.params && message.params.structuredContent);
+    }
+  }, { passive: true });
+  window.addEventListener("openai:set_globals", function () { theme(); render(current()); });
+  theme();
+  render(current());
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1023 @@
+/*
+ * Mobile first, then desktop. One CSS baseline: no vendor-prefix layer, no
+ * polyfill bundle, nothing loaded from a CDN (ADR 0002, ADR 0004).
+ *
+ * Body text is 16px or larger so iOS Safari does not zoom on focus, and every
+ * interactive target is at least 44x44px.
+ */
+
+:root {
+  --paper: #f7f5f0;
+  --ink: #1c1e22;
+  --muted: #5c6470;
+  --line: #dcd7cc;
+  --card: #fffefb;
+  --accent: #2f5d50;
+  --accent-ink: #ffffff;
+  --accent-tint: #e6efec;
+  --accent-line: #b8d3ca;
+  --warn: #7a4a12;
+  --warn-bg: #fdf3e3;
+  --fail: #8a2020;
+  --fail-bg: #f6e3e3;
+  --fail-line: #d9a3a3;
+  --tag-bg: #edeae2;
+  --tier-low: #7b8794;
+  --tier-mid: #b07d2b;
+  --tier-high: #2f5d50;
+  --radius: 12px;
+  --tap: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14161a;
+    --ink: #e8e6e1;
+    --muted: #9aa2ad;
+    --line: #2b2f36;
+    --card: #1b1e23;
+    --accent: #6fae9b;
+    --accent-ink: #10221d;
+    --accent-tint: #1d2c28;
+    --accent-line: #35594f;
+    --warn: #e0b877;
+    --warn-bg: #2a2318;
+    --fail: #e08b8b;
+    --fail-bg: #2c1b1b;
+    --fail-line: #6b3535;
+    --tag-bg: #23272e;
+    --tier-low: #8d97a3;
+    --tier-mid: #cf9c4a;
+    --tier-high: #6fae9b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  font: 16px/1.55 ui-serif, Georgia, 'Times New Roman', serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+}
+
+h1,
+h2,
+h3,
+h4,
+legend,
+.nav,
+.button,
+kbd {
+  font-family: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+}
+
+h1 {
+  font-size: 1.25rem;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+/* Section labels are small and quiet so the serif content leads (docs/design). */
+h2 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+h3 {
+  font-size: 1.0625rem;
+  margin: 0 0 0.25rem;
+}
+
+h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0.5rem 0 0.25rem;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: var(--tap);
+}
+
+.nav {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.nav a {
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  color: var(--muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.nav a[aria-current='page'] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.list > li {
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.list > li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.body {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 0.875rem;
+}
+
+.ok {
+  color: var(--accent);
+}
+
+.failure {
+  color: var(--fail);
+}
+
+.tiers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tier {
+  display: inline-block;
+  min-width: 3.5rem;
+  padding: 0.1rem 0.5rem;
+  margin-right: 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--accent-ink);
+  text-align: center;
+}
+
+.tier-low {
+  background: var(--tier-low);
+}
+.tier-mid {
+  background: var(--tier-mid);
+}
+.tier-high {
+  background: var(--tier-high);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.field > span,
+legend {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+input[type='text'],
+textarea {
+  font: inherit;
+  font-size: 1rem; /* 16px minimum: iOS Safari zooms on anything smaller */
+  min-height: var(--tap);
+  padding: 0.6rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+textarea {
+  min-height: 7rem;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.tier-picker {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tier-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: var(--tap);
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.button {
+  font-size: 1rem;
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.button.ghost {
+  background: transparent;
+}
+
+.button.small {
+  min-height: 2rem;
+  font-size: 0.85rem;
+  padding: 0 0.6rem;
+  margin-left: 0.5rem;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+kbd {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* The keyboard hint is meaningless on a phone; the button is not. */
+@media (max-width: 34rem) {
+  .flag-button kbd {
+    display: none;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.disclosure {
+  font: inherit;
+  min-height: var(--tap);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.items {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.phi-warning {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.privacy dt {
+  font-weight: 600;
+  margin-top: 0.6rem;
+}
+
+.privacy dd {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+}
+
+.unavailable {
+  border: 1px solid var(--fail);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.offline {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.quick-flag {
+  width: min(34rem, calc(100vw - 2rem));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+  padding: 1rem;
+}
+
+.quick-flag::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.quick-flag form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.footer {
+  margin: 2rem 0 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* --- the model connection (ADR 0006) --- */
+
+.state-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.badge-signed_in {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.badge-rate_limited,
+.badge-unavailable {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.plan {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.steps {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* Big enough to read off a screen and type into a phone, and monospaced so a
+   zero cannot be mistaken for an O. */
+.device-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.25rem;
+  letter-spacing: 0.12em;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  user-select: all;
+}
+
+.usage-bar {
+  height: 8px;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.usage-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .usage-fill {
+    transition: width 200ms ease-out;
+  }
+}
+
+/* --- generated material, provenance and disclosure (docs/design) --- */
+
+/* The question itself leads the page. */
+.prompt {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin: 0.5rem 0 0.75rem;
+  text-wrap: pretty;
+}
+
+.prompt-compact {
+  font-size: 1.125rem;
+}
+
+/* A read-only copy of the answer once an attempt exists. */
+.answer-given {
+  margin: 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--accent-line);
+  font-size: 0.9375rem;
+  white-space: pre-wrap;
+}
+
+/* One pill shape; the tint carries the one distinction that matters. */
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.25rem 0;
+}
+
+.support-evidence_supported {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.support-source_supported {
+  color: var(--muted);
+}
+
+.support-uncertain,
+.support-conflicting,
+.badge-held,
+.badge-corrected {
+  background: var(--warn-bg);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.badge-retracted {
+  background: var(--fail-bg);
+  border-color: var(--fail-line);
+  color: var(--fail);
+}
+
+/* Topic tags: quieter than badges, so they never compete with support state. */
+.tags {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.tag {
+  font-family: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  background: var(--tag-bg);
+  color: var(--muted);
+}
+
+/* Where a claim came from sits visibly under it: a hairline, then the evidence. */
+.provenance {
+  margin-top: 0.5rem;
+  padding-top: 0.625rem;
+  border-top: 1px dashed var(--line);
+}
+
+.provenance h4 {
+  margin-top: 0;
+}
+
+.provenance .list > li {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.quote {
+  margin: 0.25rem 0 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--line);
+  font-style: italic;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* What is about to leave this Mac, said above the button that sends it. */
+.disclosure-panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.disclosure-headline {
+  font-family: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.disclosure-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+/* A grade that was not the model's is marked as such. */
+.attempt-self {
+  border-style: dashed;
+}
+
+/* --- Sources: the intake surface is denser than the cover sheet (docs/design) --- */
+
+.dense .list {
+  gap: 0;
+}
+
+.dense .list > li {
+  padding-bottom: 0;
+}
+
+.pile-row {
+  gap: 0.625rem;
+  padding: 0.375rem 0;
+}
+
+.pile-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.pile-row .title {
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.row-meta {
+  font-family: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--muted);
+  margin: 0;
+}
+
+.mini-bar {
+  flex: none;
+  width: 56px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.mini-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.chevron {
+  flex: none;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chevron {
+    transition: transform 150ms ease-out;
+  }
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.file-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.file-row:last-child {
+  border-bottom: none;
+}
+
+.file-row-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.file-row-main .title {
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+
+.file-icon {
+  flex: none;
+  width: 28px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  font: 600 9px/1 ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.file-row.excluded .title,
+.file-row.excluded .file-icon {
+  opacity: 0.55;
+}
+
+/* --- the Improvement Map as a graph (docs/design) --- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.5rem 0;
+}
+
+.chip {
+  font: 500 0.8125rem/1.5 ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  min-height: 2rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.chip.on {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.topic-graph {
+  position: relative;
+}
+
+.topic-graph-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+}
+
+.topic-graph-controls .button.small {
+  margin-left: 0;
+  min-width: 2.25rem;
+}
+
+.topic-graph-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.topic-edge {
+  stroke: var(--line);
+}
+
+.topic-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.topic-node:focus-visible .topic-dot {
+  stroke-width: 3;
+}
+
+.topic-hit {
+  fill: transparent;
+}
+
+.topic-dot {
+  fill: var(--card);
+  stroke: var(--muted);
+}
+
+.topic-ring {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+/* Fourteen specialties, one hue each, all at a similar weight so no field shouts.
+   Light values sit around L 45 in oklch; dark values are the same hues lifted. */
+:root {
+  --spec-general-internal-medicine: #5c6470;
+  --spec-cardiology: #a5443b;
+  --spec-pulmonology: #3b6ea5;
+  --spec-gastroenterology: #b07d2b;
+  --spec-nephrology: #2f7f9e;
+  --spec-endocrinology: #8a6d3b;
+  --spec-rheumatology: #7a5aa0;
+  --spec-allergy-immunology: #c2698c;
+  --spec-infectious-disease: #2f5d50;
+  --spec-neurology: #4f6b2f;
+  --spec-hematology: #8a2020;
+  --spec-oncology: #5a4a8a;
+  --spec-dermatology: #b5652b;
+  --spec-psychiatry: #6b8a8a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --spec-general-internal-medicine: #9aa2ad;
+    --spec-cardiology: #e08b8b;
+    --spec-pulmonology: #7fa8d8;
+    --spec-gastroenterology: #cf9c4a;
+    --spec-nephrology: #6fb4cf;
+    --spec-endocrinology: #c9a86a;
+    --spec-rheumatology: #b39ad3;
+    --spec-allergy-immunology: #e5a0bb;
+    --spec-infectious-disease: #6fae9b;
+    --spec-neurology: #9ab86f;
+    --spec-hematology: #e08b8b;
+    --spec-oncology: #a394cf;
+    --spec-dermatology: #e0995f;
+    --spec-psychiatry: #9fbdbd;
+  }
+}
+
+.spec-general-internal-medicine { --spec: var(--spec-general-internal-medicine); }
+.spec-cardiology { --spec: var(--spec-cardiology); }
+.spec-pulmonology { --spec: var(--spec-pulmonology); }
+.spec-gastroenterology { --spec: var(--spec-gastroenterology); }
+.spec-nephrology { --spec: var(--spec-nephrology); }
+.spec-endocrinology { --spec: var(--spec-endocrinology); }
+.spec-rheumatology { --spec: var(--spec-rheumatology); }
+.spec-allergy-immunology { --spec: var(--spec-allergy-immunology); }
+.spec-infectious-disease { --spec: var(--spec-infectious-disease); }
+.spec-neurology { --spec: var(--spec-neurology); }
+.spec-hematology { --spec: var(--spec-hematology); }
+.spec-oncology { --spec: var(--spec-oncology); }
+.spec-dermatology { --spec: var(--spec-dermatology); }
+.spec-psychiatry { --spec: var(--spec-psychiatry); }
+
+.topic-node[class*='spec-'] .topic-dot {
+  stroke: var(--spec);
+  fill: color-mix(in srgb, var(--spec) 16%, var(--card));
+}
+
+.topic-node[class*='spec-'] .topic-ring {
+  stroke: var(--spec);
+}
+
+.node-unassigned .topic-dot {
+  fill: var(--card);
+  stroke: var(--muted);
+  stroke-dasharray: 3 2;
+}
+
+.node-unfiled .topic-dot {
+  fill: var(--tag-bg);
+  stroke: var(--line);
+}
+
+.topic-label {
+  font: 11px/1 ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  fill: var(--ink);
+  pointer-events: none;
+}
+
+.node-unfiled .topic-label,
+.node-unassigned .topic-label {
+  fill: var(--muted);
+}
+
+.topic-node.selected .topic-label {
+  font-weight: 600;
+}
+
+.graph-legend {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 1rem;
+  font-family: ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.graph-legend li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.legend-toggle {
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0 0.5rem;
+  margin: 0 -0.5rem;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+}
+
+.legend-toggle:disabled {
+  cursor: default;
+}
+
+.legend-toggle.off {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.legend-toggle.off .legend-swatch {
+  background: transparent;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid var(--spec, var(--muted));
+  background: color-mix(in srgb, var(--spec, var(--muted)) 16%, var(--card));
+}
+
+.node-unassigned .legend-swatch {
+  border-style: dashed;
+  background: var(--card);
+}
+
+.specialty-field select {
+  font: inherit;
+  font-size: 1rem;
+  min-height: var(--tap);
+  padding: 0 0.6rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.selected-topic {
+  border-color: var(--accent-line);
+}

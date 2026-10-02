@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vademecum-mcp"
+version = "0.1.0"
+description = "Vademecum as an MCP server: the local API, reachable from ChatGPT and Claude"
+requires-python = ">=3.12"
+dependencies = [
+    # The Model Context Protocol itself: streamable HTTP, session handling,
+    # tool schemas, and the OAuth 2.1 authorization-server handlers that two
+    # different hosts (ChatGPT, Claude) have to interoperate with. Hand-rolling
+    # that is exactly the kind of risk a dependency is allowed to remove
+    # (AGENTS.md, engineering expectations; ADR 0008 records the reasoning).
+    "mcp>=2.2,<3",
+    # The client for the local API on 127.0.0.1. It is already a development
+    # dependency of the API; here it is the one runtime HTTP client, and
+    # api_client.py refuses any base URL that is not loopback.
+    "httpx>=0.27",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "starlette",
+    "uvicorn>=0.30",
+]
+# Also requires the local `vademecum-api` package, for the shared data-directory
+# rules in vademecum.config. scripts/dev.sh installs both into one virtualenv;
+# it is not on PyPI, so it cannot be listed above.
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2", "anyio>=4.9"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vademecum_mcp = ["widgets/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "vademecum": {
+      "command": "./scripts/mcp.sh",
+      "args": ["--stdio"]
+    }
+  }
+}

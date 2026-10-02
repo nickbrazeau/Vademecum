@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+/* Vademecum design tokens — lifted verbatim from apps/web/src/styles.css,
+   then extended for the classes the pages use but the stylesheet never
+   defined (badges, support-*, tags, provenance, quote, prompt, disclosure,
+   attempt, point, update). Evolution, not replacement. */
+
+:root {
+  --paper: #f7f5f0;
+  --ink: #1c1e22;
+  --muted: #5c6470;
+  --line: #dcd7cc;
+  --card: #fffefb;
+  --accent: #2f5d50;
+  --accent-ink: #ffffff;
+  --accent-tint: #e6efec;
+  --accent-line: #b8d3ca;
+  --warn: #7a4a12;
+  --warn-bg: #fdf3e3;
+  --fail: #8a2020;
+  --fail-bg: #f6e3e3;
+  --fail-line: #d9a3a3;
+  --tag-bg: #edeae2;
+  --tier-low: #7b8794;
+  --tier-mid: #b07d2b;
+  --tier-high: #2f5d50;
+  --radius: 12px;
+  --tap: 44px;
+  --sans: -apple-system, 'Helvetica Neue', system-ui, sans-serif;
+  --serif: Georgia, 'Times New Roman', serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dark {
+  --paper: #14161a;
+  --ink: #e8e6e1;
+  --muted: #9aa2ad;
+  --line: #2b2f36;
+  --card: #1b1e23;
+  --accent: #6fae9b;
+  --accent-ink: #10221d;
+  --accent-tint: #1d2c28;
+  --accent-line: #35594f;
+  --warn: #e0b877;
+  --warn-bg: #2a2318;
+  --fail: #e08b8b;
+  --fail-bg: #2c1b1b;
+  --fail-line: #6b3535;
+  --tag-bg: #23272e;
+  --tier-low: #8d97a3;
+  --tier-mid: #cf9c4a;
+  --tier-high: #6fae9b;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 var(--serif); -webkit-text-size-adjust: 100%; }
+a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--ink); }
+p { margin: 0; }
+h1, h2, h3, h4 { margin: 0; font-family: var(--sans); }
+
+/* Wordmark and the calm section label (evolved: was 16px sans 600) */
+h1 { font-size: 20px; letter-spacing: 0.01em; font-weight: 600; }
+h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+h3 { font-size: 17px; font-weight: 600; }
+h4 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: var(--tap); }
+.nav { display: flex; gap: 4px; margin: 12px 0; border-bottom: 1px solid var(--line); overflow-x: auto; font-family: var(--sans); font-size: 15px; }
+.nav a { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 12px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+.nav a.current { color: var(--ink); border-bottom-color: var(--accent); }
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.list > li { padding-bottom: 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.list > li:last-child { border-bottom: none; padding-bottom: 0; }
+
+.title { font-weight: 600; }
+.body { color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 14px; line-height: 1.45; }
+.ok { color: var(--accent); }
+.failure { color: var(--fail); }
+
+/* The question itself leads the page */
+.prompt { font-size: 20px; line-height: 1.4; text-wrap: pretty; }
+
+/* Badges: one pill shape, meaning carried by tint */
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; font: 500 13px/1.5 var(--sans); border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+.support-evidence_supported { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent); }
+.support-source_supported { background: var(--paper); border-color: var(--line); color: var(--muted); }
+.support-uncertain, .support-conflicting, .badge-held, .badge-corrected { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.badge-retracted { background: var(--fail-bg); border-color: var(--fail-line); color: var(--fail); }
+
+.tags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font: 12px/1.5 var(--sans); padding: 2px 8px; border-radius: 4px; background: var(--tag-bg); color: var(--muted); }
+
+.tier { display: inline-flex; align-items: center; justify-content: center; min-width: 56px; padding: 1px 8px; border-radius: 999px; font: 500 12px/1.6 var(--sans); color: #ffffff; }
+.tier-low { background: var(--tier-low); }
+.tier-mid { background: var(--tier-mid); }
+.tier-high { background: var(--tier-high); }
+.tiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tiers li { display: flex; align-items: center; gap: 8px; }
+
+/* Where a claim came from: a hairline break, then the evidence, quotes hanging */
+.provenance { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.provenance .list { gap: 8px; }
+.provenance .list > li { border-bottom: none; padding-bottom: 0; gap: 4px; }
+.quote { margin: 4px 0 0; padding-left: 12px; border-left: 2px solid var(--line); font-style: italic; font-size: 15px; line-height: 1.5; color: var(--ink); }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field > span { font: 14px/1.4 var(--sans); color: var(--muted); }
+.textarea { font: 16px/1.55 var(--serif); min-height: 112px; padding: 10px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 8px; white-space: pre-wrap; }
+.textarea .placeholder { color: var(--muted); opacity: 0.7; }
+.input { font: 16px/1.55 var(--serif); min-height: var(--tap); padding: 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+
+.button { font: 16px/1 var(--sans); min-height: var(--tap); min-width: var(--tap); padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.button.ghost { background: transparent; }
+.button.disabled { opacity: 0.5; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+kbd { font: 12px/1 var(--sans); opacity: 0.8; padding: 2px 5px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; }
+
+.phi-warning { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14px; line-height: 1.45; }
+.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); border-radius: var(--radius); padding: 10px 12px; }
+
+/* What leaves this Mac, said before the button that sends it */
+.disclosure-panel { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.disclosure-headline { font: 600 14px/1.4 var(--sans); }
+.disclosure-list { margin: 0; padding-left: 20px; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; gap: 2px; }
+
+/* A grade, with its outcome marked once */
+.attempt-head { display: flex; align-items: center; gap: 8px; }
+.attempt-head svg { flex: none; }
+.attempt-self { border-style: dashed; }
+
+.usage-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.usage-fill { height: 100%; background: var(--accent); }
+
+.offline { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.privacy dt { font: 600 15px/1.5 var(--sans); margin-top: 8px; }
+.privacy dd { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+.privacy dl { margin: 0; }
+.footer { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.device-code { font: 20px/1.4 var(--mono); letter-spacing: 0.12em; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+
+
+  </style>
+</helmet>
+<div class="dark" style="width: 390px; min-height: 100%; background: var(--paper); color: var(--ink); padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 16px;"><header style="display: flex; flex-direction: column; gap: 0;">
+  <div class="header-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+    <h1>Vademecum</h1>
+    <div class="button primary" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px;">Flag a gap</div>
+  </div>
+  <nav class="nav" style="display: flex; gap: 4px; margin: 12px 0 0;"><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Today</a><a href="#" class="current" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Tutor</a><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Sources</a><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Improvement Map</a><a href="#" class="" style="min-height: 44px; display: inline-flex; align-items: center; padding: 0 12px;">Model</a></nav>
+</header>
+<main class="stack" style="display: flex; flex-direction: column; gap: 16px;">
+  <section class="card" style="display: flex; flex-direction: column; gap: 10px;">
+  <h2>Question</h2>
+  <p class="muted small">27 left in this pass · pass 3</p>
+  <p class="prompt">In an adult admitted with severe community-acquired pneumonia, which findings should prompt empiric MRSA coverage, and what would let you stop it early?</p>
+  <div class="badges" style="display: flex; flex-wrap: wrap; gap: 6px;">
+    <span class="badge support-evidence_supported">Evidence-supported, machine reviewed</span>
+    <span class="badge">Abstract quote matched</span>
+  </div>
+  <p class="muted small">Published literature was retrieved and a quote from its abstract was matched to the claim, and the question and its reference answer separately passed an assessment against that text. Not verified, not human-approved, not clinically validated.</p>
+  <ul class="tags" style="display: flex; flex-wrap: wrap; gap: 6px;"><li class="tag">Pneumonia</li><li class="tag">MRSA</li><li class="tag">Antimicrobial stewardship</li></ul>
+  <label class="field" style="display: flex; flex-direction: column; gap: 5px;">
+    <span>Your answer</span>
+    <div class="textarea" style="min-height: 176px;">Prior MRSA isolation or colonisation, recent hospitalisation with IV antibiotics, and severe disease (ICU, necrotising or cavitary pneumonia, post-influenza). Start vancomycin or linezolid, send a nasal MRSA PCR and cultures, and stop at 48 h if the PCR is negative and cultures show no MRSA.</div>
+  </label>
+  <p class="phi-warning"><strong>No patient identifiers or HIPAA material.</strong></p>
+  <section class="disclosure-panel" style="display: flex; flex-direction: column; gap: 6px;">
+  <p class="disclosure-headline">Pressing Grade sends three things, and nothing else:</p>
+  <ul class="disclosure-list" style="display: flex; flex-direction: column; gap: 2px;">
+    <li>the question on screen</li>
+    <li>its reference answer and rubric</li>
+    <li>the answer you have typed</li>
+  </ul>
+  <p class="muted small"><strong>Where it goes:</strong> OpenAI, through Codex on this Mac. No API key is used.</p>
+</section>
+  <div class="actions" style="display: flex; flex-wrap: wrap; gap: 8px;">
+    <div class="button primary">Grade with the model</div>
+    <div class="button">Show reference answer</div>
+    <div class="button ghost">Next question</div>
+  </div>
+</section>
+</main>
+<footer class="footer" style="margin-top: 16px; padding-top: 16px;">
+  <p class="muted small">A personal learning workspace, augmented by AI. Educational only — not a substitute for clinical judgment, current institutional guidance, or an appropriate specialist.</p>
+</footer></div>
+</x-dc>
+</body>
+</html>

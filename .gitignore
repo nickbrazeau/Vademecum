@@ -1,0 +1,47 @@
+# Runtime data never belongs in the checkout. The canonical location is the
+# configured data directory, outside the source tree (ADR 0003); these patterns
+# are defence in depth against a manual override that points inside it.
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+/data/
+exports/
+backups/
+attachments/
+logs/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+
+# Node / web
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+
+# The Claude desktop app drops files here when a session writes to this folder.
+# Nothing in the app reads it; it is not part of the checkout.
+Claude outputs/
+
+# The previous Vademecum, kept beside the rewrite for reference only (9 GB).
+# Nothing reads it at runtime (README, "Deliberately absent").
+Vademecum_arxive/
+# Scratch output from the Codex bridge; not part of the product.
+.codex-bridge/
