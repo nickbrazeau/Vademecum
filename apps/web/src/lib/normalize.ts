@@ -872,3 +872,24 @@ export function backupCheck(value: unknown): { ok: boolean; problems: string[] }
   const raw = obj(value)
   return { ok: bool(raw['ok']), problems: strings(raw['problems']) }
 }
+
+
+/** Builds on a timer (ADR 0018): a reply that lacks a field reads as "off, nothing known". */
+export function buildSchedule(raw: unknown): import('./types').BuildSchedule {
+  const data = (raw ?? {}) as Record<string, unknown>
+  const times = Array.isArray(data.times) ? data.times.map(String) : []
+  const lastRun = data.last_run && typeof data.last_run === 'object' ? (data.last_run as import('./types').ScheduledRun) : null
+  return {
+    enabled: data.enabled === true,
+    times,
+    batches_per_run: typeof data.batches_per_run === 'number' ? data.batches_per_run : 3,
+    consent_at: typeof data.consent_at === 'string' ? data.consent_at : null,
+    model_mode: data.model_mode === 'codex' ? 'codex' : 'host',
+    can_run: data.can_run === true,
+    blocked_reason: typeof data.blocked_reason === 'string' ? data.blocked_reason : '',
+    running: data.running === true,
+    next_run_at: typeof data.next_run_at === 'string' ? data.next_run_at : null,
+    last_run: lastRun && Array.isArray(lastRun.piles) ? lastRun : null,
+    disclosure: typeof data.disclosure === 'string' ? data.disclosure : ''
+  }
+}

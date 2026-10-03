@@ -196,6 +196,8 @@ def test_the_login_agent_runs_the_api_in_host_mode_and_logs_to_the_records(tmp_p
     assert agent["Label"] == "com.vademecum.api"
     assert agent["ProgramArguments"] == ["/venv/bin/python", "-m", "vademecum"]
     assert agent["EnvironmentVariables"] == {"VADEMECUM_MODEL_PROVIDER": "host"}
+    local.write_login_agent(plist, python="/venv/bin/python", working_directory=tmp_path / "checkout", log_path=tmp_path / "data" / "logs" / "api.log", model="codex")
+    assert plistlib.loads(plist.read_bytes())["EnvironmentVariables"] == {"VADEMECUM_MODEL_PROVIDER": "codex"}
     assert agent["RunAtLoad"] is True and agent["KeepAlive"] is True
     assert agent["StandardOutPath"].endswith("logs/api.log")
     assert (tmp_path / "data" / "logs").is_dir()

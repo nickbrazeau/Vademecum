@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { CoverageBar } from '../components/CoverageBar'
 import { ConfidenceBadge, ConfidenceMeaning } from '../components/ConfidenceBadge'
+import { BuildSchedule } from '../components/BuildSchedule'
 import { LiteratureSettings } from '../components/LiteratureSettings'
 import { PointCard } from '../components/PointCard'
 import { PaperLink } from '../components/PaperLink'
@@ -323,6 +324,8 @@ export function Today({
       </section>
 
       <LocalData />
+      <BuildSchedule onBuilt={reload} />
+
       <LiteratureSettings onChecked={reload} />
       <PrivacyNote />
     </div>

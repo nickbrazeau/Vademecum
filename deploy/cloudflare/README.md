@@ -1,8 +1,10 @@
-# The seat: Vademecum's away node on Cloudflare
+# The sea: Vademecum's always-awake copy on Cloudflare
+
+(First called "the sea"; the deploy folder, the Worker's address and the secret names keep that word. The Mac is "the harbour".)
 
 One container running the same Vademecum the Mac runs, fronted by a Worker, with its records
 snapshotted to an R2 bucket so they survive the container being replaced
-([ADR 0017](../../docs/adr/0017-the-seat-on-cloudflare.md)). The Mac stays **home** and syncs
+([ADR 0017](../../docs/adr/0017-the-seat-on-cloudflare.md)). The Mac stays the **harbour** and syncs
 with it ([ADR 0015](../../docs/adr/0015-two-vademecums-that-sync.md)); the phone reaches the
 dashboard and the assistants' tools through it.
 
@@ -59,7 +61,7 @@ Everything below runs from `worker/`.
 
 ## Connect the Mac
 
-On the Mac, record the seat as the peer (the settings file both processes read). The Mac's
+On the Mac, record the sea as the peer (the settings file both processes read). The Mac's
 HTTPS client trusts the system keychain, so a workplace proxy is no obstacle here.
 
 ```sh
@@ -79,13 +81,13 @@ now. The first round carries the whole bank up.
 
 ## Things to know
 
-- Between snapshots the seat can lose up to five minutes of phone-side work if the container
+- Between snapshots the sea can lose up to five minutes of phone-side work if the container
   is replaced. The Mac is never behind by more than its last sync.
 - A single stored file over about 95 MB is not snapshotted (the Worker in front will not
-  carry more in one request); it stays on the Mac, which is home anyway.
-- The seat has no macOS frameworks: a file taken in on the phone is text-only until the Mac
+  carry more in one request); it stays on the Mac, which is the harbour anyway.
+- The sea has no macOS frameworks: a file taken in on the phone is text-only until the Mac
   has synced and read it properly.
-- After updating Vademecum, `npx wrangler deploy` again; the seat restores its records at boot.
+- After updating Vademecum, `npx wrangler deploy` again; the sea restores its records at boot.
 - This repository cannot test a Cloudflare deployment. The container pieces are tested in
   isolation; the Worker's container API should be checked against Cloudflare's current
   documentation for `@cloudflare/containers` at deploy time.

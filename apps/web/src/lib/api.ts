@@ -286,6 +286,16 @@ export const api = {
   recheckPile: (pileId: string) =>
     request(`/piles/${pileId}/recheck`, { method: 'POST' }).then(normalize.recheckResult),
 
+  // --- builds on a timer (ADR 0018) ---
+  //
+  // Setting `enabled` is a standing consent to what every run sends; the
+  // disclosure comes back with the schedule and is shown before the switch.
+  buildSchedule: () => request<unknown>('/build/schedule').then(normalize.buildSchedule),
+  saveBuildSchedule: (input: { enabled: boolean; times: string[]; batches_per_run: number }) =>
+    request<unknown>('/build/schedule', { method: 'PUT', ...body(input) }).then(normalize.buildSchedule),
+  /** Transmits, for every pile with unbuilt passages, exactly as Build would. */
+  runBuildsNow: () => request<unknown>('/build/schedule/run', { method: 'POST' }).then(normalize.buildSchedule),
+
   listPoints: (params: { pile_id?: string; held?: boolean } = {}) =>
     request<LearningPoint[]>(`/points${query(params)}`).then(normalize.points),
   retireMaterial: (pileId: string) =>

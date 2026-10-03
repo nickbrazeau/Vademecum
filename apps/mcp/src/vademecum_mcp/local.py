@@ -193,14 +193,20 @@ LOGIN_LABEL = "com.vademecum.api"
 LOGIN_AGENT = Path.home() / "Library" / "LaunchAgents" / f"{LOGIN_LABEL}.plist"
 
 
-def write_login_agent(path: Path, *, python: str, working_directory: Path, log_path: Path) -> None:
+def write_login_agent(
+    path: Path, *, python: str, working_directory: Path, log_path: Path, model: str = "host"
+) -> None:
+    """``model``: `host` (the assistant is the model) or `codex` (the Mac's own
+    Codex connection, which is what builds on a timer need, ADR 0018)."""
     import plistlib
 
+    if model not in ("host", "codex"):
+        raise ValueError(f"unknown model mode {model!r}")
     agent = {
         "Label": LOGIN_LABEL,
         "ProgramArguments": [python, "-m", "vademecum"],
         "WorkingDirectory": str(working_directory),
-        "EnvironmentVariables": {"VADEMECUM_MODEL_PROVIDER": "host"},
+        "EnvironmentVariables": {"VADEMECUM_MODEL_PROVIDER": model},
         "RunAtLoad": True,
         "KeepAlive": True,
         "ThrottleInterval": 10,

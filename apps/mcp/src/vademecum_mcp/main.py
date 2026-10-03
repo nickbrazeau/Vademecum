@@ -50,8 +50,12 @@ def _parser() -> argparse.ArgumentParser:
         "setup", help="register with Codex or Claude Desktop, choose the source folder, or start at login"
     )
     setup.add_argument("target", choices=["codex", "claude", "folder", "login", "sync"])
-    setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be; for `sync`: the seat's https address")
+    setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be; for `sync`: the sea's https address")
     setup.add_argument("--remove", action="store_true", help="for `login`: stop starting at login")
+    setup.add_argument(
+        "--model", choices=["host", "codex"], default="host",
+        help="for `login`: who does the model work; `codex` lets the Mac build on a timer",
+    )
     return parser
 
 
@@ -85,7 +89,7 @@ def run(argv: list[str] | None = None) -> int:
         if args.target == "folder":
             return _setup_folder(args.path)
         if args.target == "login":
-            return _setup_login(settings, remove=args.remove)
+            return _setup_login(settings, remove=args.remove, model=args.model)
         if args.target == "sync":
             return _setup_sync(args.path, remove=args.remove)
         return _setup(settings, args.target)
@@ -307,7 +311,7 @@ def _setup(settings: McpSettings, target: str) -> int:
     return 0
 
 
-def _setup_login(settings: McpSettings, *, remove: bool = False) -> int:
+def _setup_login(settings: McpSettings, *, remove: bool = False, model: str = "host") -> int:
     """Keep the API running from login, so the Dock app is always ready."""
     from vademecum.config import find_repo_root
 
@@ -326,12 +330,14 @@ def _setup_login(settings: McpSettings, *, remove: bool = False) -> int:
         return 2
     log_path = settings.resolve_data_dir() / "logs" / "api.log"
     local.write_login_agent(
-        local.LOGIN_AGENT, python=sys.executable, working_directory=root, log_path=log_path
+        local.LOGIN_AGENT, python=sys.executable, working_directory=root, log_path=log_path, model=model
     )
     if not local.load_login_agent(local.LOGIN_AGENT):
         print(f"Wrote {local.LOGIN_AGENT} but launchd did not accept it; see `launchctl` output.", file=sys.stderr)
         return 1
-    print(f"Vademecum starts at login and stays running ({local.LOGIN_AGENT.name}).")
+    print(f"Vademecum starts at login and stays running ({local.LOGIN_AGENT.name}), model work by {model}.")
+    if model == "codex":
+        print("Builds can run on a timer. Sign the Codex connection in on the dashboard's Model page if it is not already.")
     print(f"The dashboard is always at {settings.api_base_url} ; in Safari, File > Add to Dock puts it in the Dock.")
     print("If an assistant had already started Vademecum, the login copy waits for it to finish, then takes over.")
     print("After updating Vademecum, run this again to restart it on the new code.")
@@ -339,7 +345,7 @@ def _setup_login(settings: McpSettings, *, remove: bool = False) -> int:
 
 
 def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None = None) -> int:
-    """Record the seat as this Mac's peer (ADR 0015, 0017), in the settings file."""
+    """Record the sea as this Mac's peer (ADR 0015, 0017), in the settings file."""
     from urllib.parse import urlsplit
 
     from vademecum.config import settings_file_path, write_setting
@@ -347,22 +353,22 @@ def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None
     if remove:
         write_setting("SYNC_PEER_URL", "")
         write_setting("SYNC_TOKEN", "")
-        print("This Mac no longer syncs with a seat.")
+        print("This Mac no longer syncs with a sea.")
         return 0
     if not peer_url:
-        print("Give the seat's https address: setup sync https://...", file=sys.stderr)
+        print("Give the sea's https address: setup sync https://...", file=sys.stderr)
         return 64
     parts = urlsplit(peer_url.strip())
     if parts.scheme != "https" or not parts.hostname:
-        print("The seat's address must be an https:// origin.", file=sys.stderr)
+        print("The sea's address must be an https:// origin.", file=sys.stderr)
         return 2
     if token is None:
         if not sys.stdin.isatty():
             print("Set the sync token from a terminal; it is not read from a pipe.", file=sys.stderr)
             return 2
-        token = getpass.getpass("The seat's sync token (VADEMECUM_SYNC_ACCEPT_TOKEN there): ").strip()
+        token = getpass.getpass("The sea's sync token (VADEMECUM_SYNC_ACCEPT_TOKEN there): ").strip()
     if len(token) < 16:
-        print("The token is too short to be the seat's.", file=sys.stderr)
+        print("The token is too short to be the sea's.", file=sys.stderr)
         return 2
     origin = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
     write_setting("SYNC_PEER_URL", origin)
@@ -381,7 +387,7 @@ def _serve_http(settings: McpSettings, data_dir) -> int:
         return 2
     store = AccessStore(settings.access_db_path)
     if settings.tenancy == "single" and not store.has_passphrase() and len(settings.mcp_passphrase) >= MIN_LENGTH:
-        # A seat has no terminal to type into (ADR 0017): the passphrase
+        # The sea has no terminal to type into (ADR 0017): the passphrase
         # arrives once as a secret and is stored hashed like any other.
         store.set_passphrase(settings.mcp_passphrase)
         logger.info("passphrase_seeded")

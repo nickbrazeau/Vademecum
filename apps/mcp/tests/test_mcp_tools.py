@@ -52,6 +52,8 @@ EXPECTED_TOOLS = {
     "build_submit",
     "build_status",
     "build_cancel",
+    "build_schedule",
+    "build_now",
     "get_model_status",
     "tutor_overview",
     "tutor_next_question",
@@ -69,7 +71,7 @@ EXPECTED_TOOLS = {
 }
 
 # The tools that transmit content beyond the Mac, and only those, say so.
-TRANSMITTING = {"build_start", "tutor_grade", "literature_check"}
+TRANSMITTING = {"build_start", "build_now", "tutor_grade", "literature_check"}
 
 
 async def wait_for_build(client: Client, pile_id: str) -> dict:

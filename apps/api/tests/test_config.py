@@ -115,7 +115,9 @@ def test_an_unset_codex_path_falls_back_to_a_named_candidate() -> None:
 
 
 def test_the_chatgpt_app_is_the_first_place_looked(tmp_path: Path) -> None:
-    assert CODEX_CANDIDATES[0] == CHATGPT_APP_CODEX
+    from vademecum.config import CHATGPT_APP_CODEX_CLI
+
+    assert CODEX_CANDIDATES[:2] == (CHATGPT_APP_CODEX_CLI, CHATGPT_APP_CODEX), "the app's copy, in both places it has lived"
     assert CHATGPT_APP_CODEX.name == "codex"
 
 

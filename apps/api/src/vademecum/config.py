@@ -73,7 +73,11 @@ REPO_MARKERS = ("AGENTS.md", "apps")
 CHATGPT_APP_CODEX = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
 
 # Candidates, in order, when VADEMECUM_CODEX_PATH is unset.
+# The ChatGPT app has moved its copy once already; both places are tried.
+CHATGPT_APP_CODEX_CLI = Path("/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex")
+
 CODEX_CANDIDATES = (
+    CHATGPT_APP_CODEX_CLI,
     CHATGPT_APP_CODEX,
     Path("/usr/local/bin/codex"),
     Path("/opt/homebrew/bin/codex"),
@@ -169,16 +173,22 @@ class Settings(BaseSettings):
     parent_pid: int | None = None
 
     # --- a second Vademecum to sync with (ADR 0015) ---
-    # `home` keeps the files and does the reading; `away` is the copy a phone
-    # reaches while the Mac sleeps. Only home initiates. `sync_peer_url` and
-    # `sync_token` are home's view of away; `sync_accept_token` is what away
-    # requires of home. All empty means no sync at all.
-    sync_role: Literal["home", "away"] = "home"
+    # The `harbour` keeps the files and does the reading; the `sea` is the copy
+    # a phone reaches while the Mac sleeps. Only the harbour initiates.
+    # `sync_peer_url` and `sync_token` are the harbour's view of the sea;
+    # `sync_accept_token` is what the sea requires of the harbour. All empty
+    # means no sync at all. (`home` and `away` are the older spellings.)
+    sync_role: Literal["harbour", "sea", "home", "away"] = "harbour"
+
+    @property
+    def sync_role_name(self) -> Literal["harbour", "sea"]:
+        """The role in the current vocabulary, whichever spelling was set."""
+        return "sea" if self.sync_role in ("sea", "away") else "harbour"
     sync_peer_url: str = ""
     sync_token: str = ""
     sync_accept_token: str = ""
     sync_interval: float = Field(default=300.0, ge=10, le=86400)
-    # `lean` (the default, for a seat): records only, cited passages only, no
+    # `lean` (the default, for the sea): records only, cited passages only, no
     # files. `full`: everything, for a second machine that should hold it all.
     sync_scope: Literal["full", "lean"] = "lean"
 

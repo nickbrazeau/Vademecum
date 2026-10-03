@@ -1,6 +1,6 @@
 """What one Vademecum offers another (ADR 0015).
 
-The *away* node serves these; the *home* node calls them. They exist only when
+The *sea* serves these; the *harbour* calls them. They exist only when
 `sync_accept_token` is set, and every call must present that token in the
 `X-Vademecum-Sync` header; otherwise the routes answer as if they were not
 there. Single tenancy only: a node is one learner's workspace.
@@ -57,7 +57,7 @@ def require_peer(
 @router.get("/status", dependencies=[Depends(require_peer)])
 def sync_status(request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict:
     data = sync_store.state(connection)
-    data["role"] = get_settings_dep(request).sync_role
+    data["role"] = get_settings_dep(request).sync_role_name
     return data
 
 
@@ -85,13 +85,13 @@ def sync_apply(
 ) -> dict:
     settings = get_settings_dep(request)
     changes = [sync_store.Change.from_dict(item) for item in payload.changes]
-    # Files a row names arrive separately: the home node pushes rows only for
-    # files it has already placed, and away pulls files it lacks by name on
+    # Files a row names arrive separately: the harbour pushes rows only for
+    # files it has already placed, and fetches files the sea's rows name on
     # its own next turn. Here, a row whose file is absent is deferred.
     result = sync_store.apply_changes(
         connection,
         changes,
-        role=settings.sync_role,
+        role=settings.sync_role_name,
         directories=sync_store.file_kinds(source_dir),
         fetch=None,
         require_files=payload.files,

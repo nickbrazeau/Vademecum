@@ -709,3 +709,36 @@ export const PLAN_LABEL: Record<string, string> = {
   edu: 'Education',
   unknown: 'Unknown plan'
 }
+
+
+/** Builds on a timer (ADR 0018): the Mac working through the piles by itself. */
+export interface ScheduledPileOutcome {
+  pile_id: string
+  title: string
+  batches: number
+  points: number
+  status: string
+  detail: string
+}
+
+export interface ScheduledRun {
+  at: string
+  reason: string
+  ran: boolean
+  note: string
+  piles: ScheduledPileOutcome[]
+}
+
+export interface BuildSchedule {
+  enabled: boolean
+  times: string[]
+  batches_per_run: number
+  consent_at: string | null
+  model_mode: ModelMode
+  can_run: boolean
+  blocked_reason: string
+  running: boolean
+  next_run_at: string | null
+  last_run: ScheduledRun | null
+  disclosure: string
+}

@@ -349,6 +349,9 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/schematics/{schematic_id}",
         # The phone pack (ADR 0016).
         "/api/pack",
+        # Builds on a timer (ADR 0018): a standing consent, read and set here.
+        "/api/build/schedule",
+        "/api/build/schedule/run",
         # Two Vademecums that sync (ADR 0015): served only with a peer token.
         "/api/sync/status",
         "/api/sync/changes",

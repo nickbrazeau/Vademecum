@@ -1,19 +1,18 @@
 """Two Vademecums that sync (ADR 0015): the change log, and applying a peer's.
 
-One workspace is *home*: the Mac with the source folder, the originals and
-the on-device reading. The other is *away*: a copy a phone can reach while
+One workspace is the *harbour*: the Mac with the source folder, the originals and
+the on-device reading. The other is the *sea*: a copy a phone can reach while
 the Mac sleeps. Each keeps a change log (migration 0007, filled by triggers).
-Home initiates: it pulls away's changes and applies them, then pushes its own.
-Away applies what home sends. Neither logs what it applied from the other,
+The harbour initiates: it pulls the sea's changes and applies them, then pushes its own.
+The sea applies what the harbour sends. Neither logs what it applied from the other,
 which is what stops a change bouncing back and forth.
 
 Conflicts are avoided by ownership rather than resolved by cleverness:
 
-* **Home-owned** tables -- sources, their text and pictures, builds, learning
-  points, questions, evidence -- are made where the files are. Away may
-  *create* a source (a file from the phone, text-only until home has read
-  it) and home accepts rows it has never seen; every other change to these
-  tables flows home -> away only.
+* **Harbour-owned** tables -- sources, their text and pictures, builds, learning
+  points, questions, evidence -- are made where the files are. The sea may *create* a source (a file from the phone, text-only until home has read
+  it) and the harbour accepts rows it has never seen; every other change to
+  these tables flows harbour -> sea only.
 * **Shared** tables -- piles, flags, notes, Tutor attempts, literature topics,
   map positions, settings -- are written on either side. A row with
   `updated_at` goes to the later write; a row without one is insert-only and
@@ -38,11 +37,11 @@ from typing import Any, Literal
 from ..db import transaction
 from .common import utc_now
 
-Role = Literal["home", "away"]
-# What home pushes. `full`: everything, files included. `lean` (the seat,
-# ADR 0017): records only -- no files, no pictures, no schematics, and of the
-# text only the passages a learning point or a question cites, so the away
-# node stays small however large the library on the Mac grows.
+Role = Literal["harbour", "sea"]
+# What the harbour pushes. `full`: everything, files included. `lean` (the
+# sea, ADR 0017): records only -- no files, no pictures, no schematics, and of
+# the text only the passages a learning point or a question cites, so the sea
+# stays small however large the library on the Mac grows.
 Scope = Literal["full", "lean"]
 LEAN_SKIPPED: frozenset[str] = frozenset({"source_images", "schematics"})
 
@@ -76,7 +75,7 @@ SYNCED_TABLES: tuple[str, ...] = (
     "map_positions",
 )
 
-HOME_OWNED: frozenset[str] = frozenset(
+HARBOUR_OWNED: frozenset[str] = frozenset(
     {
         "sources",
         "source_segments",
@@ -220,7 +219,7 @@ def _cited(connection: sqlite3.Connection, segment_id: str) -> bool:
 
 
 def lean(connection: sqlite3.Connection, changes: list[Change]) -> list[Change]:
-    """The lean scope applied to a batch: drop what the seat does not need, and
+    """The lean scope applied to a batch: drop what the sea does not need, and
     carry along any cited passage a citation in the batch depends on, so no
     citation ever arrives before its text."""
     kept: list[Change] = []
@@ -375,9 +374,10 @@ def _apply_one(
     require_files: bool = True,
 ) -> str:
     local = _load(tx, change.table, change.key)
-    if role == "home" and change.table in HOME_OWNED:
-        # Home makes these. Away may only hand over a row home has never seen
-        # (a file taken in from the phone); the rest is home's to overwrite.
+    if role == "harbour" and change.table in HARBOUR_OWNED:
+        # The harbour makes these. The sea may only hand over a row the harbour
+        # has never seen (a file taken in from the phone); the rest is the
+        # harbour's to overwrite.
         if change.op != "upsert" or local is not None:
             return "skipped"
     if change.op == "delete":

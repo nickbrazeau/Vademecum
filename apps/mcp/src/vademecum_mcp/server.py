@@ -56,6 +56,8 @@ INSTRUCTIONS = (
     "in the conversation, then answer in a sentence or two; open_vademecum takes a view "
     "for the page they asked about. If the host cannot draw it, open_dashboard opens the "
     "same thing in their browser on this Mac. app_request belongs to that app, not to you. "
+    "Builds on a timer: build_schedule reads or sets the Mac's own schedule (a standing consent; "
+    "show its disclosure and wait for a yes before turning it on) and build_now runs it at once. "
     "Transmission: build_start sends previewed excerpts, and tutor_grade sends one question, "
     "its reference and the owner's answer, to OpenAI through the Codex process on the Mac; "
     "literature_check sends short public topic phrases to PubMed. Before build_start, show "

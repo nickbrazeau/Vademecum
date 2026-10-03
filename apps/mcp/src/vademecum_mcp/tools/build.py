@@ -108,6 +108,37 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         again next time."""
         return await call(api.post(f"/api/piles/{pile_id}/build/cancel"))
 
+    @mcp.tool(annotations=WRITE)
+    async def build_schedule(
+        enabled: Annotated[bool | None, Field(description="Turn the timer on or off; omit to only read it.")] = None,
+        times: Annotated[list[str] | None, Field(description="Times of day, HH:MM, 24-hour, up to 8.", max_length=8)] = None,
+        batches_per_run: Annotated[int | None, Field(description="Batches per pile per run, 1 to 10.", ge=1, le=10)] = None,
+    ) -> dict[str, Any]:
+        """Builds on a timer (ADR 0018): at the given times each day the Mac works
+        through every pile by itself, up to a few batches per pile, exactly as
+        Build would. Called with no arguments it reports the schedule, the next
+        run, the last run and the disclosure. Turning it on is a standing
+        consent to what each run sends; show the owner the `disclosure` first
+        and wait for an explicit yes. Needs the Mac's own Codex connection
+        (`can_run`); in host mode the reply says so."""
+        current = await call(api.get("/api/build/schedule"))
+        if enabled is None and times is None and batches_per_run is None:
+            return current
+        payload = {
+            "enabled": current["enabled"] if enabled is None else enabled,
+            "times": current["times"] if times is None else times,
+            "batches_per_run": current["batches_per_run"] if batches_per_run is None else batches_per_run,
+        }
+        return await call(api.put("/api/build/schedule", payload))
+
+    @mcp.tool(annotations=TRANSMITS)
+    async def build_now() -> dict[str, Any]:
+        """Build every pile with unbuilt passages now, on the Mac's own Codex
+        connection, in the background: the same send as Build for each pile,
+        without a per-pile preview. Transmits. Ask the owner first and tell
+        them build_schedule reports progress and the result."""
+        return await call(api.post("/api/build/schedule/run"))
+
     @mcp.tool(annotations=READ)
     async def get_model_status() -> dict[str, Any]:
         """Whether the Mac's Codex connection is signed in to ChatGPT, which

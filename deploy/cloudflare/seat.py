@@ -1,4 +1,4 @@
-"""The seat: Vademecum's away node in a Cloudflare container (ADR 0017).
+"""The sea: Vademecum's away copy in a Cloudflare container (ADR 0017).
 
 One process supervises two: the API (single tenancy, host mode, sync role
 `away`) and the MCP gateway (OAuth, the web app behind its sign-in, the
@@ -272,7 +272,7 @@ def api_environment() -> dict[str, str]:
             "VADEMECUM_DATA_DIR": str(DATA),
             "VADEMECUM_TENANCY": "single",
             "VADEMECUM_MODEL_PROVIDER": "host",
-            "VADEMECUM_SYNC_ROLE": "away",
+            "VADEMECUM_SYNC_ROLE": "sea",
             "VADEMECUM_SOURCES_FOLDER_ENABLED": "false",
             "VADEMECUM_PORT": str(API_PORT),
         }

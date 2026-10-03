@@ -115,7 +115,7 @@ def test_the_store_insists_on_https() -> None:
 def test_the_api_on_the_seat_is_away_single_tenancy_host_mode(monkeypatch) -> None:
     monkeypatch.setenv("VADEMECUM_SYNC_ACCEPT_TOKEN", "t")
     env = seat.api_environment()
-    assert env["VADEMECUM_SYNC_ROLE"] == "away"
+    assert env["VADEMECUM_SYNC_ROLE"] == "sea"
     assert env["VADEMECUM_TENANCY"] == "single"
     assert env["VADEMECUM_MODEL_PROVIDER"] == "host"
     assert env["VADEMECUM_SOURCES_FOLDER_ENABLED"] == "false"

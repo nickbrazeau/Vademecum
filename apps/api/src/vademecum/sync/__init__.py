@@ -1,4 +1,4 @@
-"""The home node's side of a sync (ADR 0015): pull, apply, push.
+"""The harbour's side of a sync (ADR 0015): pull, apply, push.
 
 This is the one place, besides the literature watch, where this process opens
 a connection to another machine -- and that machine is the learner's own
@@ -90,7 +90,7 @@ def sync_once(
     *,
     peer: Peer,
     source_dir: Path,
-    role: sync_store.Role = "home",
+    role: sync_store.Role = "harbour",
     scope: sync_store.Scope = "full",
     on_file: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:

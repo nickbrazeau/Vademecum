@@ -306,11 +306,14 @@ Ready for learners other than the owner only when all of the following are true:
   app's own requests going through `app_request` and its fixed route list), and mirrored by the
   named tools. Nothing the in-chat app can do removes, retires, exports, backs up, uploads or
   signs in; those stay where a confirmation exists.
+- Builds may run on a timer (ADR 0018) only in codex mode and only under a standing consent
+  the owner gave with the disclosure in view and can withdraw; every run is recorded per pile.
+  Never add a scheduled send that is not visible on Today.
 - The phone pack (ADR 0016) is the no-hosting route: the bank as one file in a Project, the
   assistant there grading directly, the session log back through the source folder's inbox.
   A grade from the phone is recorded as given outside a checked turn, and says so.
-- Two Vademecums may sync (ADR 0015): home (the Mac) owns what is made from files; shared
-  records merge by later write or by union; home initiates; nothing applied from a peer is
+- Two Vademecums may sync (ADR 0015): the harbour (the Mac) owns what is made from files;
+  shared records merge by later write or by union; the harbour initiates; nothing applied from a peer is
   logged again. Never add a sync path that bypasses the change log or the ownership rules.
 - Pictures inside sources are kept with their page or slide; a picture file in a pile is a source
   (ADR 0013). The assistant looks at a picture through `view_image`; Vademecum does not interpret

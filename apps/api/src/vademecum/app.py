@@ -30,6 +30,7 @@ from .api import (
     routes_model,
     routes_overview,
     routes_piles,
+    routes_schedule,
     routes_sources,
     routes_sync,
     routes_tutor,
@@ -210,7 +211,7 @@ def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) ->
     peer = Peer(HttpTransport(settings.sync_peer_url), settings.sync_token)
     connection = connect(database_path)
     try:
-        return sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role, scope=settings.sync_scope)
+        return sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role_name, scope=settings.sync_scope)
     finally:
         connection.close()
 
@@ -395,6 +396,16 @@ def create_app(
             app.state.data_dir = owner.data_dir
             app.state.source_dir = owner.source_dir
             app.state.build_service = owner.build_service
+            # Builds on a timer (ADR 0018): the owner's own Mac working through
+            # the piles; refuses to run in host mode and says why.
+            from .model.schedule import BuildScheduler
+
+            app.state.build_scheduler = BuildScheduler(
+                database_path=owner.database_path,
+                service=owner.build_service,
+                model_mode=resolved.model_provider,
+            )
+            app.state.build_scheduler.start()
             app.state.host_turns = owner.host_turns
             app.state.literature_watcher = owner.watcher
             if resolved.model_provider == "codex":
@@ -416,7 +427,7 @@ def create_app(
             )
             app.state.backfill_task = backfill_task
             if resolved.sync_peer_url and resolved.sync_token:
-                # Home pulls from and pushes to its away node (ADR 0015),
+                # The harbour pulls from and pushes to its sea (ADR 0015),
                 # on a timer, never at startup itself.
                 sync_task = asyncio.create_task(
                     _sync_loop(owner.database_path, owner.source_dir, resolved)
@@ -425,6 +436,9 @@ def create_app(
         try:
             yield
         finally:
+            scheduler = getattr(app.state, "build_scheduler", None)
+            if scheduler is not None:
+                await scheduler.stop()
             for task in (folder_task, backfill_task, parent_task, sync_task):
                 if task is None:
                     continue
@@ -469,6 +483,7 @@ def create_app(
     for router in (
         routes_health.router,
         routes_piles.router,
+        routes_schedule.router,
         routes_sources.router,
         routes_tutor.router,
         routes_literature.router,
