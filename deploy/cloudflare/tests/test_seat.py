@@ -119,4 +119,7 @@ def test_the_api_on_the_seat_is_away_single_tenancy_host_mode(monkeypatch) -> No
     assert env["VADEMECUM_TENANCY"] == "single"
     assert env["VADEMECUM_MODEL_PROVIDER"] == "host"
     assert env["VADEMECUM_SOURCES_FOLDER_ENABLED"] == "false"
-    assert seat.gateway_environment()["VADEMECUM_MCP_PORT"] == str(seat.MCP_PORT)
+    gateway = seat.gateway_environment()
+    assert gateway["VADEMECUM_MCP_PORT"] == str(seat.MCP_PORT)
+    assert gateway["VADEMECUM_MCP_LISTEN_ALL"] == "true", "the Worker reaches it on the private interface"
+    assert "VADEMECUM_HOST" not in gateway, "the API behind it stays on loopback"

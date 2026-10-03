@@ -15,13 +15,29 @@ What is here:
 - `worker/` — the Worker and its `wrangler.jsonc`: a Durable Object that holds the one
   container and forwards every request to the gateway's port, and the snapshot store under
   `/__seat/`, answered from the R2 bucket binding to a caller presenting `SEAT_KEY`.
+- `tools/podman-as-docker` — lets wrangler build and push the image with podman.
 
 ## Deploy, once
 
 You need a Cloudflare account on the Workers paid plan (containers need it), with R2 enabled
 (both are one click each in the dashboard), `node` and `npm` on the Mac, and a container CLI
-for the image build: Docker, or `brew install podman && podman machine init && podman machine
-start` with `WRANGLER_DOCKER_BIN=podman`. Everything below runs from `worker/`.
+for the image build. Docker works as is. Without Docker: `brew install podman && podman machine
+init && podman machine start`, then point wrangler at `tools/podman-as-docker`, a small shim
+that makes podman answer the three things wrangler expects of docker (no `--provenance`, no
+`manifest inspect -v`, and the pushed digest reported on the local image):
+
+```sh
+export WRANGLER_DOCKER_BIN="$PWD/../tools/podman-as-docker"
+export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+```
+
+With podman, run each `wrangler deploy` that changes the image **twice**: the first pass pushes
+the image and records its digest, the second tells Cloudflare about it. Behind a workplace proxy
+that re-signs TLS (Zscaler and the like), the podman VM also needs that proxy's root certificate:
+export it from Keychain Access and `podman machine ssh "sudo tee
+/etc/pki/ca-trust/source/anchors/proxy.pem && sudo update-ca-trust" < proxy.pem`.
+
+Everything below runs from `worker/`.
 
 1. **Sign in and make the bucket.** `npx wrangler login`, then
    `npx wrangler r2 bucket create vademecum`. No R2 API token is needed: the Worker reaches
@@ -43,7 +59,8 @@ start` with `WRANGLER_DOCKER_BIN=podman`. Everything below runs from `worker/`.
 
 ## Connect the Mac
 
-On the Mac, record the seat as the peer (the settings file both processes read):
+On the Mac, record the seat as the peer (the settings file both processes read). The Mac's
+HTTPS client trusts the system keychain, so a workplace proxy is no obstacle here.
 
 ```sh
 ./scripts/mcp.sh setup sync https://vademecum-seat.<you>.workers.dev   # asks for the token

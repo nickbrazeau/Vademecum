@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""podman standing in for docker under wrangler.
+
+Differences that matter to wrangler's container deploy: podman's build has no
+--provenance flag; podman's `manifest inspect` has no -v; and podman does not
+record the registry digest on the local image after a push, which is where
+wrangler reads it from (first entry of RepoDigests). So: drop the flags; on
+push, ask podman for the digest it pushed and remember it with the local
+image id; on inspect, put that digest first when the local image is the one
+that was pushed.
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+PODMAN = "/opt/homebrew/bin/podman"
+STATE = Path.home() / ".local" / "state" / "podman-as-docker"
+STATE.mkdir(parents=True, exist_ok=True)
+MEMORY = STATE / "pushed.json"
+
+args = [a for a in sys.argv[1:] if not a.startswith("--provenance")]
+
+
+def pushed() -> dict:
+    try:
+        return json.loads(MEMORY.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def image_id(ref: str) -> str:
+    result = subprocess.run([PODMAN, "image", "inspect", "--format", "{{.Id}}", ref], capture_output=True, text=True)
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+if args[:1] == ["push"] and len(args) >= 2:
+    ref = args[-1]
+    digest_file = STATE / "last.digest"
+    code = subprocess.call([PODMAN, *args[:-1], "--digestfile", str(digest_file), ref])
+    if code == 0 and digest_file.exists():
+        memory = pushed()
+        repo = ref.split("@")[0].rsplit(":", 1)[0] if "/" in ref else ref
+        memory[repo] = {"digest": digest_file.read_text().strip(), "id": image_id(ref)}
+        MEMORY.write_text(json.dumps(memory))
+    sys.exit(code)
+
+if args[:2] == ["manifest", "inspect"]:
+    args = [a for a in args if a != "-v"]
+    os.execv(PODMAN, [PODMAN, *args])
+
+if args[:2] == ["image", "inspect"] or args[:1] == ["inspect"]:
+    result = subprocess.run([PODMAN, *args], capture_output=True, text=True)
+    out = result.stdout
+    try:
+        data = json.loads(out)
+    except ValueError:
+        data = None
+    if isinstance(data, list) and all(isinstance(x, str) for x in data):
+        local_name = next((a for a in args if ":" in a and not a.startswith("-")), "")
+        image = local_name.split(":")[0].split("/")[-1]
+        local_id = image_id(local_name) if local_name else ""
+        for repo, record in pushed().items():
+            if image and repo.endswith("/" + image) and record.get("id") == local_id:
+                entry = f"{repo}@{record['digest']}"
+                data = [entry] + [x for x in data if x != entry]
+        out = json.dumps(data) + "\n"
+    sys.stdout.write(out)
+    sys.stderr.write(result.stderr)
+    sys.exit(result.returncode)
+
+os.execv(PODMAN, [PODMAN, *args])

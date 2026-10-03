@@ -401,7 +401,8 @@ def _serve_http(settings: McpSettings, data_dir) -> int:
     print(f"Public endpoint for assistants: {public_url}{MCP_PATH}")
     logger.info("http_start port=%d", settings.mcp_port)
     try:
-        uvicorn.run(app, host=settings.host, port=settings.mcp_port, access_log=False)
+        bind = "0.0.0.0" if settings.mcp_listen_all else settings.host  # noqa: S104 - a container's private network
+        uvicorn.run(app, host=bind, port=settings.mcp_port, access_log=False)
     finally:
         store.close()
     return 0

@@ -104,7 +104,9 @@ def _open_connection(host: str, timeout: float) -> _Connection:
     # create_default_context(): certificate verification and hostname checking
     # on, which is the default and is spelled out here so a future edit that
     # turns either off has to say so.
-    context = ssl.create_default_context()
+    from ..tls import client_context
+
+    context = client_context()
     return http.client.HTTPSConnection(host, HTTPS_PORT, timeout=timeout, context=context)
 
 

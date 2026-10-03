@@ -30,7 +30,7 @@
     // The public HTTPS origin of this Worker: what assistants connect to,
     // what the gateway's sign-in checks against, and where the container
     // finds its snapshot store. Set after the first deploy.
-    "PUBLIC_URL": "https://vademecum-seat.example.workers.dev"
+    "PUBLIC_URL": "https://vademecum-seat.brazeau.workers.dev"
   }
   // Secrets, set once with `npx wrangler secret put <NAME>`:
   //   SEAT_KEY                       what the container presents to the snapshot store

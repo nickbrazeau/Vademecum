@@ -282,7 +282,15 @@ def api_environment() -> dict[str, str]:
 
 def gateway_environment() -> dict[str, str]:
     env = api_environment()
-    env.update({"VADEMECUM_MCP_PORT": str(MCP_PORT), "VADEMECUM_MCP_DESK_DIST": WEB_DIST})
+    env.update(
+        {
+            "VADEMECUM_MCP_PORT": str(MCP_PORT),
+            "VADEMECUM_MCP_DESK_DIST": WEB_DIST,
+            # The Worker reaches the gateway on the container's private
+            # interface, not loopback; the API behind it stays loopback.
+            "VADEMECUM_MCP_LISTEN_ALL": "true",
+        }
+    )
     return env
 
 

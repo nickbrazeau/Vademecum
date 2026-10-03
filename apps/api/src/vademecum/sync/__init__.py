@@ -191,11 +191,12 @@ class HttpTransport:
 
     def request(self, method: str, path: str, *, headers: dict[str, str], body: bytes | None) -> tuple[int, bytes]:
         import http.client
-        import ssl
 
         if self._scheme == "https":
+            from ..tls import client_context
+
             connection = http.client.HTTPSConnection(
-                self._host, self._port, timeout=self._timeout, context=ssl.create_default_context()
+                self._host, self._port, timeout=self._timeout, context=client_context()
             )
         else:
             connection = http.client.HTTPConnection(self._host, self._port, timeout=self._timeout)

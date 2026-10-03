@@ -77,6 +77,10 @@ class McpSettings(BaseSettings):
     # The owner's passphrase, seeded at start when none is set yet: how a seat
     # (ADR 0017) gets one without a terminal. Read once, never logged.
     mcp_passphrase: str = ""
+    # Listen on every interface instead of loopback. Only for a container
+    # whose sole network is the private one its Worker reaches it on (ADR
+    # 0017); on a Mac this stays off and the gateway is loopback like the API.
+    mcp_listen_all: bool = False
     mcp_desk_session_ttl: int = Field(default=14 * 86400, ge=600, le=90 * 86400)
 
     def resolve_desk_dist(self) -> Path | None:

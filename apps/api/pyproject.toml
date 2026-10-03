@@ -30,6 +30,10 @@ dependencies = [
     # lazily; without them there is no OCR and the coverage record says so.
     "pyobjc-framework-Quartz>=10; sys_platform == 'darwin'",
     "pyobjc-framework-Vision>=10; sys_platform == 'darwin'",
+    # The system's trust store for the two HTTPS clients (PubMed, the seat),
+    # so a Mac behind a TLS-inspecting proxy still verifies. No network of
+    # its own.
+    "truststore>=0.10",
 ]
 
 [project.optional-dependencies]
