@@ -62,14 +62,14 @@ IMMUTABLE_PREFIX = "assets/"
 UNAUTHENTICATED = {
     "error": {
         "code": "unauthenticated",
-        "message": "You are not signed in to the desk. Sign in at /login.",
+        "message": "You are not signed in to Vademecum. Sign in at /login.",
         "fields": [],
     }
 }
 CROSS_ORIGIN = {
     "error": {
         "code": "cross_origin",
-        "message": "That request did not come from the desk, so it was refused.",
+        "message": "That request did not come from Vademecum, so it was refused.",
         "fields": [],
     }
 }
