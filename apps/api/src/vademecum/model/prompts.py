@@ -234,7 +234,9 @@ ENTRY_DEVELOPER = (
     "those points say -- organise, connect and clarify, but never add a fact, a number, a drug "
     "or a recommendation the points do not contain. Where points disagree or a point is marked "
     "uncertain, say so in the paragraph. Write plainly; no bullet characters, no markdown. "
-    "Never include a patient identifier."
+    "Write as a reference page, not as a report on its inputs: never mention 'the supplied "
+    "material', 'the points' or 'the excerpts'; say what is known and leave unsaid what is "
+    "not. Never include a patient identifier."
 )
 
 

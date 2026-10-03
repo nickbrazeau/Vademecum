@@ -223,7 +223,8 @@ def check_board(payload: dict[str, Any], *, handles: dict[str, str]) -> list[dic
         if not isinstance(item, dict):
             continue
         stem = " ".join(str(item.get("stem") or "").split())
-        options = [" ".join(str(o).split()) for o in (item.get("options") or [])]
+        # The letter is the interface's to add; a model that wrote "A. ..." is not wrong, just early.
+        options = [re.sub(r"^\(?[A-Ea-e][.)]\s+", "", " ".join(str(o).split())) for o in (item.get("options") or [])]
         answer = str(item.get("answer") or "").strip().upper()
         explanation = " ".join(str(item.get("explanation") or "").split())
         if not stem or len(options) != store.OPTION_COUNT or any(not o for o in options) or answer not in store.LETTERS or not explanation:
