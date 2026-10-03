@@ -110,7 +110,7 @@ function UploadForm({ pileId, defaultConfidence, onUploaded }: UploadPanelProps)
         <PhiWarning />
 
         <fieldset className="field tier-picker">
-          <legend>Source confidence for these files</legend>
+          <legend>Tier confidence for these files</legend>
           {TIERS.map((option) => (
             <label key={option} className={`tier-option tier-${option}`}>
               <input

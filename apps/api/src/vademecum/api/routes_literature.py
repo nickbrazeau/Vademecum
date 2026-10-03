@@ -153,6 +153,8 @@ def set_settings(
         connection,
         weekly_enabled=payload.weekly_enabled,
         interval_hours=payload.interval_hours,
+        preferred_journals=payload.preferred_journals,
+        guidelines_first=payload.guidelines_first,
     )
     watcher = get_watcher(request)
     apply = getattr(watcher, "apply_settings", None)

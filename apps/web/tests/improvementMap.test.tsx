@@ -141,7 +141,8 @@ describe('the Improvement Map page', () => {
     expect(nodes.map((node) => node.getAttribute('aria-label'))).toEqual(
       expect.arrayContaining([expect.stringMatching(/^Influenza: 3 open/), expect.stringMatching(/^Pneumonia: 1 open/), expect.stringMatching(/^Not filed yet: 2 open/)])
     )
-    expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Nephrology'))).toBe(false)
+    // Everything in the piles is an area to review: covered topics are drawn by default too.
+    expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Nephrology'))).toBe(true)
 
     // The list underneath is still the whole record.
     const everything = screen.getByRole('region', { name: /everything you have flagged/i })
@@ -155,11 +156,12 @@ describe('the Improvement Map page', () => {
     expect(within(panel).getAllByRole('listitem')).toHaveLength(2)
     expect(within(panel).queryByText('MRSA coverage in severe CAP')).not.toBeInTheDocument()
 
-    // The legend names only the specialties actually drawn, plus the unassigned marker.
+    // The legend names the specialties actually drawn, plus the unassigned marker; with
+    // everything shown by default, a covered topic's specialty is among them.
     const legend = screen.getByRole('list', { name: 'Specialties shown' })
     expect(legend).toHaveTextContent('Infectious Disease')
     expect(legend).toHaveTextContent('No specialty yet')
-    expect(legend).not.toHaveTextContent('Nephrology')
+    expect(legend).toHaveTextContent('Nephrology')
 
     await user.click(screen.getByRole('button', { name: 'Everything covered' }))
     const all = within(screen.getByRole('group', { name: 'Topic graph' })).getAllByRole('button')
@@ -185,7 +187,8 @@ describe('the Improvement Map page', () => {
     expect(saves).toHaveLength(1)
     expect(saves[0]!.method).toBe('PUT')
     const sent = (saves[0]!.body as { positions: { topic: string; x: number; y: number }[] }).positions
-    expect(sent.map((entry) => entry.topic).sort()).toEqual([UNFILED_ID, 'Influenza', 'Pneumonia'].sort())
+    // Everything shown by default: the covered topics are remembered too.
+    expect(sent.map((entry) => entry.topic).sort()).toEqual([UNFILED_ID, 'Antivirals', 'Influenza', 'Nephrology', 'Pneumonia'].sort())
     // The remembered Influenza position was honoured, within a small drift.
     const influenza = sent.find((entry) => entry.topic === 'Influenza')!
     expect(Math.hypot(influenza.x - 200, influenza.y - 150)).toBeLessThan(40)
@@ -234,7 +237,7 @@ describe('the Improvement Map page', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => json(String(url).includes('/flags') ? [] : { ...map, topics: [], covered_topics: [], links: [], unfiled_flag_count: 0 })))
     render(<ImprovementMap reloadToken={0} />)
     const region = await screen.findByRole('region', { name: /where the gaps are/i })
-    expect(region).toHaveTextContent(/nothing flagged yet/i)
+    expect(region).toHaveTextContent(/nothing to draw yet/i)
     expect(screen.queryByRole('group', { name: 'Topic graph' })).not.toBeInTheDocument()
   })
 })

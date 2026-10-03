@@ -19,7 +19,7 @@ from ._shared import READ, WRITE, call
 LAYOUT = (
     "One folder per pile inside a tier folder: piles/highconfidence/<pile>/, "
     "piles/mediumconfidence/<pile>/, piles/lowconfidence/<pile>/. The tier folder is the "
-    "pile's source-confidence rating; move a pile's folder to re-rate it. PDF, .pptx, "
+    "pile's tier-confidence rating; move a pile's folder to re-rate it. PDF, .pptx, "
     ".docx, text and Markdown are read. Removing a file from the folder does not remove "
     "it from Vademecum; remove_source does."
 )

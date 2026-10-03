@@ -25,7 +25,7 @@ export const TIER_LABEL: Record<Tier, string> = {
 
 /** Said wherever a tier is named, so the word cannot drift into a ranking. */
 export const CONFIDENCE_MEANING =
-  'Source confidence is your judgment of the material’s accuracy and usefulness for learning. It is not mastery, priority, difficulty, or evidence that a claim has been verified.'
+  'Tier confidence is your judgment of the material’s accuracy and usefulness for learning. It is not mastery, priority, difficulty, or evidence that a claim has been verified.'
 
 // The API's own limits (`schemas.py`). Enforced here too, so an over-long
 // value is refused where it is typed rather than after a round trip.
@@ -256,7 +256,7 @@ export interface BankSummary {
   hold_reasons: string[]
 }
 
-export type ModelMode = 'codex' | 'host'
+export type ModelMode = 'codex' | 'host' | 'claude'
 
 export interface BuildState {
   run: Run | null
@@ -509,6 +509,9 @@ export interface Update {
 export interface LiteratureSettings {
   weekly_enabled: boolean
   interval_hours: number
+  /** Which records come first: practice guidelines, and these journals (PubMed title abbreviations). */
+  preferred_journals: string[]
+  guidelines_first: boolean
   enabled: boolean
   running: boolean
   provider: string
@@ -601,10 +604,49 @@ export interface TopicLink {
   weight: number
 }
 
+/** One content area from an exam report (ADR 0020): what the report said, located. */
+export interface ReportArea {
+  topic: string
+  specialty_id: string | null
+  standing: 'below' | 'at' | 'above'
+  note: string
+  quote: string
+  report_id: string
+  report: string
+  reported_at: string
+}
+
+export interface ExamArea {
+  id: string
+  report_id: string
+  ordinal: number
+  topic: string
+  specialty_id: string | null
+  standing: 'below' | 'at' | 'above'
+  quote: string
+  note: string
+  created_at: string
+}
+
+export interface ExamReport {
+  id: string
+  display_name: string
+  media_type: string
+  byte_size: number
+  status: 'uploaded' | 'parsed' | 'failed'
+  status_detail: string
+  created_at: string
+  parsed_at: string | null
+  text_chars: number
+  areas: ExamArea[]
+  note?: string
+}
+
 export interface ImprovementMap {
   topics: TopicGap[]
   covered_topics: CoveredTopic[]
   links: TopicLink[]
+  report_areas: ReportArea[]
   specialties: Specialty[]
   positions: MapPosition[]
   confidences: ConfidenceSummary[]

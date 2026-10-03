@@ -50,11 +50,11 @@ def _parser() -> argparse.ArgumentParser:
         "setup", help="register with Codex or Claude Desktop, choose the source folder, or start at login"
     )
     setup.add_argument("target", choices=["codex", "claude", "folder", "login", "sync"])
-    setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be; for `sync`: the sea's https address")
+    setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be; for `sync`: foris's https address")
     setup.add_argument("--remove", action="store_true", help="for `login`: stop starting at login")
     setup.add_argument(
-        "--model", choices=["host", "codex"], default="host",
-        help="for `login`: who does the model work; `codex` lets the Mac build on a timer",
+        "--model", choices=["host", "codex", "claude"], default="host",
+        help="for `login`: who does the model work; `codex` or `claude` lets the Mac build on a timer",
     )
     return parser
 
@@ -338,6 +338,8 @@ def _setup_login(settings: McpSettings, *, remove: bool = False, model: str = "h
     print(f"Vademecum starts at login and stays running ({local.LOGIN_AGENT.name}), model work by {model}.")
     if model == "codex":
         print("Builds can run on a timer. Sign the Codex connection in on the dashboard's Model page if it is not already.")
+    if model == "claude":
+        print("Builds can run on a timer. If the Model page says Claude is not signed in, run `claude` in a terminal once and sign in.")
     print(f"The dashboard is always at {settings.api_base_url} ; in Safari, File > Add to Dock puts it in the Dock.")
     print("If an assistant had already started Vademecum, the login copy waits for it to finish, then takes over.")
     print("After updating Vademecum, run this again to restart it on the new code.")
@@ -345,7 +347,7 @@ def _setup_login(settings: McpSettings, *, remove: bool = False, model: str = "h
 
 
 def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None = None) -> int:
-    """Record the sea as this Mac's peer (ADR 0015, 0017), in the settings file."""
+    """Record foris as this Mac's peer (ADR 0015, 0017), in the settings file."""
     from urllib.parse import urlsplit
 
     from vademecum.config import settings_file_path, write_setting
@@ -353,22 +355,22 @@ def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None
     if remove:
         write_setting("SYNC_PEER_URL", "")
         write_setting("SYNC_TOKEN", "")
-        print("This Mac no longer syncs with a sea.")
+        print("This Mac no longer syncs with foris.")
         return 0
     if not peer_url:
-        print("Give the sea's https address: setup sync https://...", file=sys.stderr)
+        print("Give foris's https address: setup sync https://...", file=sys.stderr)
         return 64
     parts = urlsplit(peer_url.strip())
     if parts.scheme != "https" or not parts.hostname:
-        print("The sea's address must be an https:// origin.", file=sys.stderr)
+        print("Foris's address must be an https:// origin.", file=sys.stderr)
         return 2
     if token is None:
         if not sys.stdin.isatty():
             print("Set the sync token from a terminal; it is not read from a pipe.", file=sys.stderr)
             return 2
-        token = getpass.getpass("The sea's sync token (VADEMECUM_SYNC_ACCEPT_TOKEN there): ").strip()
+        token = getpass.getpass("Foris's sync token (VADEMECUM_SYNC_ACCEPT_TOKEN there): ").strip()
     if len(token) < 16:
-        print("The token is too short to be the sea's.", file=sys.stderr)
+        print("The token is too short to be foris's.", file=sys.stderr)
         return 2
     origin = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
     write_setting("SYNC_PEER_URL", origin)
@@ -387,7 +389,7 @@ def _serve_http(settings: McpSettings, data_dir) -> int:
         return 2
     store = AccessStore(settings.access_db_path)
     if settings.tenancy == "single" and not store.has_passphrase() and len(settings.mcp_passphrase) >= MIN_LENGTH:
-        # The sea has no terminal to type into (ADR 0017): the passphrase
+        # Foris has no terminal to type into (ADR 0017): the passphrase
         # arrives once as a secret and is stored hashed like any other.
         store.set_passphrase(settings.mcp_passphrase)
         logger.info("passphrase_seeded")

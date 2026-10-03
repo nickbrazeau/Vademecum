@@ -145,7 +145,7 @@ export function App() {
       <footer className="footer">
         <p className="muted small">
           A personal learning workspace, augmented by AI. Educational only — not a substitute
-          for clinical judgment, current institutional guidance, or an appropriate specialist.
+          for clinical judgment.
         </p>
       </footer>
 

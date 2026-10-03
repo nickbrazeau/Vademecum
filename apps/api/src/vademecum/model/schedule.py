@@ -36,9 +36,9 @@ RUN_TIMEOUT_SECONDS = 1800.0
 POLL_SECONDS = 1.0
 
 NEEDS_CODEX = (
-    "Scheduled builds need the Mac's own Codex connection, which does the model turns while "
-    "nobody is in a conversation. This Vademecum is in host mode; start it with "
-    "VADEMECUM_MODEL_PROVIDER=codex (`mcp.sh setup login --model codex`) and sign in on the Model page."
+    "Scheduled builds need the Mac's own model connection -- Codex or Claude -- which does the "
+    "model turns while nobody is in a conversation. This Vademecum is in host mode; start it with "
+    "`mcp.sh setup login --model codex` or `--model claude` and sign in on the Model page."
 )
 
 
@@ -62,10 +62,14 @@ class BuildScheduler:
         service: Any,
         model_mode: str,
         now: Callable[[], datetime] | None = None,
+        before: Callable[[], Awaitable[Any]] | None = None,
     ) -> None:
         self._database_path = Path(database_path)
         self._service = service
         self._model_mode = model_mode
+        # Work that goes before the builds in a run: reading any exam report
+        # still waiting (ADR 0020).
+        self._before = before
         self._now = now or (lambda: datetime.now().astimezone())
         self._task: asyncio.Task[None] | None = None
         self._wake: asyncio.Event | None = None
@@ -76,7 +80,7 @@ class BuildScheduler:
 
     @property
     def can_run(self) -> bool:
-        return self._model_mode == "codex"
+        return self._model_mode in ("codex", "claude")
 
     @property
     def is_running(self) -> bool:
@@ -167,11 +171,17 @@ class BuildScheduler:
             piles = pile_store.list_piles(connection)
         finally:
             connection.close()
+        reports_read = 0
+        if self._before is not None:
+            try:
+                reports_read = int(await self._before() or 0)
+            except Exception as exc:  # noqa: BLE001 - a report that cannot be read is recorded on itself
+                logger.error("scheduled_reports_failed error=%s", type(exc).__name__)
         results: list[dict[str, Any]] = []
         for pile in piles:
             outcome = await self._run_pile(pile.id, pile.title, schedule["batches_per_run"])
             results.append(outcome)
-        report = {"at": utc_now(), "reason": reason, "ran": True, "note": "", "piles": results}
+        report = {"at": utc_now(), "reason": reason, "ran": True, "note": "", "piles": results, "reports_read": reports_read}
         self._record(report)
         logger.info("scheduled_build piles=%d batches=%d", len(results), sum(r["batches"] for r in results))
         return report

@@ -1,5 +1,5 @@
-"""Two Vademecums that sync (ADR 0015): the harbour keeps the files and builds;
-the sea is where a phone works; a round trip loses nothing and bounces nothing."""
+"""Two Vademecums that sync (ADR 0015): domi keeps the files and builds; foris
+is where a phone works; a round trip loses nothing and bounces nothing."""
 
 from __future__ import annotations
 
@@ -48,8 +48,8 @@ def node(tmp_path: Path, name: str, **overrides):
 
 @pytest.fixture()
 def pair(tmp_path: Path):
-    home, home_app = node(tmp_path, "home", sync_role="harbour")
-    away, away_app = node(tmp_path, "away", sync_role="sea", sync_accept_token=TOKEN)
+    home, home_app = node(tmp_path, "home", sync_role="domi")
+    away, away_app = node(tmp_path, "away", sync_role="foris", sync_accept_token=TOKEN)
     try:
         yield home, home_app, away, away_app
     finally:
@@ -68,7 +68,7 @@ def run_sync(home_app, away: TestClient, scope: str = "full") -> dict:
             connection,
             peer=Peer(ClientTransport(away), TOKEN),
             source_dir=home_app.state.source_dir,
-            role="harbour",
+            role="domi",
             scope=scope,
         )
     finally:
@@ -80,7 +80,7 @@ def test_the_routes_are_invisible_without_the_token(pair) -> None:
     assert away.get("/api/sync/status").status_code == 404
     assert away.get("/api/sync/status", headers={"X-Vademecum-Sync": "wrong"}).status_code == 404
     assert away.get("/api/sync/status", headers=HEADERS).status_code == 200
-    # The harbour accepts no token at all: nothing is configured there.
+    # Domi accepts no token at all: nothing is configured there.
     assert home.get("/api/sync/status", headers=HEADERS).status_code == 404
 
 
@@ -99,7 +99,7 @@ def test_every_write_is_logged_and_nothing_applied_is_logged_again(pair) -> None
         "id": "flg_x", "text": "Unsure about vasopressors", "topic": None, "pile_id": None,
         "status": "open", "created_at": "2026-10-02T00:00:00Z", "updated_at": "2026-10-02T00:00:00Z", "addressed_at": None,
     })
-    result = sync_store.apply_changes(connection, [incoming], role="harbour")
+    result = sync_store.apply_changes(connection, [incoming], role="domi")
     assert result.applied == 1 and result.through == 99
     assert sync_store.state(connection)["log_length"] == before
     assert home.get("/api/flags").json()[0]["text"] == "Unsure about vasopressors"
@@ -109,17 +109,17 @@ def test_every_write_is_logged_and_nothing_applied_is_logged_again(pair) -> None
 def test_a_round_trip_carries_the_bank_out_and_the_work_back(pair, tmp_path: Path) -> None:
     home, home_app, away, away_app = pair
 
-    # The harbour: a pile, a source, a build.
+    # Domi: a pile, a source, a build.
     pile = home.post("/api/piles", json={"title": "Sepsis", "tier": "mid"}).json()
     assert upload(home, pile["id"], "lecture.txt", LECTURE.encode()).status_code == 201
     build(home, pile["id"])
     assert home.get(f"/api/piles/{pile['id']}/build/status").json()["run"]["status"] == "succeeded"
 
     first = run_sync(home_app, away)
-    # The sea's own start-up settings rows come across too; nothing else is there yet.
+    # Foris's own start-up settings rows come across too; nothing else is there yet.
     assert first["pushed"] > 0 and first["deferred"] == 0
 
-    # The sea now has the pile, the source and its text, the point and the question.
+    # Foris now has the pile, the source and its text, the point and the question.
     assert [p["title"] for p in away.get("/api/piles").json()] == ["Sepsis"]
     source = away.get(f"/api/piles/{pile['id']}/sources").json()[0]
     assert source["display_name"] == "lecture.txt" and source["status"] == "extracted"
@@ -129,7 +129,7 @@ def test_a_round_trip_carries_the_bank_out_and_the_work_back(pair, tmp_path: Pat
     # And the original file came across by name, verified by digest.
     assert next((tmp_path / "away" / "attachments" / "sources").glob("*.txt")).read_bytes() == LECTURE.encode()
 
-    # The sea: the phone works. A Tutor answer, self-assessed; a flag; a pile note.
+    # Foris: the phone works. A Tutor answer, self-assessed; a flag; a pile note.
     question = away.get("/api/tutor/next").json()["question"]
     away.post("/api/tutor/reveal", json={"question_id": question["id"]})
     away.post("/api/tutor/self-assess", json={"question_id": question["id"], "answer": "Serial lactate.", "outcome": "correct"})
@@ -139,7 +139,7 @@ def test_a_round_trip_carries_the_bank_out_and_the_work_back(pair, tmp_path: Pat
     second = run_sync(home_app, away)
     assert second["pulled"] > 0 and second["applied"] > 0
 
-    # The harbour has the attempt, the flag and the note; nothing was duplicated.
+    # Domi has the attempt, the flag and the note; nothing was duplicated.
     history = home.get("/api/tutor/history").json()
     assert len(history) == 1 and history[0]["outcome"] == "self_assessed"
     assert [f["text"] for f in home.get("/api/flags").json()] == ["Unsure about vasopressor choice"]
@@ -156,18 +156,18 @@ def test_a_round_trip_carries_the_bank_out_and_the_work_back(pair, tmp_path: Pat
     assert away.get("/api/flags").json() == []
 
 
-def test_harbour_owned_rows_are_not_overwritten_from_the_sea(pair) -> None:
+def test_domi_owned_rows_are_not_overwritten_from_foris(pair) -> None:
     home, home_app, away, away_app = pair
     pile = home.post("/api/piles", json={"title": "Sepsis", "tier": "mid"}).json()
     assert upload(home, pile["id"], "lecture.txt", LECTURE.encode()).status_code == 201
     run_sync(home_app, away)
     source = away.get(f"/api/piles/{pile['id']}/sources").json()[0]
-    # The sea marks the source excluded; that is the harbour's table, so it keeps its own row.
+    # Foris marks the source excluded; that is domi's table, so it keeps its own row.
     assert away.patch(f"/api/sources/{source['id']}", json={"excluded": True}).status_code == 200
     result = run_sync(home_app, away)
     assert result["skipped"] >= 1
     assert home.get(f"/api/sources/{source['id']}").json()["excluded"] is False
-    # But a source the sea created (a note from the phone) is new to the harbour and is taken.
+    # But a source foris created (a note from the phone) is new to domi and is taken.
     away.post(f"/api/piles/{pile['id']}/sources", files=[("files", ("note.txt", b"A note typed on the phone about lactate.", "text/plain"))], data={"confidence": "low"})
     run_sync(home_app, away)
     names = sorted(s["display_name"] for s in home.get(f"/api/piles/{pile['id']}/sources").json())
@@ -183,7 +183,7 @@ def test_a_peer_that_is_this_node_or_unreachable_is_refused(pair) -> None:
 
     connection = db(home_app)
     with pytest.raises(SyncError):
-        sync_once(connection, peer=Peer(Dead(), TOKEN), source_dir=home_app.state.source_dir, role="harbour")
+        sync_once(connection, peer=Peer(Dead(), TOKEN), source_dir=home_app.state.source_dir, role="domi")
     connection.close()
 
 
@@ -199,7 +199,7 @@ def test_the_change_payload_names_no_path(pair) -> None:
 
 
 def test_the_lean_scope_carries_records_and_cited_passages_but_no_files(pair, tmp_path: Path) -> None:
-    """ADR 0017: the sea stays small however large the Mac's library grows."""
+    """ADR 0017: foris stays small however large the Mac's library grows."""
     home, home_app, away, away_app = pair
     pile = home.post("/api/piles", json={"title": "Sepsis", "tier": "mid"}).json()
     assert upload(home, pile["id"], "lecture.txt", LECTURE.encode()).status_code == 201
@@ -223,7 +223,7 @@ def test_the_lean_scope_carries_records_and_cited_passages_but_no_files(pair, tm
     appendix = away.get(f"/api/sources/{sources['appendix.txt']['id']}").json()
     assert appendix["segments_preview"] == []
 
-    # The Tutor works on the sea from what came across.
+    # The Tutor works on foris from what came across.
     question = away.get("/api/tutor/next").json()["question"]
     assert question is not None
     # And a second round moves nothing.

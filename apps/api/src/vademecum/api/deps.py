@@ -102,7 +102,7 @@ def get_turn_factory(request: Request):
 
 
 def get_model_mode(request: Request) -> str:
-    """``codex`` or ``host`` (ADR 0009): who does the model work."""
+    """``codex``, ``claude`` or ``host`` (ADR 0009, 0019): who does the model work."""
     return request.app.state.model_mode
 
 

@@ -87,9 +87,9 @@ institutional guidance, or consultation with an appropriate specialist.
 
 Vademecum's server sends nothing to any model provider. It does not have one.
 
-### Source confidence is not verification
+### Tier confidence is not verification
 
-A pile's `low`/`mid`/`high` (shown as Low/Medium/High) is **source confidence**: the learner's
+A pile's `low`/`mid`/`high` (shown as Low/Medium/High) is **tier confidence**: the learner's
 judgment of the material. Never mastery, priority, difficulty or evidence. Support is decided
 separately and mechanically:
 
@@ -287,7 +287,7 @@ Ready for learners other than the owner only when all of the following are true:
 
 - The learner drops lectures, papers and decks into the **source folder**: one folder per pile
   inside `piles/highconfidence`, `piles/mediumconfidence` or `piles/lowconfidence`, the tier
-  folder being the pile's **source confidence**. A scan never deletes; removing a source is an
+  folder being the pile's **tier confidence**. A scan never deletes; removing a source is an
   explicit, confirmed act. Today and Tutor, in the assistant, are the primary surfaces.
 - **Build learning material** shows the exact excerpts in the conversation, waits for a yes, hands
   them to ChatGPT with the schema, and accepts points and questions only after the server's checks.
@@ -312,8 +312,8 @@ Ready for learners other than the owner only when all of the following are true:
 - The phone pack (ADR 0016) is the no-hosting route: the bank as one file in a Project, the
   assistant there grading directly, the session log back through the source folder's inbox.
   A grade from the phone is recorded as given outside a checked turn, and says so.
-- Two Vademecums may sync (ADR 0015): the harbour (the Mac) owns what is made from files;
-  shared records merge by later write or by union; the harbour initiates; nothing applied from a peer is
+- Two Vademecums may sync (ADR 0015): Domi (the Mac) owns what is made from files;
+  shared records merge by later write or by union; Domi initiates; nothing applied from a peer is
   logged again. Never add a sync path that bypasses the change log or the ownership rules.
 - Pictures inside sources are kept with their page or slide; a picture file in a pile is a source
   (ADR 0013). The assistant looks at a picture through `view_image`; Vademecum does not interpret

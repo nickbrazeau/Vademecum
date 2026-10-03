@@ -176,3 +176,26 @@ def grading_prompt(
         f"RUBRIC:\n{rubric or '(none)'}\n\n"
         "LEARNER'S ANSWER:\n" + _fence(answer)
     )
+
+
+# --- exam reports (ADR 0020) ----------------------------------------------------
+
+REPORT_DEVELOPER = (
+    "The supplied material is a score report from an examination the learner took "
+    "(for example an in-training examination, a licensing step report, or a board "
+    "feedback letter). Read out every content area the report scores or comments on. "
+    "For each, give the area's name as the report words it, the subspecialty it belongs "
+    "to from the list provided (or an empty string), whether the learner's standing in it "
+    "is below, at or above the comparison the report uses, a short verbatim quote from the "
+    "report that shows that standing, and at most one sentence of note. Never infer an "
+    "area the report does not mention; never guess a standing the quote does not show. "
+    "Omit anything that identifies the learner."
+)
+
+
+def report_prompt(text: str, specialties: list[tuple[str, str]]) -> str:
+    listed = "\n".join(f"- {identifier}: {name}" for identifier, name in specialties)
+    return (
+        f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
+        f"SCORE REPORT:\n{_fence(text)}"
+    )

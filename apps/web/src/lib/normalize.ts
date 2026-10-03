@@ -697,6 +697,8 @@ export function literatureSettings(value: unknown): LiteratureSettings {
   return {
     weekly_enabled: bool(raw['weekly_enabled']),
     interval_hours: num(raw['interval_hours'], 168),
+    preferred_journals: Array.isArray(raw['preferred_journals']) ? raw['preferred_journals'].map(String) : [],
+    guidelines_first: raw['guidelines_first'] !== false,
     enabled: bool(raw['enabled']),
     running: bool(raw['running']),
     provider: str(raw['provider']),
@@ -838,6 +840,7 @@ export function improvementMap(value: unknown): ImprovementMap {
         specialty: topicSpecialty(entry['specialty'])
       })
     ),
+    report_areas: Array.isArray(raw['report_areas']) ? (raw['report_areas'] as ImprovementMap['report_areas']) : [],
     links: list(raw['links'], (entry): TopicLink => ({
       a: str(entry['a'], ''),
       b: str(entry['b'], ''),

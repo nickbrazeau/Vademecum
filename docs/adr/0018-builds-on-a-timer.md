@@ -20,7 +20,7 @@ the model is the assistant in a conversation; on a timer there is no conversatio
 A scheduled build runs only where Vademecum can reach a model by itself: the Mac in `codex`
 mode, through the Codex App Server bridge (ADR 0006), on the owner's ChatGPT sign-in, with no
 key. `mcp.sh setup login --model codex` starts the long-running copy that way. In host mode the
-schedule exists but refuses to run, and says why; the sea (ADR 0017) is always host mode and
+schedule exists but refuses to run, and says why; Foris (ADR 0017) is always host mode and
 never builds.
 
 ### 2. A standing consent, given once and visible always
@@ -52,5 +52,5 @@ the last run live in `app_state` and sync like any other setting.
 - Builds run while the owner is away; the usage limits of their ChatGPT plan are the only
   budget. `batches_per_run` and the number of times a day are the levers.
 - The Mac must be awake at the scheduled time; a missed time is simply skipped until the next.
-- The sea receives what the harbour built at the next sync, which is how the phone gets new
+- Foris receives what Domi built at the next sync, which is how the phone gets new
   material without anyone pressing anything.

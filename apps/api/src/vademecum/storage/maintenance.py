@@ -80,6 +80,9 @@ EXPORTED_TABLES: tuple[str, ...] = (
     # (migration 0006). Rows only; the files are in the backup bundle.
     "source_images",
     "schematics",
+    # Exam reports and their content areas (ADR 0020).
+    "exam_reports",
+    "exam_areas",
 )
 
 DATABASE_MEMBER = "vademecum.sqlite3"

@@ -19,6 +19,7 @@ from typing import Any
 
 from . import literature as literature_store
 from . import map as map_store
+from . import reports as reports_store
 from . import sources as source_store
 from .flags import list_flags
 from .learning import bank_summary, list_points
@@ -175,6 +176,8 @@ def improvement_map(connection: sqlite3.Connection) -> dict[str, Any]:
             for row in covered
         ],
         "links": topic_links(connection),
+        # What the learner's exam reports say, by content area (ADR 0020).
+        "report_areas": reports_store.areas_for_map(connection),
         "specialties": [entry.as_dict() for entry in specialties],
         "positions": map_store.positions(connection),
         "confidences": confidence_summary(connection),

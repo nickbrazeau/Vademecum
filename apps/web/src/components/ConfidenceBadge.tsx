@@ -13,7 +13,7 @@ import type { Tier } from '../lib/types'
 export function ConfidenceBadge({ tier, label }: { tier: Tier; label?: string }) {
   return (
     <span className={`tier tier-${tier}`} title={CONFIDENCE_MEANING}>
-      <span className="visually-hidden">Source confidence: </span>
+      <span className="visually-hidden">Tier confidence: </span>
       {label ?? TIER_LABEL[tier]}
     </span>
   )
@@ -23,7 +23,7 @@ export function ConfidenceBadge({ tier, label }: { tier: Tier; label?: string })
 export function ConfidenceMeaning() {
   return (
     <p className="muted small">
-      <strong>Source confidence</strong> — {CONFIDENCE_MEANING}
+      <strong>Tier confidence</strong> — {CONFIDENCE_MEANING}
     </p>
   )
 }

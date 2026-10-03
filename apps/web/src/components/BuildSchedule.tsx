@@ -12,7 +12,6 @@ import { ApiError, api, asApiError } from '../lib/api'
 import { momentLabel } from '../lib/format'
 import type { BuildSchedule as Schedule } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
-import { Unavailable } from './Unavailable'
 
 const STATUS_LABEL: Record<string, string> = {
   succeeded: 'built',
@@ -29,7 +28,16 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
   const [busy, setBusy] = useState(false)
 
   if (result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
-  if (result.state === 'failed') return <Unavailable error={result.error} onRetry={reload} />
+  if (result.state === 'failed') {
+    // A schedule that cannot be read is a quiet line, not an alarm: the rest
+    // of the page is what the owner came for.
+    return (
+      <section className="card" aria-labelledby="build-schedule-heading" id="build-schedule">
+        <h2 id="build-schedule-heading">Builds on a timer</h2>
+        <p className="muted small">Not readable right now. {result.error.message}</p>
+      </section>
+    )
+  }
   const schedule: Schedule = result.value
   const timesText = times ?? schedule.times.join(', ')
 

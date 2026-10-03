@@ -42,7 +42,8 @@ import type {
   UploadReport,
   WrittenFile,
   TopicSpecialty,
-  MapPosition
+  MapPosition,
+  ExamReport
 } from './types'
 import * as normalize from './normalize'
 import { callTool, inChat } from './host'
@@ -296,6 +297,16 @@ export const api = {
   /** Transmits, for every pile with unbuilt passages, exactly as Build would. */
   runBuildsNow: () => request<unknown>('/build/schedule/run', { method: 'POST' }).then(normalize.buildSchedule),
 
+  // --- exam reports for the map (ADR 0020) ---
+  listExamReports: () => request<unknown>('/improvement-map/reports').then((value) => (Array.isArray(value) ? (value as ExamReport[]) : [])),
+  uploadExamReport: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<ExamReport>('/improvement-map/reports', { method: 'POST', body: form })
+  },
+  parseExamReport: (reportId: string) => request<ExamReport>(`/improvement-map/reports/${reportId}/parse`, { method: 'POST' }),
+  deleteExamReport: (reportId: string) => request<void>(`/improvement-map/reports/${reportId}`, { method: 'DELETE' }),
+
   listPoints: (params: { pile_id?: string; held?: boolean } = {}) =>
     request<LearningPoint[]>(`/points${query(params)}`).then(normalize.points),
   retireMaterial: (pileId: string) =>
@@ -350,6 +361,8 @@ export const api = {
   saveLiteratureSettings: (input: {
     weekly_enabled?: boolean
     interval_hours?: number
+    preferred_journals?: string[]
+    guidelines_first?: boolean
   }) => request<LiteratureSettings>('/literature/settings', { method: 'PUT', ...body(input) }).then(normalize.literatureSettings),
 
   listFlags: (status?: FlagStatus) =>

@@ -1021,3 +1021,36 @@ kbd {
 .selected-topic {
   border-color: var(--accent-line);
 }
+
+/* A drop-down inside a card: closed by default, one line to open. */
+details.support-details,
+details.settings-details {
+  margin-top: 0.5rem;
+}
+details.support-details > summary,
+details.settings-details > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+}
+details.support-details[open] > summary,
+details.settings-details[open] > summary {
+  color: var(--ink);
+}
+
+/* An area an exam report placed below the mark: a dashed ring, before any flag. */
+.topic-node .standing-ring {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+.topic-node.standing-above .topic-dot {
+  stroke: var(--accent);
+}
+.exam-reports .list li {
+  margin-bottom: 0.5rem;
+}

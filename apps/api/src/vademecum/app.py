@@ -30,6 +30,7 @@ from .api import (
     routes_model,
     routes_overview,
     routes_piles,
+    routes_reports,
     routes_schedule,
     routes_sources,
     routes_sync,
@@ -303,14 +304,25 @@ def create_app(
 
         # The owner's Codex bridge. Constructed, not started: nothing spawns
         # until a request needs it, and in multi tenancy no request may.
-        app.state.model_bridge = ModelBridge(
-            codex_path=resolved.resolve_codex_path(),
-            working_directory=root,
-            client_version=__version__,
-            request_timeout=resolved.appserver_request_timeout,
-            startup_timeout=resolved.appserver_startup_timeout,
-            transport_factory=transport_factory,
-        )
+        if resolved.model_provider == "claude":
+            # Claude through the Claude Code CLI (ADR 0019): the same shape,
+            # signed in by the owner in a terminal, started per turn.
+            from .model.claude_cli import ClaudeCliBridge
+
+            app.state.model_bridge = ClaudeCliBridge(
+                resolved.resolve_claude_path(),
+                working_directory=root,
+                request_timeout=resolved.appserver_request_timeout,
+            )
+        else:
+            app.state.model_bridge = ModelBridge(
+                codex_path=resolved.resolve_codex_path(),
+                working_directory=root,
+                client_version=__version__,
+                request_timeout=resolved.appserver_request_timeout,
+                startup_timeout=resolved.appserver_startup_timeout,
+                transport_factory=transport_factory,
+            )
         # One PubMed client for the whole process (ADR 0010): every workspace's
         # provider shares its throttle, so the process as a whole stays inside
         # NCBI's allowance however many learners are checking.
@@ -332,6 +344,18 @@ def create_app(
                 if abandoned:
                     logger.info("pending_turns_abandoned count=%d", abandoned)
                 pipeline_turns: object = host_turns
+            elif resolved.model_provider == "claude":
+                host_turns = None
+                from .model.claude_cli import ClaudeCliRunner
+
+                def claude_turn_factory() -> ClaudeCliRunner:
+                    return ClaudeCliRunner(
+                        resolved.resolve_claude_path(),
+                        workspace=workspace.model_workspace,
+                        turn_timeout=resolved.appserver_turn_timeout,
+                    )
+
+                pipeline_turns = claude_turn_factory
             else:
                 host_turns = None
 
@@ -348,10 +372,24 @@ def create_app(
                 pipeline_turns = codex_turn_factory
             workspace.host_turns = host_turns
             workspace.turn_factory = pipeline_turns
+            def workspace_provider():
+                """The provider, told where this workspace's preferences live."""
+                provider = make_provider()
+                if provider is not None and hasattr(provider, "preference_reader"):
+                    def read_preferences() -> dict:
+                        reader = connect(workspace.database_path)
+                        try:
+                            return literature_store.get_settings(reader)
+                        finally:
+                            reader.close()
+
+                    provider.preference_reader = read_preferences
+                return provider
+
             workspace.build_service = BuildService(
                 database_path=workspace.database_path,
                 turn_factory=pipeline_turns,
-                provider_factory=make_provider,
+                provider_factory=workspace_provider,
             )
             watcher: LiteratureWatcher | None = None
             if resolved.literature_enabled:
@@ -362,7 +400,7 @@ def create_app(
                     connection.close()
                 watcher = LiteratureWatcher(
                     database_path=workspace.database_path,
-                    provider=make_provider(),
+                    provider=workspace_provider(),
                     interval_hours=preferences.get(
                         "interval_hours", resolved.literature_interval_hours
                     ),
@@ -400,15 +438,18 @@ def create_app(
             # the piles; refuses to run in host mode and says why.
             from .model.schedule import BuildScheduler
 
+            from .model.reports import parser_for
+
             app.state.build_scheduler = BuildScheduler(
                 database_path=owner.database_path,
                 service=owner.build_service,
                 model_mode=resolved.model_provider,
+                before=parser_for(owner.database_path, owner.turn_factory),
             )
             app.state.build_scheduler.start()
             app.state.host_turns = owner.host_turns
             app.state.literature_watcher = owner.watcher
-            if resolved.model_provider == "codex":
+            if resolved.model_provider in ("codex", "claude"):
                 app.state.turn_factory = owner.turn_factory
 
             # The learner's folder (ADR 0012): scanned once before the first
@@ -427,7 +468,7 @@ def create_app(
             )
             app.state.backfill_task = backfill_task
             if resolved.sync_peer_url and resolved.sync_token:
-                # The harbour pulls from and pushes to its sea (ADR 0015),
+                # Domi pulls from and pushes to foris (ADR 0015),
                 # on a timer, never at startup itself.
                 sync_task = asyncio.create_task(
                     _sync_loop(owner.database_path, owner.source_dir, resolved)
@@ -483,6 +524,7 @@ def create_app(
     for router in (
         routes_health.router,
         routes_piles.router,
+        routes_reports.router,
         routes_schedule.router,
         routes_sources.router,
         routes_tutor.router,

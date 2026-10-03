@@ -104,6 +104,8 @@ def kind_of(schema: Any) -> str:
         return "assessment"
     if schema is schemas.GRADING_SCHEMA:
         return "grading"
+    if schema is schemas.REPORT_SCHEMA:
+        return "report"
     raise ValueError("unknown output schema")
 
 

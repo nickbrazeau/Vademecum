@@ -19,7 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from 'd3-force'
 import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force'
-import type { CoveredTopic, MapPosition, Specialty, TopicGap, TopicLink } from '../lib/types'
+import type { CoveredTopic, MapPosition, ReportArea, Specialty, TopicGap, TopicLink } from '../lib/types'
 
 export interface GraphNode extends SimulationNodeDatum {
   id: string
@@ -29,6 +29,8 @@ export interface GraphNode extends SimulationNodeDatum {
   points: number
   specialty: string | null
   unfiled: boolean
+  /** What the newest exam report said about this area (ADR 0020), if it named it. */
+  standing: 'below' | 'at' | 'above' | null
 }
 
 interface GraphLink extends SimulationLinkDatum<GraphNode> {
@@ -39,6 +41,8 @@ export const UNFILED_ID = '__not_filed__'
 /** The legend key for topics with no specialty; also what the filter hides them by. */
 export const UNASSIGNED = '__unassigned__'
 const EMPTY_SET: ReadonlySet<string> = new Set()
+// A stable default: a fresh array each render would rebuild the layout every render.
+const NO_REPORTS: ReportArea[] = []
 
 /** Whether a node is drawn under the current legend filter. Unfiled flags are never filtered. */
 export function isShown(node: Pick<GraphNode, 'specialty' | 'unfiled'>, hidden: ReadonlySet<string>): boolean {
@@ -59,7 +63,7 @@ export function buildGraph(
   topics: TopicGap[],
   covered: CoveredTopic[],
   links: TopicLink[],
-  { openOnly }: { openOnly: boolean }
+  { openOnly, reports = [] }: { openOnly: boolean; reports?: ReportArea[] }
 ): { nodes: GraphNode[]; links: GraphLink[] } {
   const nodes = new Map<string, GraphNode>()
   for (const gap of topics) {
@@ -72,7 +76,8 @@ export function buildGraph(
       addressed: gap.addressed_flags,
       points: 0,
       specialty: gap.specialty?.id ?? null,
-      unfiled: gap.topic === null
+      unfiled: gap.topic === null,
+      standing: null
     })
   }
   for (const entry of covered) {
@@ -88,7 +93,29 @@ export function buildGraph(
         addressed: 0,
         points: entry.point_count,
         specialty: entry.specialty?.id ?? null,
-        unfiled: false
+        unfiled: false,
+        standing: null
+      })
+    }
+  }
+  // An exam report's areas are nodes too: the newest report's word on each
+  // area wins, and an area below the mark is drawn whether or not anything
+  // was flagged under it.
+  for (const area of reports) {
+    const existing = nodes.get(area.topic)
+    if (existing) {
+      if (existing.standing === null) existing.standing = area.standing
+      if (existing.specialty === null) existing.specialty = area.specialty_id
+    } else if (!openOnly || area.standing === 'below') {
+      nodes.set(area.topic, {
+        id: area.topic,
+        label: area.topic,
+        open: 0,
+        addressed: 0,
+        points: 0,
+        specialty: area.specialty_id,
+        unfiled: false,
+        standing: area.standing
       })
     }
   }
@@ -230,6 +257,7 @@ export function TopicGraph({
   specialties,
   positions,
   openOnly,
+  reports = NO_REPORTS,
   selected,
   onSelect,
   onPositions,
@@ -246,6 +274,8 @@ export function TopicGraph({
   onSelect: (id: string | null) => void
   /** Called with the whole layout after it settles and after every drag. */
   onPositions?: (positions: MapPosition[]) => void
+  /** What exam reports said, by area (ADR 0020). */
+  reports?: ReportArea[]
   /** Specialty ids (or UNASSIGNED) the owner has switched off in the legend. */
   hidden?: ReadonlySet<string>
   onToggleSpecialty?: (id: string) => void
@@ -253,21 +283,20 @@ export function TopicGraph({
   const width = 720
   const height = 480
   const graph = useMemo(() => {
-    const built = buildGraph(topics, covered, links, { openOnly })
+    const built = buildGraph(topics, covered, links, { openOnly, reports })
     layout(built.nodes, built.links, width, height, positions)
     return built
     // `positions` is deliberately not a dependency: it is the memory the layout
     // starts from, and re-running on every save would make the graph twitch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topics, covered, links, openOnly])
+  }, [topics, covered, links, openOnly, reports])
 
   // Report the settled layout once per build, so new topics get remembered too.
   const report = useRef(onPositions)
   report.current = onPositions
   useEffect(() => {
-    if (!openOnly) return
     report.current?.(positionsOf(graph.nodes))
-  }, [graph, openOnly])
+  }, [graph])
 
   const present = useMemo(() => {
     const ids = new Set(graph.nodes.map((node) => node.specialty).filter((id): id is string => id !== null))
@@ -428,12 +457,12 @@ export function TopicGraph({
             return (
               <g
                 key={node.id}
-                className={`topic-node ${specialtyClass(node.specialty, node.unfiled)} ${isSelected ? 'selected' : ''}`}
+                className={`topic-node ${specialtyClass(node.specialty, node.unfiled)} ${node.standing ? `standing-${node.standing}` : ''} ${isSelected ? 'selected' : ''}`}
                 transform={`translate(${node.x ?? 0} ${node.y ?? 0})`}
                 role="button"
                 tabIndex={0}
                 aria-pressed={isSelected}
-                aria-label={`${node.label}: ${node.open} open, ${node.addressed} addressed, ${node.points} points`}
+                aria-label={`${node.label}: ${node.open} open, ${node.addressed} addressed, ${node.points} points${node.standing ? `, exam standing ${node.standing}` : ''}`}
                 onPointerDown={(event) => onNodePointerDown(event, node)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
@@ -444,6 +473,7 @@ export function TopicGraph({
               >
                 <circle className="topic-hit" r={Math.max(HIT_RADIUS, r)} />
                 {isSelected ? <circle className="topic-ring" r={r + 5} /> : null}
+                {node.standing === 'below' ? <circle className="standing-ring" r={r + 4} /> : null}
                 <circle className="topic-dot" r={r} strokeWidth={node.open > 0 ? 2 : 1} />
                 <text className="topic-label" y={r + 13} textAnchor="middle">
                   {node.label}

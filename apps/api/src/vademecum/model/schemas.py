@@ -204,3 +204,35 @@ GRADING_SCHEMA = {
         "uncertainty": _string(600),
     },
 }
+
+
+# --- exam reports (ADR 0020) ----------------------------------------------------
+#
+# A score report read into content areas. `quote` must appear verbatim in the
+# report's own text (checked by the server); `specialty` is one of the ids the
+# prompt lists, or "" when none fits. Nothing here is a judgement about the
+# learner: it is what the report says, located.
+
+MAX_AREAS_PER_REPORT = 60
+
+AREA_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["topic", "specialty", "standing", "quote", "note"],
+    "properties": {
+        "topic": _string(MAX_TOPIC),
+        "specialty": _string(40),
+        "standing": {"type": "string", "enum": ["below", "at", "above"]},
+        "quote": _string(200),
+        "note": _string(200),
+    },
+}
+
+REPORT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["areas"],
+    "properties": {
+        "areas": {"type": "array", "maxItems": MAX_AREAS_PER_REPORT, "items": AREA_SCHEMA},
+    },
+}

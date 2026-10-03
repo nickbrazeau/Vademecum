@@ -256,7 +256,7 @@ async def test_single_tenancy_without_a_built_web_app_shows_the_notice(mcp_setti
             assert (await web.get("/api/piles")).status_code == 401
 
 
-# --- one learner, the owner: the sea's gateway (ADR 0017) -----------------------------
+# --- one learner, the owner: foris's gateway (ADR 0017) -----------------------------
 
 
 @pytest.fixture
@@ -267,7 +267,7 @@ async def seat(tmp_path: Path, dist: Path, provider: FakeProvider):
     )
     api_settings = ApiSettings(
         data_dir=tmp_path / "data", host="127.0.0.1", port=8765, model_provider="host",
-        sync_role="sea", sync_accept_token="the-peer-token-the-mac-presents",
+        sync_role="foris", sync_accept_token="the-peer-token-the-mac-presents",
     )
     store = AccessStore(mcp_settings.access_db_path)
     store.set_passphrase(PASS)
@@ -310,6 +310,6 @@ async def test_sync_passes_through_the_gateway_on_the_peer_token_alone(seat) -> 
     assert (await web.get("/api/sync/status", headers={"X-Vademecum-Sync": "wrong"})).status_code == 404
     status = await web.get("/api/sync/status", headers={"X-Vademecum-Sync": "the-peer-token-the-mac-presents"})
     assert status.status_code == 200
-    assert status.json()["role"] == "sea" and status.json()["node_id"].startswith("node_")
+    assert status.json()["role"] == "foris" and status.json()["node_id"].startswith("node_")
     changes = await web.get("/api/sync/changes?since=0", headers={"X-Vademecum-Sync": "the-peer-token-the-mac-presents"})
     assert changes.status_code == 200 and changes.json()["done"] is True

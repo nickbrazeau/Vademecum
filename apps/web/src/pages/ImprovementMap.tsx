@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ConfidenceBadge, ConfidenceMeaning } from '../components/ConfidenceBadge'
+import { ExamReports } from '../components/ExamReports'
 import { TopicGraph, UNFILED_ID, isShown } from '../components/TopicGraph'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
@@ -67,7 +68,8 @@ function FlagList({ flags, onChanged }: { flags: Flag[]; onChanged: () => void }
 export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
   const map = useLoad(() => api.improvementMap(), [reloadToken])
   const flags = useLoad(() => api.listFlags(), [reloadToken])
-  const [openOnly, setOpenOnly] = useState(true)
+  // Everything in the piles is an area to review, so the map starts with everything shown.
+  const [openOnly, setOpenOnly] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   // Legend entries switched off. A view preference, not a fact: never stored.
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set())
@@ -120,7 +122,7 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
   }
 
   const value = map.result.value
-  const hasTopics = value.topics.length > 0 || value.covered_topics.length > 0
+  const hasTopics = value.topics.length > 0 || value.covered_topics.length > 0 || value.report_areas.length > 0
   const selectedGap =
     selected === null
       ? null
@@ -149,7 +151,7 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
         <h2 id="map-heading">Where the gaps are</h2>
         {!hasTopics ? (
           <p className="muted">
-            Nothing flagged yet. This map fills in from what you flag as you go.
+            Nothing to draw yet. This map fills in from your piles, from what you flag, and from any exam report you add below.
           </p>
         ) : (
           <>
@@ -179,6 +181,7 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
               topics={value.topics}
               covered={value.covered_topics}
               links={value.links}
+              reports={value.report_areas}
               specialties={value.specialties}
               positions={value.positions}
               openOnly={openOnly}
@@ -190,7 +193,8 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
             />
             <p className="muted small">
               Size is open flags; colour is the specialty, and each legend entry switches its
-              topics on or off. A line means one learning point was filed under both topics.
+              topics on or off. A dashed ring is an area an exam report placed below the mark.
+              A line means one learning point was filed under both topics.
               Where things sit is remembered between opens; new topics settle in around the ones
               already placed.
             </p>
@@ -256,6 +260,8 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
           </div>
         </section>
       ) : null}
+
+      <ExamReports onChanged={reloadBoth} />
 
       <section className="card" aria-labelledby="material-heading">
         <h2 id="material-heading">Material behind it</h2>

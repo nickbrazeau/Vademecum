@@ -196,11 +196,12 @@ LOGIN_AGENT = Path.home() / "Library" / "LaunchAgents" / f"{LOGIN_LABEL}.plist"
 def write_login_agent(
     path: Path, *, python: str, working_directory: Path, log_path: Path, model: str = "host"
 ) -> None:
-    """``model``: `host` (the assistant is the model) or `codex` (the Mac's own
-    Codex connection, which is what builds on a timer need, ADR 0018)."""
+    """``model``: `host` (the assistant is the model), `codex` (the Mac's own
+    Codex connection) or `claude` (the Claude Code CLI); the last two are what
+    builds on a timer need (ADR 0018, 0019)."""
     import plistlib
 
-    if model not in ("host", "codex"):
+    if model not in ("host", "codex", "claude"):
         raise ValueError(f"unknown model mode {model!r}")
     agent = {
         "Label": LOGIN_LABEL,

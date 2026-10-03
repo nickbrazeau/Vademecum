@@ -148,6 +148,36 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
   }
 
   const current: Settings | null = settings.result.state === 'ready' ? settings.result.value : null
+  const map = useLoad(() => api.improvementMap(), [token])
+  const specialties = map.result.state === 'ready' ? map.result.value.specialties : []
+  const [chosenSpecialty, setChosenSpecialty] = useState('')
+  const [newJournal, setNewJournal] = useState('')
+
+  const savePreferences = async (input: { preferred_journals?: string[]; guidelines_first?: boolean }) => {
+    if (current === null) return
+    setBusy(true)
+    setAction('preferences')
+    setFailure(null)
+    try {
+      await api.saveLiteratureSettings({
+        weekly_enabled: current.weekly_enabled,
+        interval_hours: current.interval_hours,
+        ...input
+      })
+      refresh()
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const watchSpecialty = async () => {
+    const specialty = specialties.find((entry) => entry.id === chosenSpecialty)
+    if (specialty === undefined) return
+    await watch(specialty.name, specialty.name.toLowerCase())
+    setChosenSpecialty('')
+  }
 
   return (
     <section className="card" id="literature-settings" aria-labelledby="literature-settings-heading">
@@ -172,6 +202,89 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
           <span>Check weekly while Vademecum is running</span>
         </label>
       ) : null}
+      {current ? (
+        <fieldset className="stack" aria-label="What comes first">
+          <legend>What comes first</legend>
+          <p className="muted small">
+            Each check looks first for practice guidelines and papers in the journals below, then
+            fills in with everything else on the topic. This changes the order, never the facts.
+          </p>
+          <label className="field inline">
+            <input
+              type="checkbox"
+              checked={current.guidelines_first}
+              disabled={busy}
+              onChange={(event) => void savePreferences({ guidelines_first: event.target.checked })}
+            />
+            <span>Practice guidelines first</span>
+          </label>
+          <ul className="chips" aria-label="Preferred journals">
+            {current.preferred_journals.map((journal) => (
+              <li key={journal} className="chip on">
+                {journal}{' '}
+                <button
+                  type="button"
+                  className="button ghost small"
+                  disabled={busy}
+                  aria-label={`Stop preferring ${journal}`}
+                  onClick={() =>
+                    void savePreferences({ preferred_journals: current.preferred_journals.filter((entry) => entry !== journal) })
+                  }
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          <label className="field">
+            <span>Add a journal (PubMed abbreviation, e.g. "N Engl J Med")</span>
+            <input
+              type="text"
+              value={newJournal}
+              maxLength={60}
+              disabled={busy}
+              onChange={(event) => setNewJournal(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="button small"
+            disabled={busy || newJournal.trim() === ''}
+            onClick={() => {
+              void savePreferences({ preferred_journals: [...current.preferred_journals, newJournal.trim()] })
+              setNewJournal('')
+            }}
+          >
+            Prefer this journal
+          </button>
+        </fieldset>
+      ) : null}
+
+      {specialties.length > 0 ? (
+        <div className="field">
+          <label htmlFor="watch-specialty">Watch a subspecialty</label>
+          <div className="actions">
+            <select
+              id="watch-specialty"
+              value={chosenSpecialty}
+              disabled={busy}
+              onChange={(event) => setChosenSpecialty(event.target.value)}
+            >
+              <option value="">Choose a subspecialty…</option>
+              {specialties.map((specialty) => (
+                <option key={specialty.id} value={specialty.id}>
+                  {specialty.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="button small" disabled={busy || chosenSpecialty === ''} onClick={() => void watchSpecialty()}>
+              Watch it
+            </button>
+          </div>
+          <p className="muted small">Adds a topic whose search words are the subspecialty's name. You can edit it afterwards.</p>
+        </div>
+      ) : null}
+
       {settings.result.state === 'failed' ? <Unavailable error={settings.result.error} onRetry={refresh} /> : null}
 
       <div className="actions">

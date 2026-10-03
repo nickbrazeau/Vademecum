@@ -63,7 +63,7 @@ in Safari; those device checks remain a human acceptance step.
 
 ### First learning session
 
-1. Open **Sources**, create a pile, choose its source confidence, and add files.
+1. Open **Sources**, create a pile, choose its tier confidence, and add files.
 2. Review extraction warnings. Preview **Build learning material**, inspect the selected text and
    transmission disclosure, and confirm the batch. Continue with further batches for long documents.
 3. Read the generated points and their citations. Only evidence-supported questions that pass the
@@ -83,6 +83,7 @@ also contact OpenAI through Codex; they do not send your study material.
 | **Build learning material** | Selected excerpts, filenames, confidence labels and locators. Follow-up checks send generated claims and their context with retrieved abstracts, then questions, reference answers and rubrics with selected passages and abstracts. | OpenAI, through the Codex process on this Mac, on your ChatGPT sign-in |
 | **Grade** | The question on screen, its reference answer and rubric, and the answer you typed. Nothing else. | Same |
 | **Check literature**, a Build's evidence lookup, or an enabled weekly check | Short public topic phrases (derived during Build; reviewable/editable for watched topics) and public PubMed identifiers for retrieval/status checks. Never source excerpts, filenames or learner answers. | PubMed (NCBI E-utilities) |
+| **Add a score report** on the Improvement Map ([ADR 0020](docs/adr/0020-exam-reports-on-the-map.md)) | The whole report's text, once, to read out content areas and your standing in each; the disclosure is above the button. | The Mac's own model connection, Codex or Claude, on your sign-in |
 | **Builds on a timer** ([ADR 0018](docs/adr/0018-builds-on-a-timer.md)), only while you have the schedule on, and **Build now** | For every pile with unbuilt passages, the same as Build above, without a per-batch preview: a standing consent you gave once, shown on Today with the moment you gave it, and withdrawn by turning the schedule off. | OpenAI, through the Codex process on this Mac, on your ChatGPT sign-in; needs the Mac in `codex` mode (`mcp.sh setup login --model codex`) |
 | **Sync**, only if you configured a second Vademecum ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)) | Your own workspace: the rows of every record and the stored files, both ways. | Your own second Vademecum, at the address you set, over HTTPS, with the token you set. Nowhere else, and nothing at all unless configured. |
 
@@ -92,7 +93,7 @@ preview.
 
 ### What "verified" means here — and does not
 
-A pile's Low/Medium/High is **source confidence**. It never makes a claim true.
+A pile's Low/Medium/High is **tier confidence**. It never makes a claim true.
 
 - **Draft (source-supported)** — your material says it, at the cited location. Kept and shown.
   Tutor never asks it.
@@ -236,7 +237,7 @@ the model, and this Mac holds no key.
     lowconfidence/     Old notes/         scribbles.md
 ```
 
-Each tier folder is a source-confidence rating; each folder inside it is a pile. Vademecum reads
+Each tier folder is a tier-confidence rating; each folder inside it is a pile. Vademecum reads
 the folder at start, every twenty seconds while it runs, and whenever you ask the assistant to
 sync. Move a pile's folder to another tier to re-rate it. Removing a file from the folder does
 not remove it from Vademecum; ask the assistant to remove the source, and it will ask you to
@@ -263,8 +264,10 @@ The folder choice is recorded in `~/Library/Application Support/Vademecum/settin
 both processes read; a variable in the environment still wins. The registrations keep everything
 else in the assistant's file and leave a backup beside it.
 
-**The dashboard.** The web app is the dashboard: Today, the source library, the Tutor, the
-Improvement Map as a graph, and the model status. It is available two ways from the assistant
+**The dashboard.** The web app is the dashboard. Today is three things and nothing else: new in
+the literature, worth a look, held for review, with literature settings in a drop-down. Then the
+source library with building at the top, the Tutor, the Improvement Map as a graph, and the model
+status. It is available two ways from the assistant
 ([ADR 0014](docs/adr/0014-the-web-app-inside-the-conversation.md)):
 
 - **Inside the conversation, by default.** Where the assistant can draw MCP Apps (Codex does;
@@ -285,9 +288,20 @@ Improvement Map as a graph, and the model status. It is available two ways from 
 In development, `./scripts/dev.sh` runs the web app on <http://127.0.0.1:5173> instead, and a
 running API is simply reused by the assistant.
 
-**Builds on a timer.** Today has a "Builds on a timer" card: times of day, a switch, and Build
+**The model connection** can be Codex (the ChatGPT app's own CLI) or Claude (the Claude Code
+CLI), each on your own sign-in and never a key ([ADR 0019](docs/adr/0019-claude-as-the-model-connection.md)):
+`./scripts/mcp.sh setup login --model codex` or `--model claude`. The Model page shows which, and
+whether it is signed in; for Claude, sign in by running `claude` once in a terminal.
+
+**Exam reports on the map.** The Improvement Map starts with everything shown, since everything
+in your piles is an area to review, and it can rest on a test: add an in-training exam report,
+a Step score report or a board letter on the map page and its content areas appear as nodes with
+your standing in each, a dashed ring where you were below the mark ([ADR 0020](docs/adr/0020-exam-reports-on-the-map.md)).
+Adding one sends its text to the Mac's model connection once; the disclosure is above the button.
+
+**Builds on a timer.** The Sources page has a "Builds on a timer" card at the top: times of day, a switch, and Build
 now. While it is on, the Mac works through every pile by itself at those times, a few batches
-per pile per run, and the sea gets the results at the next sync. It needs the Mac's own Codex
+per pile per run, and Foris gets the results at the next sync. It needs the Mac's own Codex
 connection: `./scripts/mcp.sh setup login --model codex`, then sign in once on the Model page if
 asked. The switch is a standing consent to what each run sends; the card says so and shows when
 you gave it. The tools `build_schedule` and `build_now` do the same from an assistant.
@@ -331,26 +345,26 @@ outside a checked turn, and the history says so. Make a fresh pack after each bu
 ## Optional: a second Vademecum that syncs
 
 For the phone while the Mac sleeps ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)):
-two whole Vademecums, the Mac as the **harbour** (files, reading, builds) and an always-awake copy as
-the **sea** (the dashboard, the Tutor and grading through your assistant, flags, text-only intake
-from the phone). The harbour pulls the sea's changes and pushes its own, every five minutes while it runs
+two whole Vademecums, the Mac as the **Domi** (files, reading, builds) and an always-awake copy as
+the **Foris** (the dashboard, the Tutor and grading through your assistant, flags, text-only intake
+from the phone). Domi pulls Foris's changes and pushes its own, every five minutes while it runs
 and on `python -m vademecum sync`. Ownership, not cleverness, keeps them agreeing: what is made
-from files belongs to the harbour; what you do on the phone merges back; a removal on one side is
+from files belongs to Domi; what you do on the phone merges back; a removal on one side is
 carried to the other; a rating or exclusion changed on the phone is not carried. The engine
 and its routes are built and tested with two in-process nodes; where the away node runs is
 still your choice, and it is not Cloudflare's compute.
 
-**The sea on Cloudflare** ([ADR 0017](docs/adr/0017-the-seat-on-cloudflare.md),
-`deploy/cloudflare/`) is the sea ready to run: the same Vademecum in one container
+**Foris on Cloudflare** ([ADR 0017](docs/adr/0017-the-seat-on-cloudflare.md),
+`deploy/cloudflare/`) is Foris ready to run: the same Vademecum in one container
 behind a Worker, its records snapshotted to an R2 bucket every five minutes and restored at
 boot, the dashboard behind your passphrase, the assistants' tools at `/mcp`, and the Mac
-syncing to it with `./scripts/mcp.sh setup sync https://<your sea>`. Deploying needs your own
-Cloudflare account; the README there is the whole procedure. The sea can lose up to five
-minutes of phone-side work if its container is replaced, and the harbour is never behind by
+syncing to it with `./scripts/mcp.sh setup sync https://<your Foris>`. Deploying needs your own
+Cloudflare account; the README there is the whole procedure. Foris can lose up to five
+minutes of phone-side work if its container is replaced, and Domi is never behind by
 more than its last sync.
 
-By hand: set on the sea `VADEMECUM_SYNC_ROLE=sea` and `VADEMECUM_SYNC_ACCEPT_TOKEN`; set on the
-harbour `VADEMECUM_SYNC_PEER_URL` (its HTTPS origin) and `VADEMECUM_SYNC_TOKEN`.
+By hand: set on Foris `VADEMECUM_SYNC_ROLE=Foris` and `VADEMECUM_SYNC_ACCEPT_TOKEN`; set on the
+Domi `VADEMECUM_SYNC_PEER_URL` (its HTTPS origin) and `VADEMECUM_SYNC_TOKEN`.
 
 ## Optional: the hosted mode, for ChatGPT chat, phones, or several learners
 
@@ -508,11 +522,11 @@ checkout supports the personal path and does not attempt a listing.
 | `VADEMECUM_TENANCY` | `single` | `single`: one owner, one workspace, no identity. `multi`: a workspace per learner under `learners/`, every request identified by its token; requires host mode. |
 | `VADEMECUM_MODEL_PROVIDER` | `codex` | Who does the model work: `codex` (the local Codex child) or `host` (the assistant, through pending turns; this process never calls a model). |
 | `VADEMECUM_HOST_TURN_TTL` | `1800` | Seconds a pending host turn may wait for the assistant before the run fails. |
-| `VADEMECUM_SYNC_ROLE` | `harbour` | The `harbour` keeps the files and does the reading; the `sea` is the copy a phone reaches while the Mac sleeps (ADR 0015). `home`/`away` are the older spellings. |
-| `VADEMECUM_SYNC_PEER_URL` | unset | Harbour only: the HTTPS origin of the sea. Unset means no sync at all. |
-| `VADEMECUM_SYNC_TOKEN` | unset | Harbour only: the token the sea requires. |
-| `VADEMECUM_SYNC_ACCEPT_TOKEN` | unset | Sea only: the token the harbour must present; without it the sync routes do not exist. |
-| `VADEMECUM_SYNC_INTERVAL` | `300` | Seconds between sync rounds while the harbour runs; `python -m vademecum sync` runs one now. |
+| `VADEMECUM_SYNC_ROLE` | `domi` | The `Domi` keeps the files and does the reading; the `Foris` is the copy a phone reaches while the Mac sleeps (ADR 0015). `harbour`/`sea` and `home`/`away` are older spellings, still accepted. |
+| `VADEMECUM_SYNC_PEER_URL` | unset | Domi only: the HTTPS origin of Foris. Unset means no sync at all. |
+| `VADEMECUM_SYNC_TOKEN` | unset | Domi only: the token Foris requires. |
+| `VADEMECUM_SYNC_ACCEPT_TOKEN` | unset | Foris only: the token Domi must present; without it the sync routes do not exist. |
+| `VADEMECUM_SYNC_INTERVAL` | `300` | Seconds between sync rounds while Domi runs; `python -m vademecum sync` runs one now. |
 | `VADEMECUM_LITERATURE_NCBI_KEY` | unset | NCBI's E-utilities courtesy key: a public database's rate-limit identifier (ten requests a second instead of three), shared by every workspace in the process. Not a model credential. |
 | `VADEMECUM_MCP_PORT` | `8766` | MCP server port, on `127.0.0.1` (`scripts/mcp.sh`). |
 | `VADEMECUM_MCP_PUBLIC_URL` | unset | The HTTPS origin the tunnel presents; required in HTTP mode. `--tunnel` sets it. |

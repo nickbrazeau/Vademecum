@@ -967,11 +967,15 @@ def test_settings_have_defaults_and_persist(connection: sqlite3.Connection) -> N
     assert store.get_settings(connection) == {
         "weekly_enabled": False,
         "interval_hours": store.DEFAULT_INTERVAL_HOURS,
+        "preferred_journals": list(store.DEFAULT_PREFERRED_JOURNALS),
+        "guidelines_first": True,
     }
     store.set_settings(connection, weekly_enabled=False, interval_hours=24.0)
     assert store.get_settings(connection) == {
         "weekly_enabled": False,
         "interval_hours": 24.0,
+        "preferred_journals": list(store.DEFAULT_PREFERRED_JOURNALS),
+        "guidelines_first": True,
     }
     stored = {
         row["key"]: row["value"]

@@ -683,3 +683,35 @@ def test_as_row_matches_the_record_columns(connection: Any) -> None:
     assert set(row) <= columns
     assert row["retracted"] in (0, 1) and row["corrected"] in (0, 1)
     assert row["publication_types"].startswith("[")
+
+
+def test_preferred_sources_come_first_then_everything_else() -> None:
+    """ADR 0007 addendum: guidelines and the preferred journals narrow the first
+    search; a second, plain search fills the rest; nothing is said twice."""
+    from vademecum.literature.pubmed import PubMedProvider, preferred_filter
+
+    assert preferred_filter({}) == ""
+    clause = preferred_filter({"guidelines_first": True, "preferred_journals": ["N Engl J Med", 'JAMA"[ta] OR evil']})
+    # Quotes and brackets in a journal name cannot escape the phrase.
+    assert clause == 'guideline[pt] OR practice guideline[pt] OR "N Engl J Med"[ta] OR "JAMAta OR evil"[ta]'
+
+    seen: list[str] = []
+
+    class Recording:
+        def get(self, path, params):
+            if path.endswith("esearch.fcgi"):
+                seen.append(params["term"])
+                ids = ["1", "2"] if "[ta]" in params["term"] else ["2", "3", "4"]
+                return ('{"esearchresult": {"idlist": ' + str(ids).replace("'", '"') + "}}").encode()
+            return b"<PubmedArticleSet></PubmedArticleSet>"
+
+    provider = PubMedProvider(Recording(), max_results=3)
+    provider.preference_reader = lambda: {"guidelines_first": True, "preferred_journals": ["JAMA"]}
+    provider.search("septic shock")
+    assert seen[0] == '(septic shock) AND (guideline[pt] OR practice guideline[pt] OR "JAMA"[ta])'
+    assert seen[1] == "septic shock"
+
+    plain = PubMedProvider(Recording(), max_results=3)
+    seen.clear()
+    plain.search("septic shock")
+    assert seen == ["septic shock"], "no preferences, one plain search, as before"

@@ -74,11 +74,11 @@ function SourceRow({ source, onChanged }: { source: Source; onChanged: () => voi
 
       <div className="actions">
         <label className="field inline">
-          <span>Source confidence</span>
+          <span>Tier confidence</span>
           <select
             value={source.confidence}
             disabled={busy}
-            aria-label={`Source confidence for ${source.display_name}`}
+            aria-label={`Tier confidence for ${source.display_name}`}
             onChange={(event) =>
               void act(() =>
                 api.updateSource(source.id, { confidence: event.target.value as Tier })

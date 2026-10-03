@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from typing import Any
 from xml.etree.ElementTree import Element, ParseError
@@ -240,13 +240,43 @@ class PubMedProvider:
     def __init__(self, fetcher: Fetcher, *, max_results: int) -> None:
         self._fetcher = fetcher
         self._max_results = max(1, int(max_results))
+        # Where the owner's preferences come from at search time: a callable
+        # returning the literature settings, set by the application. None
+        # means plain searches, as before.
+        self.preference_reader: Callable[[], dict[str, Any]] | None = None
 
     def search(self, query: str) -> list[Article]:
+        """Guidelines and the preferred journals first, then everything else.
+
+        Two searches when preferences say so: the topic narrowed to practice
+        guidelines and the preferred journals, then the topic alone to fill the
+        rest, with duplicates dropped. The narrowing is a PubMed filter on
+        publication type and journal title; it changes which records come back
+        first, never what is said about them.
+        """
         term = validate_query(query)
-        identifiers = self._esearch(term)
+        preferences = self._preferences()
+        identifiers: list[str] = []
+        narrow = preferred_filter(preferences)
+        if narrow:
+            identifiers.extend(self._esearch(f"({term}) AND ({narrow})"))
+        if len(identifiers) < self._max_results:
+            for pmid in self._esearch(term):
+                if pmid not in identifiers:
+                    identifiers.append(pmid)
+        identifiers = identifiers[: self._max_results]
         if not identifiers:
             return []
         return self._efetch(identifiers)
+
+    def _preferences(self) -> dict[str, Any]:
+        if self.preference_reader is None:
+            return {}
+        try:
+            data = self.preference_reader()
+        except Exception:  # noqa: BLE001 - a preference that cannot be read is no preference
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def fetch_by_pmid(self, pmids: Sequence[str]) -> list[Article]:
         """Re-read named records, with no search and no date window.
@@ -494,6 +524,22 @@ def derive_status(
     corrected = bool(refs & _CORRECTION_REFTYPES)
     is_notice = bool(types & NOTICE_PUBLICATION_TYPES) or bool(refs & NOTICE_REF_TYPES)
     return retracted, corrected, is_notice
+
+
+def preferred_filter(preferences: dict[str, Any]) -> str:
+    """The PubMed clause for the owner's preferences, or '' for none.
+
+    Journal titles go in as `[ta]` phrases; only letters, digits, spaces and a
+    few marks are let through, so nothing in the clause can escape the quotes.
+    """
+    parts: list[str] = []
+    if preferences.get("guidelines_first", False):
+        parts.append("guideline[pt] OR practice guideline[pt]")
+    for journal in preferences.get("preferred_journals") or []:
+        text = re.sub(r"[^A-Za-z0-9 .&'-]", "", str(journal)).strip()
+        if text:
+            parts.append(f'"{text}"[ta]')
+    return " OR ".join(parts)
 
 
 def derive_priority(publication_types: tuple[str, ...], journal: str) -> str:

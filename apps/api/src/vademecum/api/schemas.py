@@ -216,11 +216,12 @@ class Health(BaseModel):
             "to PubMed (NCBI E-utilities) and nothing from the owner's material."
         ),
     )
-    model_mode: Literal["codex", "host"] = Field(
+    model_mode: Literal["codex", "host", "claude"] = Field(
         default="codex",
         description=(
             "Who does the model work. `codex`: the local Codex child on this Mac. "
-            "`host`: the learner's ChatGPT through pending/submit tools; this process "
+            "`claude`: the Claude Code CLI on this Mac, on the owner's Claude sign-in (ADR 0019). "
+            "`host`: the learner's assistant through pending/submit tools; this process "
             "never calls a model (ADR 0009)."
         ),
     )
@@ -385,6 +386,10 @@ class LiteratureCheckRequest(Strict):
 class LiteratureSettings(Strict):
     weekly_enabled: bool
     interval_hours: Annotated[float, Field(ge=1, le=8760)] = 168.0
+    # Which records come first (ADR 0007): practice guidelines, and these
+    # journals, by PubMed title abbreviation. Omitted means "leave as is".
+    preferred_journals: Annotated[list[Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]], Field(max_length=12)] | None = None
+    guidelines_first: bool | None = None
 
 
 class UpdateState(Strict):

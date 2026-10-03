@@ -292,6 +292,10 @@ CODEX_DESTINATION = (
     "Sent to OpenAI through the Codex process on this Mac, using your "
     "ChatGPT sign-in. No API key is used."
 )
+CLAUDE_DESTINATION = (
+    "Sent to Claude through the Claude Code CLI on this Mac, using your "
+    "Claude sign-in. No API key is used."
+)
 
 
 def _disclosure(batch: store.Batch, mode: str = "codex") -> dict:
@@ -315,7 +319,7 @@ def _disclosure(batch: store.Batch, mode: str = "codex") -> dict:
             "identifiers are sent to retrieve and refresh papers. Source excerpts, filenames "
             "and learner answers are not sent to PubMed.",
         ],
-        "destination": HOST_DESTINATION if mode == "host" else CODEX_DESTINATION,
+        "destination": {"host": HOST_DESTINATION, "claude": CLAUDE_DESTINATION}.get(mode, CODEX_DESTINATION),
     }
 
 

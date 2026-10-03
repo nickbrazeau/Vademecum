@@ -188,6 +188,9 @@ function WhatIsSent() {
 export function Model() {
   const [online, setOnline] = useState(() => navigator.onLine)
   const { result, reload } = useLoad(() => api.modelStatus(), [])
+  // Which connection this is (ADR 0019): Claude signs in in a terminal, never from here.
+  const health = useLoad(() => api.health(), [])
+  const claudeMode = health.result.state === 'ready' && health.result.value.model_mode === 'claude'
   // In component state, deliberately. See the note at the top of this file.
   const [login, setLogin] = useState<DeviceLogin | null>(null)
   const [busy, setBusy] = useState(false)
@@ -294,7 +297,9 @@ export function Model() {
         <p className="body">
           {status
             ? status.detail
-            : 'Checking whether Codex on this Mac is signed in. That check goes through Codex, which contacts OpenAI to answer it; no note, question or answer is sent.'}
+            : claudeMode
+              ? 'Checking whether the Claude Code CLI on this Mac is signed in. No note, question or answer is sent.'
+              : 'Checking whether Codex on this Mac is signed in. That check goes through Codex, which contacts OpenAI to answer it; no note, question or answer is sent.'}
         </p>
 
         {failure ? (
@@ -304,10 +309,15 @@ export function Model() {
         ) : null}
 
         <div className="actions">
-          {state === 'signed_out' && !status?.login_pending && login === null ? (
+          {state === 'signed_out' && !status?.login_pending && login === null && !claudeMode ? (
             <button type="button" className="button primary" onClick={signIn} disabled={busy}>
               Sign in with ChatGPT
             </button>
+          ) : null}
+          {state === 'signed_out' && claudeMode ? (
+            <span className="muted small">
+              Sign in from a terminal: run <code>claude</code> once and follow its sign-in. This page cannot do it for you.
+            </span>
           ) : null}
           <button type="button" className="button" onClick={check} disabled={busy}>
             Check again

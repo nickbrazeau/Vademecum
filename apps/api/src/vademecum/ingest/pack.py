@@ -133,7 +133,7 @@ def build_pack(connection: sqlite3.Connection) -> Pack:
         pile = piles.get(pile_id)
         title = pile.title if pile else "Unknown pile"
         tier_label = {"low": "Low", "mid": "Medium", "high": "High"}.get(pile.tier if pile else "", "")
-        lines.append(f"### Pile: {_clean(title)} (source confidence: {tier_label or 'unknown'})")
+        lines.append(f"### Pile: {_clean(title)} (tier confidence: {tier_label or 'unknown'})")
         lines.append("")
         for point in group:
             lines.append(f"- **{_clean(point.claim)}** [{point.id}]")

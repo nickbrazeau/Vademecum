@@ -1,7 +1,7 @@
 /**
  * The cover sheet, and the first thing the owner sees.
  *
- * Descriptive, never prescriptive: what is new in the literature, what the
+ * Three things and nothing else: what is new in the literature, what the
  * model made of your own material, and what is being held back. It counts
  * nothing down, asks for nothing back, and the same day gives the same page
  * however often you open it.
@@ -9,18 +9,14 @@
 
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
-import { CoverageBar } from '../components/CoverageBar'
-import { ConfidenceBadge, ConfidenceMeaning } from '../components/ConfidenceBadge'
-import { BuildSchedule } from '../components/BuildSchedule'
 import { LiteratureSettings } from '../components/LiteratureSettings'
 import { PointCard } from '../components/PointCard'
 import { PaperLink } from '../components/PaperLink'
-import { PrivacyNote } from '../components/PrivacyNote'
 import { MachineReviewedNote } from '../components/SupportBadge'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import { dateLabel, momentLabel } from '../lib/format'
-import type { CoverSheet, Update, UpdateState, WrittenFile } from '../lib/types'
+import type { CoverSheet, Update, UpdateState } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import type { RouteName } from '../lib/router'
 
@@ -119,63 +115,6 @@ function UpdateEntry({
   )
 }
 
-function LocalData() {
-  const [written, setWritten] = useState<{ what: string; file: WrittenFile } | null>(null)
-  const [failure, setFailure] = useState<ApiError | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  const run = async (what: string, action: () => Promise<WrittenFile>) => {
-    setBusy(true)
-    setFailure(null)
-    try {
-      setWritten({ what, file: await action() })
-    } catch (error) {
-      setWritten(null)
-      setFailure(asApiError(error))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <section className="card" aria-labelledby="local-data-heading">
-      <h2 id="local-data-heading">Your local data</h2>
-      <p className="muted">
-        An export is readable JSON you can open in any editor. A backup is a consistent copy of the
-        database. Both are written into your data directory on this Mac.
-      </p>
-      <div className="actions">
-        <button
-          type="button"
-          className="button"
-          disabled={busy}
-          onClick={() => void run('Export', api.createExport)}
-        >
-          Export as JSON
-        </button>
-        <button
-          type="button"
-          className="button"
-          disabled={busy}
-          onClick={() => void run('Backup', api.createBackup)}
-        >
-          Back up the database
-        </button>
-      </div>
-      {written ? (
-        <p className="ok" role="status">
-          {written.what} written: <code>{written.file.directory}/{written.file.filename}</code>
-        </p>
-      ) : null}
-      {failure ? (
-        <p className="failure" role="alert">
-          {failure.message}
-        </p>
-      ) : null}
-    </section>
-  )
-}
-
 export function Today({
   reloadToken,
   onNavigate
@@ -216,8 +155,8 @@ export function Today({
             {sheet.literature.message === ''
               ? 'Nothing unread. New papers appear here only when a topic check finds them.'
               : sheet.literature.message}{' '}
-            <a href="#literature-settings">Literature settings</a> is where you choose the topics
-            and run a check.
+            <a href="#literature-settings">Literature settings</a>, below, is where you choose the
+            topics and run a check.
           </p>
         ) : (
           <ul className="list">
@@ -230,6 +169,10 @@ export function Today({
             ))}
           </ul>
         )}
+        <details className="settings-details" id="literature-settings">
+          <summary>Literature settings</summary>
+          <LiteratureSettings onChecked={reload} />
+        </details>
       </section>
 
       <section className="card" aria-labelledby="worth-a-look-heading">
@@ -287,47 +230,6 @@ export function Today({
         </p>
       </section>
 
-      <section className="card" aria-labelledby="sources-summary-heading">
-        <h2 id="sources-summary-heading">Your sources</h2>
-        <p className="body">
-          {sheet.sources.total} files · {sheet.sources.usable} readable ·{' '}
-          {sheet.sources.needs_attention} need attention
-        </p>
-        <CoverageBar coverage={sheet.sources.coverage} />
-        <ConfidenceMeaning />
-        <ul className="tiers">
-          {sheet.confidences.map((entry) => (
-            <li key={entry.confidence}>
-              <ConfidenceBadge tier={entry.confidence} label={entry.label} />
-              <span className="muted small">
-                {entry.pile_count} piles · {entry.source_count} files
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="card" aria-labelledby="recent-flags-heading">
-        <h2 id="recent-flags-heading">Recently flagged</h2>
-        {sheet.recent_flags.length === 0 ? (
-          <p className="muted">No open flags. Press ⌘K whenever something comes up.</p>
-        ) : (
-          <ul className="list">
-            {sheet.recent_flags.map((flag) => (
-              <li key={flag.id}>
-                <span className="title">{flag.text}</span>
-                <span className="muted small"> · {flag.topic ?? 'not filed yet'}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <LocalData />
-      <BuildSchedule onBuilt={reload} />
-
-      <LiteratureSettings onChecked={reload} />
-      <PrivacyNote />
     </div>
   )
 }

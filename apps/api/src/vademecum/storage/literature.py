@@ -985,6 +985,23 @@ def unread_count(connection: sqlite3.Connection) -> int:
 # -- settings and the scheduler lock ------------------------------------------
 
 
+SETTING_PREFERRED_JOURNALS = "literature.preferred_journals"
+SETTING_GUIDELINES_FIRST = "literature.guidelines_first"
+# PubMed journal-title abbreviations ([ta]). The owner can change the list;
+# this is the starting point they asked for.
+DEFAULT_PREFERRED_JOURNALS: tuple[str, ...] = ("N Engl J Med", "JAMA", "Nature", "Lancet")
+MAX_PREFERRED_JOURNALS = 12
+
+
+def clean_journals(values: list[str]) -> list[str]:
+    cleaned: list[str] = []
+    for value in values:
+        text = " ".join(str(value).replace('"', "").split())[:60]
+        if text and text not in cleaned:
+            cleaned.append(text)
+    return cleaned[:MAX_PREFERRED_JOURNALS]
+
+
 def get_settings(connection: sqlite3.Connection) -> dict[str, Any]:
     stored = _state(connection, SETTING_WEEKLY_ENABLED)
     weekly = DEFAULT_WEEKLY_ENABLED if stored is None else stored == "1"
@@ -993,15 +1010,35 @@ def get_settings(connection: sqlite3.Connection) -> dict[str, Any]:
         interval = DEFAULT_INTERVAL_HOURS if raw is None else float(raw)
     except ValueError:
         interval = DEFAULT_INTERVAL_HOURS
-    return {"weekly_enabled": weekly, "interval_hours": _clamp_interval(interval)}
+    journals_raw = _state(connection, SETTING_PREFERRED_JOURNALS)
+    try:
+        journals = clean_journals(list(json.loads(journals_raw))) if journals_raw is not None else list(DEFAULT_PREFERRED_JOURNALS)
+    except (ValueError, TypeError):
+        journals = list(DEFAULT_PREFERRED_JOURNALS)
+    guidelines = _state(connection, SETTING_GUIDELINES_FIRST)
+    return {
+        "weekly_enabled": weekly,
+        "interval_hours": _clamp_interval(interval),
+        "preferred_journals": journals,
+        "guidelines_first": True if guidelines is None else guidelines == "1",
+    }
 
 
 def set_settings(
-    connection: sqlite3.Connection, *, weekly_enabled: bool, interval_hours: float
+    connection: sqlite3.Connection,
+    *,
+    weekly_enabled: bool,
+    interval_hours: float,
+    preferred_journals: list[str] | None = None,
+    guidelines_first: bool | None = None,
 ) -> dict[str, Any]:
     with transaction(connection) as tx:
         _write_state(tx, SETTING_WEEKLY_ENABLED, "1" if weekly_enabled else "0")
         _write_state(tx, SETTING_INTERVAL_HOURS, str(_clamp_interval(interval_hours)))
+        if preferred_journals is not None:
+            _write_state(tx, SETTING_PREFERRED_JOURNALS, json.dumps(clean_journals(preferred_journals)))
+        if guidelines_first is not None:
+            _write_state(tx, SETTING_GUIDELINES_FIRST, "1" if guidelines_first else "0")
     return get_settings(connection)
 
 

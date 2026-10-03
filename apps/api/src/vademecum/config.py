@@ -38,6 +38,7 @@ DATA_SUBDIRECTORIES = (
     "attachments/sources",
     "attachments/images",
     "attachments/schematics",
+    "attachments/reports",
     "exports",
     "backups",
     "logs",
@@ -151,6 +152,9 @@ class Settings(BaseSettings):
     # reports an honest unavailable state when Codex is absent, so a flag would
     # only add a second way to be off.
     codex_path: Path | None = None
+    # The Claude Code CLI, for `claude` mode (ADR 0019): the owner's own
+    # Claude sign-in, made in a terminal; this process holds no key.
+    claude_path: Path | None = None
     appserver_request_timeout: float = Field(default=30.0, gt=0, le=300)
     appserver_startup_timeout: float = Field(default=20.0, gt=0, le=300)
     # A model turn is a whole reasoning pass, not a status read, so it gets its
@@ -173,22 +177,22 @@ class Settings(BaseSettings):
     parent_pid: int | None = None
 
     # --- a second Vademecum to sync with (ADR 0015) ---
-    # The `harbour` keeps the files and does the reading; the `sea` is the copy
-    # a phone reaches while the Mac sleeps. Only the harbour initiates.
-    # `sync_peer_url` and `sync_token` are the harbour's view of the sea;
-    # `sync_accept_token` is what the sea requires of the harbour. All empty
-    # means no sync at all. (`home` and `away` are the older spellings.)
-    sync_role: Literal["harbour", "sea", "home", "away"] = "harbour"
+    # `domi` (at home: the Mac) keeps the files and does the reading; `foris`
+    # (abroad: the always-awake copy) is what a phone reaches while the Mac
+    # sleeps. Only domi initiates. `sync_peer_url` and `sync_token` are domi's
+    # view of foris; `sync_accept_token` is what foris requires of domi. All
+    # empty means no sync at all. (harbour/sea and home/away are older spellings.)
+    sync_role: Literal["domi", "foris", "harbour", "sea", "home", "away"] = "domi"
 
     @property
-    def sync_role_name(self) -> Literal["harbour", "sea"]:
+    def sync_role_name(self) -> Literal["domi", "foris"]:
         """The role in the current vocabulary, whichever spelling was set."""
-        return "sea" if self.sync_role in ("sea", "away") else "harbour"
+        return "foris" if self.sync_role in ("foris", "sea", "away") else "domi"
     sync_peer_url: str = ""
     sync_token: str = ""
     sync_accept_token: str = ""
     sync_interval: float = Field(default=300.0, ge=10, le=86400)
-    # `lean` (the default, for the sea): records only, cited passages only, no
+    # `lean` (the default, for foris): records only, cited passages only, no
     # files. `full`: everything, for a second machine that should hold it all.
     sync_scope: Literal["full", "lean"] = "lean"
 
@@ -203,7 +207,7 @@ class Settings(BaseSettings):
     # `codex`: the owner's Mac deployment, through the local Codex child.
     # `host`: the learner's ChatGPT, through pending/submit tools; this process
     # never calls a model. There is no third value and no key-based one.
-    model_provider: Literal["codex", "host"] = "codex"
+    model_provider: Literal["codex", "host", "claude"] = "codex"
     # How long a pending host turn may wait for ChatGPT before the run fails.
     host_turn_ttl: float = Field(default=1800.0, ge=60, le=86400)
 
@@ -224,6 +228,12 @@ class Settings(BaseSettings):
     # workspace in this process. Not a model credential; the only key this
     # product may hold (AGENTS.md). Empty by default.
     literature_ncbi_key: str = ""
+
+    def resolve_claude_path(self) -> Path:
+        from .model.claude_cli import default_claude_path
+
+        chosen = self.claude_path or default_claude_path()
+        return Path(os.path.abspath(chosen.expanduser()))
 
     def resolve_codex_path(self) -> Path:
         chosen = self.codex_path or default_codex_path()

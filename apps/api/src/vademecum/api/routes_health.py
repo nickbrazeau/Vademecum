@@ -64,8 +64,8 @@ async def health(
         loopback_only=is_loopback(settings.host),
         # Both facts are reported separately: a bridge existing and a bridge
         # being used for content are different claims.
-        model_bridge_configured=model_mode == "codex",
-        model_calls_configured=model_mode == "codex",
+        model_bridge_configured=model_mode in ("codex", "claude"),
+        model_calls_configured=model_mode in ("codex", "claude"),
         literature_configured=settings.literature_enabled,
         model_mode=model_mode,  # type: ignore[arg-type]
         tenancy=settings.tenancy,  # type: ignore[arg-type]

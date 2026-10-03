@@ -25,10 +25,12 @@ export function PointCard({ point }: { point: LearningPoint }) {
         ) : null}
         {point.held ? <span className="badge badge-held">Held for review</span> : null}
       </p>
+      <TopicTags topics={point.topics} />
+
+      <details className="support-details">
+        <summary>Support and sources</summary>
       <SupportMeaning meaning={point.support_meaning} />
       {point.held && point.hold_reason ? <p className="warn small">{point.hold_reason}</p> : null}
-
-      <TopicTags topics={point.topics} />
 
       {point.citations.length > 0 ? (
         <div className="provenance">
@@ -77,6 +79,7 @@ export function PointCard({ point }: { point: LearningPoint }) {
           </ul>
         </div>
       ) : null}
+      </details>
     </li>
   )
 }

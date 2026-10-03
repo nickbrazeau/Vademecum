@@ -2,12 +2,15 @@
  * Sources: the library everything else is built from.
  *
  * This is the intake, not the study surface — Today and Tutor are where the
- * material is actually used. Piles are grouped by source confidence, which is
+ * material is actually used. Piles are grouped by tier confidence, which is
  * how much you trust the material and nothing else.
  */
 
 import { useState } from 'react'
 import { BuildPanel } from '../components/BuildPanel'
+import { BuildSchedule } from '../components/BuildSchedule'
+import { LocalData } from '../components/LocalData'
+import { PrivacyNote } from '../components/PrivacyNote'
 import { PointCard } from '../components/PointCard'
 import { MachineReviewedNote } from '../components/SupportBadge'
 import { ConfidenceBadge, ConfidenceMeaning } from '../components/ConfidenceBadge'
@@ -335,6 +338,8 @@ export function Sources() {
 
   return (
     <div className="stack">
+      <BuildSchedule onBuilt={refresh} />
+
       <section className="card" aria-labelledby="sources-intro-heading">
         <h2 id="sources-intro-heading">Sources</h2>
         <p className="muted">
@@ -365,7 +370,7 @@ export function Sources() {
             />
           </label>
           <fieldset className="field tier-picker">
-            <legend>Source confidence</legend>
+            <legend>Tier confidence</legend>
             {TIERS.map((option) => (
               <label key={option} className={`tier-option tier-${option}`}>
                 <input
@@ -399,7 +404,7 @@ export function Sources() {
               <section key={option} className="card dense" aria-labelledby={`tier-${option}-heading`}>
                 <h2 id={`tier-${option}-heading`}>
                   <ConfidenceBadge tier={option} />
-                  <span className="visually-hidden">source confidence</span>
+                  <span className="visually-hidden">tier confidence</span>
                 </h2>
                 {piles.length === 0 ? (
                   <p className="muted">No piles at this confidence.</p>
@@ -440,6 +445,9 @@ export function Sources() {
             )
           })
         : null}
+      <LocalData />
+      <PrivacyNote />
+
     </div>
   )
 }

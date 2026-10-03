@@ -44,7 +44,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
 
     @mcp.tool(annotations=READ)
     async def list_piles() -> dict[str, Any]:
-        """The source library: every pile with its source-confidence rating
+        """The source library: every pile with its tier-confidence rating
         (Low/Medium/High -- the owner's judgment of the material, never a
         measure of mastery), counts of sources, learning points and questions,
         and how much of its text has been through a build."""
@@ -73,7 +73,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         ],
         description: Annotated[str, Field(max_length=2000)] = "",
     ) -> dict[str, Any]:
-        """Create a pile: a folder of sources rated with one source confidence.
+        """Create a pile: a folder of sources rated with one tier confidence.
         Ask the owner for the confidence rather than guessing it."""
         return await call(
             api.post(
@@ -111,7 +111,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     async def update_pile(
         pile_id: PileId,
         confidence: Annotated[
-            Confidence | None, Field(description="New source confidence for the pile: low, mid or high.")
+            Confidence | None, Field(description="New tier confidence for the pile: low, mid or high.")
         ] = None,
         title: Annotated[str | None, Field(min_length=1, max_length=200)] = None,
         description: Annotated[str | None, Field(max_length=2000)] = None,
@@ -167,7 +167,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
             ),
         ],
         confidence: Annotated[
-            Confidence, Field(description="Source confidence for this note: low, mid or high.")
+            Confidence, Field(description="Tier confidence for this note: low, mid or high.")
         ],
     ) -> dict[str, Any]:
         """Add a pasted note or handout to a pile as a Markdown source, so a later
@@ -194,7 +194,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     async def set_source(
         source_id: SourceId,
         confidence: Annotated[
-            Confidence | None, Field(description="New source confidence, or omit to leave it.")
+            Confidence | None, Field(description="New tier confidence, or omit to leave it.")
         ] = None,
         excluded: Annotated[
             bool | None,

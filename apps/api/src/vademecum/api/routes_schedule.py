@@ -19,7 +19,7 @@ from ..model.schedule import BuildScheduler
 from ..storage import schedule as store
 from ..storage.sources import ConflictError
 from .deps import get_connection
-from .routes_sources import CODEX_DESTINATION
+from .routes_sources import CLAUDE_DESTINATION, CODEX_DESTINATION
 
 router = APIRouter(prefix="/build/schedule", tags=["schedule"])
 
@@ -27,7 +27,7 @@ STANDING_CONSENT = (
     "With the schedule on, each run sends the next unbuilt excerpts of every pile -- their text, "
     "filenames, confidence labels and locations -- and the follow-up checks' claims, questions and "
     "retrieved abstracts, without a further prompt, until you turn it off. "
-    + CODEX_DESTINATION
+    + "In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
     + " Short public topic words still go to PubMed."
 )
 
