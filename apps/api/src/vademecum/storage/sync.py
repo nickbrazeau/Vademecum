@@ -39,6 +39,12 @@ from ..db import transaction
 from .common import utc_now
 
 Role = Literal["home", "away"]
+# What home pushes. `full`: everything, files included. `lean` (the seat,
+# ADR 0017): records only -- no files, no pictures, no schematics, and of the
+# text only the passages a learning point or a question cites, so the away
+# node stays small however large the library on the Mac grows.
+Scope = Literal["full", "lean"]
+LEAN_SKIPPED: frozenset[str] = frozenset({"source_images", "schematics"})
 
 # Parents before children, so a batch applies in one pass even with foreign
 # keys deferred; deletes run in reverse.
@@ -204,11 +210,47 @@ def _load(connection: sqlite3.Connection, table: str, key: list[Any]) -> dict[st
     return None if row is None else {column: row[column] for column in row.keys()}
 
 
-def changes_since(connection: sqlite3.Connection, since: int, *, limit: int = MAX_BATCH) -> tuple[list[Change], int, bool]:
+def _cited(connection: sqlite3.Connection, segment_id: str) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM learning_point_sources WHERE segment_id = ?"
+        " UNION SELECT 1 FROM tutor_question_anchors WHERE segment_id = ? LIMIT 1",
+        (segment_id, segment_id),
+    ).fetchone()
+    return row is not None
+
+
+def lean(connection: sqlite3.Connection, changes: list[Change]) -> list[Change]:
+    """The lean scope applied to a batch: drop what the seat does not need, and
+    carry along any cited passage a citation in the batch depends on, so no
+    citation ever arrives before its text."""
+    kept: list[Change] = []
+    present = {(c.table, json.dumps(c.key)) for c in changes}
+    for change in changes:
+        if change.table in LEAN_SKIPPED:
+            continue
+        if change.table == "source_segments" and change.op == "upsert" and not _cited(connection, change.key[0]):
+            continue
+        kept.append(change)
+        if change.op == "upsert" and change.table in ("learning_point_sources", "tutor_question_anchors"):
+            segment_id = (change.row or {}).get("segment_id")
+            if isinstance(segment_id, str) and segment_id and ("source_segments", json.dumps([segment_id])) not in present:
+                row = _load(connection, "source_segments", [segment_id])
+                if row is not None:
+                    present.add(("source_segments", json.dumps([segment_id])))
+                    kept.append(Change(change.seq, "source_segments", [segment_id], "upsert", row))
+    kept.sort(key=lambda change: change.seq)
+    return kept
+
+
+def changes_since(
+    connection: sqlite3.Connection, since: int, *, limit: int = MAX_BATCH, scope: Scope = "full"
+) -> tuple[list[Change], int, bool]:
     """Changes after *since*, one per row, each carrying the row as it is now.
 
     Returns ``(changes, through, done)``: ``through`` is the last log sequence
     covered, which the peer records as its cursor once it has applied them.
+    In the lean scope the batch is filtered (see ``lean``); ``through`` still
+    covers every log entry read, filtered or not.
     """
     limit = max(1, min(limit, MAX_BATCH))
     rows = connection.execute(
@@ -231,6 +273,8 @@ def changes_since(connection: sqlite3.Connection, since: int, *, limit: int = MA
         else:
             changes.append(Change(int(entry["seq"]), table, key, "upsert", current))
     changes.sort(key=lambda change: change.seq)
+    if scope == "lean":
+        changes = lean(connection, changes)
     return changes, int(rows[-1]["seq"]), done
 
 
@@ -270,12 +314,14 @@ def apply_changes(
     role: Role,
     directories: dict[str, Path] | None = None,
     fetch: Callable[[str, str], bytes | None] | None = None,
+    require_files: bool = True,
 ) -> Applied:
     """Apply a peer's changes under this node's role. One transaction.
 
     A row that names a file this node does not have is *deferred* (not
     applied, not counted as done) when the file cannot be fetched now; the
-    cursor does not advance past it, so the next sync tries again.
+    cursor does not advance past it, so the next sync tries again. With
+    ``require_files`` off (the lean scope) rows are taken without their files.
     """
     directories = directories or {}
     applied = skipped = 0
@@ -294,7 +340,7 @@ def apply_changes(
             tx.execute("PRAGMA defer_foreign_keys = ON")
             try:
                 for change in ordered:
-                    outcome = _apply_one(tx, change, role=role, directories=directories, fetch=fetch)
+                    outcome = _apply_one(tx, change, role=role, directories=directories, fetch=fetch, require_files=require_files)
                     if outcome == "applied":
                         applied += 1
                     elif outcome == "deferred":
@@ -326,6 +372,7 @@ def _apply_one(
     role: Role,
     directories: dict[str, Path],
     fetch: Callable[[str, str], bytes | None] | None,
+    require_files: bool = True,
 ) -> str:
     local = _load(tx, change.table, change.key)
     if role == "home" and change.table in HOME_OWNED:
@@ -342,7 +389,7 @@ def _apply_one(
     assert change.row is not None
     if not _wins(local, change.row):
         return "skipped"
-    file_column = FILE_COLUMNS.get(change.table)
+    file_column = FILE_COLUMNS.get(change.table) if require_files else None
     if file_column is not None:
         column, kind = file_column
         name = change.row.get(column)

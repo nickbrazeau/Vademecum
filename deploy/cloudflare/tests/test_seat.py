@@ -65,8 +65,9 @@ def test_snapshot_copies_each_database_consistently_and_uploads_only_new_files(t
     (data / "attachments" / "sources" / "abc.pdf").write_bytes(b"%PDF-1")
     (data / "attachments" / "sources" / ".part").write_bytes(b"half")
 
+    seat._uploaded.clear()  # noqa: SLF001 - a fresh boot
     first = seat.snapshot(data, store)
-    assert first == {"db": 2, "files": 1, "skipped": 0}
+    assert first == {"db": 2, "unchanged": 0, "files": 1}
     assert sorted(store.objects) == ["attachments/sources/abc.pdf", "db/vademecum.sqlite3", "mcp/access.sqlite3"]
     copy = tmp_path / "copy.sqlite3"
     copy.write_bytes(store.objects["db/vademecum.sqlite3"])
@@ -74,7 +75,26 @@ def test_snapshot_copies_each_database_consistently_and_uploads_only_new_files(t
         assert backup.execute("SELECT x FROM t").fetchone() == (1,)
 
     second = seat.snapshot(data, store)
-    assert second == {"db": 2, "files": 0, "skipped": 0}, "databases always, files only when new"
+    assert second == {"db": 0, "unchanged": 2, "files": 0}, "nothing changed, nothing sent"
+    with sqlite3.connect(data / "vademecum.sqlite3") as live:
+        live.execute("INSERT INTO t VALUES (2)")
+    third = seat.snapshot(data, store)
+    assert third == {"db": 1, "unchanged": 1, "files": 0}, "only the database that changed"
+
+
+def test_a_large_object_goes_up_in_parts_and_comes_back_whole(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(seat, "PART_BYTES", 10)
+    store = MemoryStore()
+    big = tmp_path / "big.bin"
+    big.write_bytes(bytes(range(256)) * 2)  # 512 bytes: 52 parts
+    assert seat.put_object(store, "attachments/sources/big.bin", big) is True
+    assert "attachments/sources/big.bin.manifest" in store.objects
+    assert len([k for k in store.objects if ".part-" in k]) == 52
+    assert seat.get_object(store, "attachments/sources/big.bin") == big.read_bytes()
+    # A restore skips the parts and the manifest as files of their own.
+    data = tmp_path / "data"
+    assert seat.restore_files(data, store) == 1
+    assert (data / "attachments" / "sources" / "big.bin").read_bytes() == big.read_bytes()
 
 
 def test_the_seat_refuses_to_start_without_its_secrets(monkeypatch) -> None:

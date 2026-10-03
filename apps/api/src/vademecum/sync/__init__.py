@@ -64,8 +64,10 @@ class Peer:
     def changes(self, since: int) -> dict[str, Any]:
         return self._json("GET", f"/api/sync/changes?since={int(since)}")
 
-    def apply(self, node_id: str, changes: list[Change]) -> dict[str, Any]:
-        return self._json("POST", "/api/sync/apply", {"node_id": node_id, "changes": [c.as_dict() for c in changes]})
+    def apply(self, node_id: str, changes: list[Change], *, files: bool = True) -> dict[str, Any]:
+        return self._json(
+            "POST", "/api/sync/apply", {"node_id": node_id, "changes": [c.as_dict() for c in changes], "files": files}
+        )
 
     def file(self, kind: str, name: str) -> bytes | None:
         status, raw = self._transport.request("GET", f"/api/sync/file/{kind}/{name}", headers=dict(self._headers), body=None)
@@ -89,6 +91,7 @@ def sync_once(
     peer: Peer,
     source_dir: Path,
     role: sync_store.Role = "home",
+    scope: sync_store.Scope = "full",
     on_file: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     """One round: pull the peer's changes and apply them, then push ours.
@@ -132,11 +135,18 @@ def sync_once(
     pushed = 0
     since = int(sync_store.state(connection)["pushed_through"])
     while True:
-        changes, through, done = sync_store.changes_since(connection, since)
+        changes, through, done = sync_store.changes_since(connection, since, scope=scope)
         if not changes:
-            break
+            if through <= since:
+                break
+            # A batch the lean scope emptied still moves the cursor.
+            since = through
+            sync_store.record_sync(connection, peer_node_id=peer_id, pushed_through=since, note="pushing")
+            if done:
+                break
+            continue
         # Files first, so the peer never sees a row whose file it lacks.
-        for change in changes:
+        for change in changes if scope == "full" else ():
             if change.op != "upsert" or change.table not in sync_store.FILE_COLUMNS or change.row is None:
                 continue
             column, kind = sync_store.FILE_COLUMNS[change.table]
@@ -144,7 +154,7 @@ def sync_once(
             path = directories[kind] / name if isinstance(name, str) and name else None
             if path is not None and path.is_file() and not peer.put_file(kind, name, path.read_bytes()):
                 raise SyncError("the peer did not take a file")
-        reply = peer.apply(me, changes)
+        reply = peer.apply(me, changes, files=scope == "full")
         pushed += len(changes)
         accepted = int(reply.get("through", through))
         if accepted <= since:

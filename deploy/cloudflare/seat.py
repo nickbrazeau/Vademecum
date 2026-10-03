@@ -38,7 +38,11 @@ WEB_DIST = os.environ.get("VADEMECUM_MCP_DESK_DIST", "/app/web")
 
 DATABASES = (("vademecum.sqlite3", "db"), ("mcp/access.sqlite3", "mcp"))
 FILES = ("attachments",)
-MAX_OBJECT_BYTES = 95 * 1024 * 1024  # what the Worker in front will carry in one request
+# The Worker in front carries about 100 MB in one request; anything larger
+# goes up in parts, with a manifest naming them.
+PART_BYTES = 64 * 1024 * 1024
+# What was last uploaded, by digest, so an unchanged database is not sent again.
+_uploaded: dict[str, str] = {}
 
 
 def say(message: str) -> None:
@@ -110,6 +114,55 @@ def store_from_environment() -> WorkerStore | None:
 # --- durability -------------------------------------------------------------------
 
 
+def _digest(path: Path) -> str:
+    import hashlib
+
+    hasher = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            hasher.update(block)
+    return hasher.hexdigest()
+
+
+def put_object(store: Store, key: str, path: Path) -> bool:
+    """One object, or parts plus a manifest when it is too large for one request."""
+    size = path.stat().st_size
+    if size <= PART_BYTES:
+        return store.put(key, path.read_bytes())
+    parts: list[str] = []
+    with path.open("rb") as handle:
+        index = 0
+        while True:
+            block = handle.read(PART_BYTES)
+            if not block:
+                break
+            part_key = f"{key}.part-{index:04d}"
+            if not store.put(part_key, block):
+                return False
+            parts.append(part_key)
+            index += 1
+    manifest = json.dumps({"size": size, "parts": parts, "sha256": _digest(path)}).encode("utf-8")
+    return store.put(f"{key}.manifest", manifest)
+
+
+def get_object(store: Store, key: str) -> bytes | None:
+    """The object, whole or reassembled from its parts."""
+    manifest = store.get(f"{key}.manifest")
+    if manifest is None:
+        return store.get(key)
+    try:
+        parts = json.loads(manifest.decode("utf-8"))["parts"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    pieces: list[bytes] = []
+    for part_key in parts:
+        piece = store.get(part_key)
+        if piece is None:
+            return None
+        pieces.append(piece)
+    return b"".join(pieces)
+
+
 def restore_databases(data: Path, store: Store) -> str:
     """Bring the databases down if this container starts with no records."""
     if (data / "vademecum.sqlite3").exists():
@@ -118,7 +171,7 @@ def restore_databases(data: Path, store: Store) -> str:
     found = False
     for relative, prefix in DATABASES:
         target = data / relative
-        payload = store.get(f"{prefix}/{target.name}")
+        payload = get_object(store, f"{prefix}/{target.name}")
         if payload is None:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -131,11 +184,20 @@ def restore_files(data: Path, store: Store) -> int:
     """Every stored file not yet on this disk, by key. Safe to run any time."""
     restored = 0
     for name in FILES:
-        for key, size in store.list(f"{name}/"):
-            target = data / key
-            if target.exists() and target.stat().st_size == size:
+        listed = dict(store.list(f"{name}/"))
+        wanted: dict[str, int | None] = {}
+        for key, size in listed.items():
+            if ".part-" in key:
                 continue
-            payload = store.get(key)
+            if key.endswith(".manifest"):
+                wanted[key[: -len(".manifest")]] = None  # size known only from the manifest
+            else:
+                wanted[key] = size
+        for key, size in wanted.items():
+            target = data / key
+            if target.exists() and (size is None or target.stat().st_size == size):
+                continue
+            payload = get_object(store, key)
             if payload is None:
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -145,18 +207,26 @@ def restore_files(data: Path, store: Store) -> int:
 
 
 def snapshot(data: Path, store: Store) -> dict[str, int]:
-    """A consistent copy of every database, then everything new up to the store."""
+    """A consistent copy of every database that changed, then every new file."""
     stage = data / ".snapshot"
-    results = {"db": 0, "files": 0, "skipped": 0}
+    results = {"db": 0, "unchanged": 0, "files": 0}
     for relative, prefix in DATABASES:
         source = data / relative
         if not source.exists():
             continue
         stage.mkdir(parents=True, exist_ok=True)
         copy = stage / f"{prefix}-{source.name}"
+        if copy.exists():
+            copy.unlink()
         with sqlite3.connect(source) as live, sqlite3.connect(copy) as backup:
             live.backup(backup)
-        if store.put(f"{prefix}/{source.name}", copy.read_bytes()):
+        key = f"{prefix}/{source.name}"
+        digest = _digest(copy)
+        if _uploaded.get(key) == digest:
+            results["unchanged"] += 1
+            continue
+        if put_object(store, key, copy):
+            _uploaded[key] = digest
             results["db"] += 1
     for name in FILES:
         root = data / name
@@ -166,12 +236,9 @@ def snapshot(data: Path, store: Store) -> dict[str, int]:
         for path in sorted(p for p in root.rglob("*") if p.is_file() and not p.name.startswith(".")):
             key = f"{name}/{path.relative_to(root).as_posix()}"
             size = path.stat().st_size
-            if remote.get(key) == size:
+            if remote.get(key) == size or f"{key}.manifest" in remote:
                 continue
-            if size > MAX_OBJECT_BYTES:
-                results["skipped"] += 1
-                continue
-            if store.put(key, path.read_bytes()):
+            if put_object(store, key, path):
                 results["files"] += 1
     return results
 

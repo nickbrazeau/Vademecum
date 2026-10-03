@@ -13,7 +13,9 @@
       "image": "../Dockerfile",
       "image_build_context": "../../..",
       "max_instances": 1,
-      "instance_type": "standard"
+      // The smallest instance: the seat carries records only (lean scope),
+      // never pictures or page reading, which stay on the Mac.
+      "instance_type": "basic"
     }
   ],
   "durable_objects": {
@@ -22,6 +24,8 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["VademecumSeat"] }],
   // The snapshot bucket, reached only through this Worker (no API token).
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "vademecum" }],
+  // Sixty requests a minute per client address, enforced at the edge.
+  "ratelimits": [{ "name": "LIMITER", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } }],
   "vars": {
     // The public HTTPS origin of this Worker: what assistants connect to,
     // what the gateway's sign-in checks against, and where the container

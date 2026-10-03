@@ -61,7 +61,7 @@ def db(app):
     return connect(app.state.database_path)
 
 
-def run_sync(home_app, away: TestClient) -> dict:
+def run_sync(home_app, away: TestClient, scope: str = "full") -> dict:
     connection = db(home_app)
     try:
         return sync_once(
@@ -69,6 +69,7 @@ def run_sync(home_app, away: TestClient) -> dict:
             peer=Peer(ClientTransport(away), TOKEN),
             source_dir=home_app.state.source_dir,
             role="home",
+            scope=scope,
         )
     finally:
         connection.close()
@@ -195,3 +196,35 @@ def test_the_change_payload_names_no_path(pair) -> None:
     text = json.dumps([c.as_dict() for c in changes])
     assert "/Users/" not in text and str(home_app.state.data_dir) not in text
     connection.close()
+
+
+def test_the_lean_scope_carries_records_and_cited_passages_but_no_files(pair, tmp_path: Path) -> None:
+    """ADR 0017: the seat stays small however large the Mac's library grows."""
+    home, home_app, away, away_app = pair
+    pile = home.post("/api/piles", json={"title": "Sepsis", "tier": "mid"}).json()
+    assert upload(home, pile["id"], "lecture.txt", LECTURE.encode()).status_code == 201
+    # A second source nobody cites: its text must not travel.
+    assert upload(home, pile["id"], "appendix.txt", b"An appendix about ward logistics that no learning point cites.\n").status_code == 201
+    build(home, pile["id"])
+    assert home.get(f"/api/piles/{pile['id']}/build/status").json()["run"]["status"] == "succeeded"
+
+    result = run_sync(home_app, away, scope="lean")
+    assert result["pushed"] > 0 and result["deferred"] == 0
+
+    # Rows, yes. Files, no.
+    sources = {s["display_name"]: s for s in away.get(f"/api/piles/{pile['id']}/sources").json()}
+    assert set(sources) == {"lecture.txt", "appendix.txt"}
+    assert list((tmp_path / "away" / "attachments" / "sources").glob("*")) == []
+    assert len(away.get("/api/points").json()) == 1
+
+    # Only the cited passage came across; the appendix's text did not.
+    lecture = away.get(f"/api/sources/{sources['lecture.txt']['id']}").json()
+    assert lecture["segments_preview"] and "lactate" in lecture["segments_preview"][0]["text"].lower()
+    appendix = away.get(f"/api/sources/{sources['appendix.txt']['id']}").json()
+    assert appendix["segments_preview"] == []
+
+    # The Tutor works on the seat from what came across.
+    question = away.get("/api/tutor/next").json()["question"]
+    assert question is not None
+    # And a second round moves nothing.
+    assert run_sync(home_app, away, scope="lean")["pushed"] == 0

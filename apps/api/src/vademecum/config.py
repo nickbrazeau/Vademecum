@@ -178,6 +178,9 @@ class Settings(BaseSettings):
     sync_token: str = ""
     sync_accept_token: str = ""
     sync_interval: float = Field(default=300.0, ge=10, le=86400)
+    # `lean` (the default, for a seat): records only, cited passages only, no
+    # files. `full`: everything, for a second machine that should hold it all.
+    sync_scope: Literal["full", "lean"] = "lean"
 
     # --- how many learners (ADR 0010) ---
     # `single`: the owner's Mac, one workspace, no identity. `multi`: the

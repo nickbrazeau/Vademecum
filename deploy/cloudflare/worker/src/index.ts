@@ -18,6 +18,7 @@ import type { DurableObject } from 'cloudflare:workers'
 interface Env {
   SEAT: DurableObjectNamespace<VademecumSeat>
   BUCKET: R2Bucket
+  LIMITER: RateLimit
   PUBLIC_URL: string
   SEAT_KEY: string
   VADEMECUM_SYNC_ACCEPT_TOKEN: string
@@ -30,7 +31,10 @@ const MAX_LIST = 1000
 
 export class VademecumSeat extends Container<Env> {
   defaultPort = 8766
-  sleepAfter = '20m'
+  // Idle for five minutes and the container stops; it is billed only while
+  // it runs, and waking takes a few seconds (the records come back from the
+  // bucket).
+  sleepAfter = '5m'
   enableInternet = true
 
   constructor(ctx: DurableObject['ctx'], env: Env) {
@@ -93,6 +97,10 @@ async function store(request: Request, env: Env, url: URL): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
+    // Per-address rate limit: a scanning bot must not keep the seat awake.
+    const address = request.headers.get('cf-connecting-ip') ?? 'unknown'
+    const { success } = await env.LIMITER.limit({ key: address })
+    if (!success) return new Response('Too many requests', { status: 429, headers: { 'retry-after': '60' } })
     if (url.pathname.startsWith(STORE_PREFIX)) return store(request, env, url)
     const seat = getContainer(env.SEAT, 'vademecum')
     return seat.fetch(request)

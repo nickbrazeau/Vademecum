@@ -37,6 +37,8 @@ class ChangesIn(BaseModel):
 
     node_id: str = Field(min_length=1, max_length=64)
     changes: list[dict[str, Any]] = Field(max_length=sync_store.MAX_BATCH)
+    # False in the lean scope: rows arrive without the files they name.
+    files: bool = True
 
 
 def require_peer(
@@ -92,6 +94,7 @@ def sync_apply(
         role=settings.sync_role,
         directories=sync_store.file_kinds(source_dir),
         fetch=None,
+        require_files=payload.files,
     )
     sync_store.record_sync(connection, peer_node_id=payload.node_id, note="applied from peer")
     return {"node_id": sync_store.node_id(connection), **result.as_dict()}

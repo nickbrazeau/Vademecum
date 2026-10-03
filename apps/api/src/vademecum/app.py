@@ -210,7 +210,7 @@ def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) ->
     peer = Peer(HttpTransport(settings.sync_peer_url), settings.sync_token)
     connection = connect(database_path)
     try:
-        return sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role)
+        return sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role, scope=settings.sync_scope)
     finally:
         connection.close()
 
