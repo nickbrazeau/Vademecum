@@ -50,6 +50,11 @@ SYNTHESIS_DEVELOPER = (
     "answer that the cited excerpts alone can justify, and a rubric listing the "
     "specific things a good answer must contain.\n"
     "- Do not write a question whose answer is not present in the excerpts.\n"
+    "- A question must stand on its own when read later without the excerpts: "
+    "never say 'the excerpt', 'the passage', 'the slide', 'the text' or 'the "
+    "material'. Name the clinical situation instead (for example 'In adult "
+    "cardiac arrest, how does initial treatment differ between shockable and "
+    "non-shockable rhythms?').\n"
     "- search_topics: three to six SHORT public topic phrases (a condition, a "
     "drug class, a test) suitable for a PubMed search. No patient details, no "
     "quotes from the material, no filenames."
@@ -198,4 +203,26 @@ def report_prompt(text: str, specialties: list[tuple[str, str]]) -> str:
     return (
         f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
         f"SCORE REPORT:\n{_fence(text)}"
+    )
+
+
+# --- filing flags under topics (ADR 0021) ------------------------------------------
+
+FLAGS_DEVELOPER = (
+    "Each item is something the learner wrote down that they were unsure about, "
+    "or a link they saved. For each, give a short topic to file it under (two to "
+    "five words, a condition, a drug, a test or a decision; the same wording for "
+    "the same topic), and the subspecialty from the list, or an empty string. If "
+    "an item is only a web address, file it under the topic its words or path "
+    "suggest, or 'unsorted link' when nothing can be told. Never include a "
+    "patient detail in a topic."
+)
+
+
+def flags_prompt(items: list[tuple[str, str]], specialties: list[tuple[str, str]]) -> str:
+    listed = "\n".join(f"- {identifier}: {name}" for identifier, name in specialties)
+    body = "\n\n".join(f"[{flag_id}]\n{text}" for flag_id, text in items)
+    return (
+        f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
+        f"ITEMS, each with its id in brackets:\n{_fence(body)}"
     )

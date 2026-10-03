@@ -6,15 +6,34 @@ categorise, rate, or schedule anything.
 
 from __future__ import annotations
 
+import asyncio
+
 import sqlite3
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Request, Query, Response, status
 
 from ..storage import flags as store
 from . import schemas
-from .deps import get_connection
+from .deps import get_connection, get_workspace
 
 router = APIRouter(tags=["flags"])
+
+
+@router.post("/flags/file", status_code=status.HTTP_202_ACCEPTED)
+async def file_flags(request: Request, workspace=Depends(get_workspace)) -> dict:
+    """File the unfiled open flags under topics (ADR 0021), now, in the background.
+
+    Transmits: the flags' own text goes to the Mac's model connection, once.
+    Pressing this is the explicit act; the map says so beside the button.
+    """
+    from ..model import flags_filing
+    from ..storage.sources import ConflictError
+
+    if request.app.state.model_mode not in ("codex", "claude"):
+        raise ConflictError("needs_model", flags_filing.WAITING)
+    task = asyncio.create_task(flags_filing.file_unfiled(workspace.database_path, workspace.turn_factory))
+    request.app.state.flag_filing_task = task
+    return {"started": True}
 
 
 @router.get("/flags", response_model=list[schemas.Flag])

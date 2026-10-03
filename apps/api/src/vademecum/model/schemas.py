@@ -236,3 +236,28 @@ REPORT_SCHEMA = {
         "areas": {"type": "array", "maxItems": MAX_AREAS_PER_REPORT, "items": AREA_SCHEMA},
     },
 }
+
+
+# --- filing flags (ADR 0021) --------------------------------------------------------
+
+MAX_FLAGS_PER_FILING = 50
+
+FILED_FLAG_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["id", "topic", "specialty"],
+    "properties": {
+        "id": _string(64),
+        "topic": _string(MAX_TOPIC),
+        "specialty": _string(40),
+    },
+}
+
+FLAGS_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["flags"],
+    "properties": {
+        "flags": {"type": "array", "maxItems": MAX_FLAGS_PER_FILING, "items": FILED_FLAG_SCHEMA},
+    },
+}

@@ -349,6 +349,8 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/schematics/{schematic_id}",
         # The phone pack (ADR 0016).
         "/api/pack",
+        # Filing flags under topics on the Mac's model connection (ADR 0021).
+        "/api/flags/file",
         # Exam reports for the Improvement Map (ADR 0020).
         "/api/improvement-map/reports",
         "/api/improvement-map/reports/{report_id}",
@@ -367,9 +369,10 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
 def test_the_only_transmitting_routes_are_the_two_explicit_actions() -> None:
     """Grep-level check that nothing else can reach a turn runner.
 
-    Three routes may start a model turn: the build starter, Tutor grading, and
-    the exam-report intake (ADR 0020), where uploading the report is the
-    explicit act and the dashboard states the disclosure above the button.
+    Four routes may start a model turn: the build starter, Tutor grading, the
+    exam-report intake (ADR 0020), where uploading the report is the explicit
+    act and the dashboard states the disclosure above the button, and filing
+    flags (ADR 0021), where the press is the act and the map says what goes.
     Anything else acquiring a turn factory would be another way for content to
     leave without a disclosure in front of it.
     """
@@ -380,7 +383,7 @@ def test_the_only_transmitting_routes_are_the_two_explicit_actions() -> None:
         text = path.read_text(encoding="utf-8")
         if "get_turn_factory" in text or "turn_factory" in text:
             users.append(path.name)
-    assert sorted(users) == ["deps.py", "routes_reports.py", "routes_tutor.py"], users
+    assert sorted(users) == ["deps.py", "routes_flags.py", "routes_reports.py", "routes_tutor.py"], users
     # The build path reaches a turn through the BuildService, which is
     # constructed once in app.py and handed the same factory.
     starter = (API_SOURCE / "api" / "routes_sources.py").read_text(encoding="utf-8")

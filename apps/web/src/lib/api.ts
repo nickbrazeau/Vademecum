@@ -372,6 +372,8 @@ export const api = {
   updateFlag: (flagId: string, input: { status?: FlagStatus; topic?: string; text?: string }) =>
     request<Flag>(`/flags/${flagId}`, { method: 'PATCH', ...body(input) }).then(normalize.flag),
   deleteFlag: (flagId: string) => request<void>(`/flags/${flagId}`, { method: 'DELETE' }),
+  /** Transmits: the unfiled flags' text, once, to the Mac's model connection (ADR 0021). */
+  fileFlags: () => request<{ started: boolean }>('/flags/file', { method: 'POST' }),
 
   createExport: () => request<WrittenFile>('/export', { method: 'POST' }).then(normalize.writtenFile),
   createBackup: () => request<WrittenFile>('/backup', { method: 'POST' }).then(normalize.writtenFile),

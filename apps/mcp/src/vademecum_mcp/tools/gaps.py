@@ -26,7 +26,14 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         ],
         topic: Annotated[
             str | None,
-            Field(max_length=120, description="A short topic to file it under, if the owner gave one."),
+            Field(
+                max_length=120,
+                description=(
+                    "A short topic to file it under: two to five words, a condition, a drug, a test or a "
+                    "decision. Always give one -- infer it from what the owner said -- unless they said "
+                    "not to; an unfiled flag is a dot on the map with no name."
+                ),
+            ),
         ] = None,
         pile_id: Annotated[str | None, Field(max_length=64)] = None,
     ) -> dict[str, Any]:

@@ -438,13 +438,23 @@ def create_app(
             # the piles; refuses to run in host mode and says why.
             from .model.schedule import BuildScheduler
 
+            from .model.flags_filing import filer_for
             from .model.reports import parser_for
+
+            read_reports = parser_for(owner.database_path, owner.turn_factory)
+            file_flags = filer_for(owner.database_path, owner.turn_factory)
+
+            async def before_builds() -> int:
+                """Exam reports read, then unfiled flags filed (ADR 0020, 0021)."""
+                count = int(await read_reports() or 0)
+                await file_flags()
+                return count
 
             app.state.build_scheduler = BuildScheduler(
                 database_path=owner.database_path,
                 service=owner.build_service,
                 model_mode=resolved.model_provider,
-                before=parser_for(owner.database_path, owner.turn_factory),
+                before=before_builds,
             )
             app.state.build_scheduler.start()
             app.state.host_turns = owner.host_turns

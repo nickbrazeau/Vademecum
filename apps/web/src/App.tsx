@@ -43,6 +43,9 @@ export function App() {
   // connection of the learner's own to show. Until health answers, and on the
   // owner's Mac, nothing changes.
   const [behindGateway, setBehindGateway] = useState(false)
+  // In host mode the assistant in the conversation is the model: there is
+  // no connection of this machine's own to show (ADR 0009).
+  const [hostMode, setHostMode] = useState(false)
   // Inside a conversation (ADR 0014) there is no Model page either: the
   // assistant on the other side of the frame is the model, and a sign-in code
   // must never pass through a chat host.
@@ -53,7 +56,10 @@ export function App() {
     api
       .health()
       .then((health) => {
-        if (!cancelled) setBehindGateway(health.tenancy === 'multi')
+        if (!cancelled) {
+          setBehindGateway(health.tenancy === 'multi')
+          setHostMode(health.model_mode === 'host')
+        }
       })
       .catch(() => {
         /* the pages report their own failures; the shell stays as it is */
@@ -123,7 +129,7 @@ export function App() {
         <Nav
           route={route}
           onNavigate={navigate}
-          routes={behindGateway || compact ? ROUTES.filter((entry) => entry.name !== 'model') : ROUTES}
+          routes={behindGateway || compact || hostMode ? ROUTES.filter((entry) => entry.name !== 'model') : ROUTES}
         />
         {online || compact ? null : (
           <p className="offline" role="status">
@@ -139,7 +145,7 @@ export function App() {
         {route === 'tutor' ? <Tutor onNavigate={navigate} /> : null}
         {route === 'sources' ? <Sources /> : null}
         {route === 'map' ? <ImprovementMap reloadToken={reloadToken} /> : null}
-        {route === 'model' && !compact ? <Model /> : null}
+        {route === 'model' && !compact && !hostMode ? <Model /> : null}
       </main>
 
       <footer className="footer">

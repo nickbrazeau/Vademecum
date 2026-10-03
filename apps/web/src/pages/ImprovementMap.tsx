@@ -81,6 +81,8 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
       return next
     })
   const [layoutFailure, setLayoutFailure] = useState<ApiError | null>(null)
+  const [filing, setFiling] = useState(false)
+  const [filingFailure, setFilingFailure] = useState<ApiError | null>(null)
   const [specialtyFailure, setSpecialtyFailure] = useState<ApiError | null>(null)
 
   const reloadBoth = () => {
@@ -206,10 +208,43 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
           </>
         )}
         {value.unfiled_flag_count > 0 ? (
-          <p className="muted small">
-            {value.unfiled_flag_count} flags have no topic yet. Filing them is the system&rsquo;s
-            job, and it has not done it in this version — they are safe where they are.
-          </p>
+          <div className="unfiled">
+            <p className="muted small">
+              {value.unfiled_flag_count} flag{value.unfiled_flag_count === 1 ? ' has' : 's have'} no topic yet.
+              Filing sends their text, once, to the Mac&rsquo;s own model connection, which names a
+              topic for each; nothing else goes. They are safe where they are either way.
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="button small"
+                disabled={filing}
+                onClick={() => {
+                  setFiling(true)
+                  setFilingFailure(null)
+                  api.fileFlags().then(
+                    () => {
+                      setTimeout(() => {
+                        setFiling(false)
+                        reloadBoth()
+                      }, 4000)
+                    },
+                    (error) => {
+                      setFiling(false)
+                      setFilingFailure(asApiError(error))
+                    }
+                  )
+                }}
+              >
+                {filing ? 'Filing…' : 'File them now'}
+              </button>
+            </div>
+            {filingFailure ? (
+              <p className="failure small" role="alert">
+                {filingFailure.message}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </section>
 

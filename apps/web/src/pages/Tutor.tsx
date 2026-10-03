@@ -301,6 +301,20 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
           <h2 id="question-heading">Question</h2>
           <CyclePosition cycle={view.cycle} />
           <p className="prompt">{question.prompt}</p>
+          {question.anchors.length > 0 ? (
+            <details className="support-details">
+              <summary>Show the passage this question is about</summary>
+              <ul className="list small">
+                {question.anchors.map((anchor) => (
+                  <li key={`${anchor.source_id}-${anchor.locator}`}>
+                    <span className="title">{anchor.display_name}</span>
+                    <span className="muted small"> · {anchor.locator}</span>
+                    {anchor.quote ? <blockquote className="quote">{anchor.quote}</blockquote> : null}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
 
           <p className="badges">
             <SupportBadge support={question.support} label={question.support_label} />
