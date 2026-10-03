@@ -57,6 +57,11 @@ in Safari; those device checks remain a human acceptance step.
   where one learning point was filed under both topics. Drag, tap, pinch. Where things sit is
   remembered between opens. The full flag list stays underneath; the graph is a view, not the
   record.
+- **Case Series.** A hub of other people's teaching cases: the NEJM's Case Records of the
+  Massachusetts General Hospital and Clinical Problem-Solving, the Clinical Problem Solvers'
+  episodes and The Curbsiders' episodes, gathered on a timer you switch on, each with a link to
+  the original, credit to its authors and hosts, and teaching points written on the Mac from the
+  publisher's public text, every one resting on a quote ([ADR 0022](docs/adr/0022-case-series-hub.md)).
 - **Model connection.** Whether Codex is signed in to ChatGPT, the plan, and usage.
 - **Export and backup.** Readable JSON, and a restorable bundle containing the database *and* every
   uploaded original, with a manifest and a `verify` route that checks it.
@@ -85,6 +90,7 @@ also contact OpenAI through Codex; they do not send your study material.
 | **Check literature**, a Build's evidence lookup, or an enabled weekly check | Short public topic phrases (derived during Build; reviewable/editable for watched topics) and public PubMed identifiers for retrieval/status checks. Never source excerpts, filenames or learner answers. | PubMed (NCBI E-utilities) |
 | **Add a score report** on the Improvement Map ([ADR 0020](docs/adr/0020-exam-reports-on-the-map.md)) | The whole report's text, once, to read out content areas and your standing in each; the disclosure is above the button. | The Mac's own model connection, Codex or Claude, on your sign-in |
 | **File them now** on the Improvement Map, and each scheduled run ([ADR 0021](docs/adr/0021-filing-flags.md)) | The text of your unfiled flags, once, so each gets a topic and a subspecialty. Nothing else. | The Mac's own model connection, Codex or Claude, on your sign-in |
+| **Case Series**, while the hub is on, and **Refresh now** ([ADR 0022](docs/adr/0022-case-series-hub.md)) | Fixed public requests with nothing of yours in them: one PubMed query naming the journal and article type, and one request each to the two podcast sites for their latest episodes. Then each case's public title and show notes, once, for its teaching points. | PubMed (NCBI E-utilities), `clinicalproblemsolving.com`, `thecurbsiders.com`; the teaching points go to the Mac's own model connection, Codex or Claude, on your sign-in |
 | **Builds on a timer** ([ADR 0018](docs/adr/0018-builds-on-a-timer.md)), only while you have the schedule on, and **Build now** | For every pile with unbuilt passages, the same as Build above, without a per-batch preview: a standing consent you gave once, shown on Today with the moment you gave it, and withdrawn by turning the schedule off. | OpenAI, through the Codex process on this Mac, on your ChatGPT sign-in; needs the Mac in `codex` mode (`mcp.sh setup login --model codex`) |
 | **Sync**, only if you configured a second Vademecum ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)) | Your own workspace: the rows of every record and the stored files, both ways. | Your own second Vademecum, at the address you set, over HTTPS, with the token you set. Nowhere else, and nothing at all unless configured. |
 
@@ -162,10 +168,12 @@ Stated in [ADR 0002](docs/adr/0002-local-first-boundary.md) and enforced by test
   is no setting that changes this: AGENTS.md lists it among the non-negotiable boundaries, and a
   boundary with an off switch is not a boundary.
 - **One narrow, deliberate egress.** `apps/api/src/vademecum/literature/http.py` is the whole of
-  Vademecum's own network code: `http.client` over TLS to **one allowlisted host**
-  (`eutils.ncbi.nlm.nih.gov`), GET only, redirects never followed, bounded response body, throttled
-  and narrowly retried, failures reported as categories rather than provider text. Only a short
-  public topic phrase is sent, derived during Build or read/editable as a watched topic. The rest of the backend imports no HTTP client,
+  Vademecum's own network code: `http.client` over TLS to **three allowlisted hosts**
+  (`eutils.ncbi.nlm.nih.gov`, and for the Case Series hub `clinicalproblemsolving.com` and
+  `thecurbsiders.com`), GET only, redirects never followed, bounded response body, throttled
+  and narrowly retried, failures reported as categories rather than provider text. What is sent is
+  a short public topic phrase, derived during Build or read/editable as a watched topic, or the
+  hub's fixed request with nothing of yours in it. The rest of the backend imports no HTTP client,
   and the frontend calls only same-origin `/api`.
 - **Two explicit transmissions, each with the payload shown first.** Build and Grade send what the
   table above says, through the local Codex child.

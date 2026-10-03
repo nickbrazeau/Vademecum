@@ -67,7 +67,12 @@ import type {
   TopicLink,
   Specialty,
   TopicSpecialty,
-  MapPosition
+  MapPosition,
+  CaseCatalogueEntry,
+  CaseCounts,
+  CaseEntry,
+  CaseList,
+  CaseSettings
 } from './types'
 
 type Dict = Record<string, unknown>
@@ -894,5 +899,97 @@ export function buildSchedule(raw: unknown): import('./types').BuildSchedule {
     next_run_at: typeof data.next_run_at === 'string' ? data.next_run_at : null,
     last_run: lastRun && Array.isArray(lastRun.piles) ? lastRun : null,
     disclosure: typeof data.disclosure === 'string' ? data.disclosure : ''
+  }
+}
+
+/** The Case Series hub (ADR 0022). */
+function caseCatalogue(raw: unknown): CaseCatalogueEntry[] {
+  return arr(raw).map((item) => {
+    const data = obj(item)
+    return { id: str(data.id), name: str(data.name), short: str(data.short), publisher: str(data.publisher), home: str(data.home) }
+  })
+}
+
+function caseCounts(raw: unknown): CaseCounts {
+  const data = obj(raw)
+  const bySeries = obj(data.by_series)
+  return {
+    total: typeof data.total === 'number' ? data.total : 0,
+    pending: typeof data.pending === 'number' ? data.pending : 0,
+    by_series: Object.fromEntries(Object.entries(bySeries).map(([key, value]) => [key, typeof value === 'number' ? value : 0]))
+  }
+}
+
+export function caseEntry(raw: unknown): CaseEntry {
+  const data = obj(raw)
+  const status = data.status === 'synthesised' || data.status === 'failed' ? data.status : 'new'
+  return {
+    id: str(data.id),
+    series: str(data.series),
+    series_name: str(data.series_name, str(data.series)),
+    series_short: str(data.series_short, str(data.series)),
+    publisher: str(data.publisher),
+    subseries: str(data.subseries),
+    external_id: str(data.external_id),
+    title: str(data.title),
+    url: str(data.url),
+    credit: str(data.credit),
+    published_on: typeof data.published_on === 'string' ? data.published_on : null,
+    status,
+    status_detail: str(data.status_detail),
+    one_liner: str(data.one_liner),
+    points: arr(data.points).map((item) => {
+      const point = obj(item)
+      return { point: str(point.point), quote: str(point.quote) }
+    }),
+    think_first: arr(data.think_first).filter((item): item is string => typeof item === 'string'),
+    specialty_id: typeof data.specialty_id === 'string' ? data.specialty_id : null,
+    synthesised_at: typeof data.synthesised_at === 'string' ? data.synthesised_at : null,
+    first_seen_at: str(data.first_seen_at),
+    snippet: str(data.snippet)
+  }
+}
+
+export function caseList(raw: unknown): CaseList {
+  const data = obj(raw)
+  return {
+    entries: arr(data.entries).map(caseEntry),
+    catalogue: caseCatalogue(data.catalogue),
+    counts: caseCounts(data.counts),
+    credit: str(data.credit)
+  }
+}
+
+export function caseSettings(raw: unknown): CaseSettings {
+  const data = obj(raw)
+  const refresh = obj(data.last_refresh)
+  const fetched = obj(refresh.fetched)
+  return {
+    enabled: data.enabled === true,
+    interval_hours: typeof data.interval_hours === 'number' ? data.interval_hours : 6,
+    series: Object.fromEntries(Object.entries(obj(data.series)).map(([key, value]) => [key, value === true])),
+    fetches_here: data.fetches_here === true,
+    can_synthesise: data.can_synthesise === true,
+    running: data.running === true,
+    last_refresh:
+      typeof refresh.at === 'string'
+        ? {
+            at: refresh.at,
+            reason: str(refresh.reason),
+            fetched: Object.fromEntries(
+              Object.entries(fetched).map(([key, value]) => {
+                const group = obj(value)
+                return [key, { new: typeof group.new === 'number' ? group.new : 0, error: str(group.error) }]
+              })
+            ),
+            synthesised: typeof refresh.synthesised === 'number' ? refresh.synthesised : 0,
+            failed: typeof refresh.failed === 'number' ? refresh.failed : 0
+          }
+        : null,
+    counts: caseCounts(data.counts),
+    catalogue: caseCatalogue(data.catalogue),
+    note: str(data.note),
+    disclosure: str(data.disclosure),
+    credit: str(data.credit)
   }
 }

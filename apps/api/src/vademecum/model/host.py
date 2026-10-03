@@ -108,6 +108,8 @@ def kind_of(schema: Any) -> str:
         return "report"
     if schema is schemas.FLAGS_SCHEMA:
         return "flags"
+    if schema is schemas.CASE_SCHEMA:
+        return "case"
     raise ValueError("unknown output schema")
 
 

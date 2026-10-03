@@ -79,7 +79,7 @@ describe('the quick-flag shortcut', () => {
 })
 
 describe('the shell', () => {
-  it('offers Today, Tutor, Sources and the Improvement Map', () => {
+  it('offers Today, Tutor, Sources, the Improvement Map and the Case Series', () => {
     stubApi()
     render(<App />)
     const nav = screen.getByRole('navigation', { name: /sections/i })
@@ -87,6 +87,7 @@ describe('the shell', () => {
     expect(nav).toHaveTextContent('Sources')
     expect(nav).toHaveTextContent('Tutor')
     expect(nav).toHaveTextContent('Improvement Map')
+    expect(nav).toHaveTextContent('Case Series')
   })
 
   it('navigates without a page load', async () => {

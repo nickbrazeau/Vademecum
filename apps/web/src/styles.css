@@ -1054,3 +1054,34 @@ details.settings-details[open] > summary {
 .exam-reports .list li {
   margin-bottom: 0.5rem;
 }
+
+/* The Case Series hub (ADR 0022). */
+.case-entry h4 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.95rem;
+}
+.case-points,
+.case-prompts {
+  margin: 0 0 0.5rem;
+  padding-left: 1.25rem;
+}
+.case-points li,
+.case-prompts li {
+  margin-bottom: 0.375rem;
+}
+.case-points p {
+  margin: 0;
+}
+.case-series-picker {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
+}
+.case-series-option {
+  display: block;
+  margin: 0.25rem 0;
+}
+.case-search {
+  margin: 0.75rem 0;
+}

@@ -226,3 +226,30 @@ def flags_prompt(items: list[tuple[str, str]], specialties: list[tuple[str, str]
         f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
         f"ITEMS, each with its id in brackets:\n{_fence(body)}"
     )
+
+
+CASE_DEVELOPER = (
+    "The supplied material is the public summary of one teaching case from a named "
+    "series: its title, and the publisher's show notes or abstract where there is one. "
+    "You are writing study notes for a resident who will read or listen to the original. "
+    "Give: 'one_liner', one sentence saying what the case is about, taken from the "
+    "material; 'teaching_points', up to six high-yield points of one or two sentences "
+    "each, every one resting on a short verbatim 'quote' from the material -- never a "
+    "point the material does not state, and an empty list when the material is a title "
+    "alone; 'think_first', up to four prompts naming the questions or differential the "
+    "presentation invites before the answer is read, worded as prompts, not answers, which "
+    "may draw on general clinical knowledge but must not claim what the case found; "
+    "'specialty', the id from the list or an empty string; and 'credit', the hosts, guests "
+    "or authors the material names, comma separated, or an empty string. Never include a "
+    "patient identifier. Never state or imply the final diagnosis unless the material "
+    "states it."
+)
+
+
+def case_prompt(series: str, title: str, text: str, specialties: list[tuple[str, str]]) -> str:
+    listed = "\n".join(f"- {identifier}: {name}" for identifier, name in specialties)
+    body = f"SERIES: {series}\nTITLE: {title}\n\nPUBLIC TEXT:\n{text if text.strip() else '(none; the title is all the publisher offers here)'}"
+    return (
+        f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
+        f"THE CASE:\n{_fence(body)}"
+    )

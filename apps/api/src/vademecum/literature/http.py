@@ -6,12 +6,14 @@ backend so that egress cannot appear quietly in a module nobody was reading;
 this file is the one deliberate exception, and it is meant to stay small enough
 that a reviewer can hold all of it at once.
 
-What it can reach is a frozen allowlist of one host. There is no setting that
-adds to it, no scheme parameter, no proxy, no redirect following and no verb
-other than GET. What it sends is a path, urlencoded query parameters supplied
-by the caller, and a User-Agent. The caller is :mod:`.pubmed`, whose queries are
-validated public topic strings; no passage, note, learning point or answer has a
-route into this module.
+What it can reach is a frozen allowlist of three hosts: PubMed's E-utilities,
+and the two podcast sites the Case Series hub reads (ADR 0022). There is no
+setting that adds to it, no scheme parameter, no proxy, no redirect following
+and no verb other than GET. What it sends is a path, urlencoded query
+parameters supplied by the caller, and a User-Agent. The callers are
+:mod:`.pubmed`, whose queries are validated public topic strings, and
+:mod:`.cases`, whose requests are fixed; no passage, note, learning point or
+answer has a route into this module.
 
 Failures are reported as one of :data:`CATEGORIES` and nothing else. Provider
 prose is never raised, logged or stored -- a category is safe to put in a UI, an
@@ -31,7 +33,9 @@ from urllib.parse import urlencode
 from .. import __version__
 
 # The whole of the allowlist. Adding to it is a source change and a code review.
-ALLOWED_HOSTS = frozenset({"eutils.ncbi.nlm.nih.gov"})
+# The two sites are the Case Series hub's (ADR 0022): their public WordPress
+# JSON endpoint, one fixed request each, nothing of the owner's in it.
+ALLOWED_HOSTS = frozenset({"eutils.ncbi.nlm.nih.gov", "clinicalproblemsolving.com", "thecurbsiders.com"})
 
 HTTPS_PORT = 443
 

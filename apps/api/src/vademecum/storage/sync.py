@@ -75,6 +75,7 @@ SYNCED_TABLES: tuple[str, ...] = (
     "map_positions",
     "exam_reports",
     "exam_areas",
+    "case_entries",
 )
 
 DOMI_OWNED: frozenset[str] = frozenset(
@@ -96,6 +97,7 @@ DOMI_OWNED: frozenset[str] = frozenset(
         "curated_articles",
         "exam_reports",
         "exam_areas",
+        "case_entries",
     }
 )
 

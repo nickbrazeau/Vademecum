@@ -375,6 +375,16 @@ export const api = {
   /** Transmits: the unfiled flags' text, once, to the Mac's model connection (ADR 0021). */
   fileFlags: () => request<{ started: boolean }>('/flags/file', { method: 'POST' }),
 
+  // The Case Series hub (ADR 0022). Listing reads this Mac; the switch and
+  // "Refresh now" are the explicit acts behind the fixed public requests the
+  // disclosure on the page describes.
+  listCases: (params: { series?: string; q?: string; specialty?: string } = {}) =>
+    request<unknown>(`/cases${query(params)}`).then(normalize.caseList),
+  caseSettings: () => request<unknown>('/cases/settings').then(normalize.caseSettings),
+  saveCaseSettings: (input: { enabled: boolean; interval_hours: number; series?: Record<string, boolean> }) =>
+    request<unknown>('/cases/settings', { method: 'PUT', ...body(input) }).then(normalize.caseSettings),
+  refreshCases: () => request<unknown>('/cases/refresh', { method: 'POST' }).then(normalize.caseSettings),
+
   createExport: () => request<WrittenFile>('/export', { method: 'POST' }).then(normalize.writtenFile),
   createBackup: () => request<WrittenFile>('/backup', { method: 'POST' }).then(normalize.writtenFile),
 

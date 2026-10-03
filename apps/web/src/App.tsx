@@ -9,6 +9,7 @@ import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
 import { ROUTES, isRouteName, useRoute } from './lib/router'
+import { CaseSeries } from './pages/CaseSeries'
 import { ImprovementMap } from './pages/ImprovementMap'
 import { Model } from './pages/Model'
 import { Sources } from './pages/Sources'
@@ -20,6 +21,7 @@ const TITLES = {
   tutor: 'Tutor',
   sources: 'Sources',
   map: 'Improvement Map',
+  cases: 'Case Series',
   model: 'Model'
 } as const
 
@@ -145,6 +147,7 @@ export function App() {
         {route === 'tutor' ? <Tutor onNavigate={navigate} /> : null}
         {route === 'sources' ? <Sources /> : null}
         {route === 'map' ? <ImprovementMap reloadToken={reloadToken} /> : null}
+        {route === 'cases' ? <CaseSeries /> : null}
         {route === 'model' && !compact && !hostMode ? <Model /> : null}
       </main>
 

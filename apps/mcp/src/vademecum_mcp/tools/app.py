@@ -77,6 +77,11 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     ("POST", r"/api/flags"),
     ("PATCH", rf"/api/flags/{ID}"),
     ("GET", r"/api/model/status"),
+    # The Case Series hub (ADR 0022).
+    ("GET", rf"/api/cases{QUERY}"),
+    ("GET", r"/api/cases/settings"),
+    ("PUT", r"/api/cases/settings"),
+    ("POST", r"/api/cases/refresh"),
 )
 _COMPILED = [(method, re.compile(pattern + r"\Z")) for method, pattern in ALLOWED]
 
@@ -101,15 +106,18 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     )
     async def open_vademecum(
         view: Annotated[
-            Literal["today", "tutor", "sources", "map"],
-            Field(description="Which page to open on: today (the cover sheet), tutor, sources, or map."),
+            Literal["today", "tutor", "sources", "map", "cases"],
+            Field(description="Which page to open on: today (the cover sheet), tutor, sources, map, or cases (the Case Series hub)."),
         ] = "today",
     ) -> dict[str, Any]:
         """Show the Vademecum dashboard inside this conversation, drawn by the
-        host: Today, the source library, the Tutor, and the Improvement Map as
-        a graph. Call this first whenever the owner opens Vademecum, starts a
-        session, or asks to see Vademecum, the dashboard, the web app, their
-        sources, the Tutor or the map; pick the view that matches. If the host
+        host: Today, the source library, the Tutor, the Improvement Map as a
+        graph, and the Case Series hub (NEJM Case Records and Clinical
+        Problem-Solving, the Clinical Problem Solvers and The Curbsiders, with
+        links to the originals and teaching points). Call this first whenever
+        the owner opens Vademecum, starts a session, or asks to see Vademecum,
+        the dashboard, the web app, their sources, the Tutor, the map or the
+        case series; pick the view that matches. If the host
         cannot draw it, open_dashboard opens the same thing in their browser.
         Everything the dashboard shows comes from this Mac."""
         return {

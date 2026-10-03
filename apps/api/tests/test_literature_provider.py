@@ -107,8 +107,9 @@ def test_a_host_outside_the_allowlist_is_refused_before_any_socket() -> None:
     assert str(caught.value) == "blocked_host"
 
 
-def test_the_allowlist_holds_exactly_one_host() -> None:
-    assert ALLOWED_HOSTS == frozenset({"eutils.ncbi.nlm.nih.gov"})
+def test_the_allowlist_holds_exactly_the_three_named_hosts() -> None:
+    """PubMed, and the two podcast sites the Case Series hub reads (ADR 0022). Nothing else."""
+    assert ALLOWED_HOSTS == frozenset({"eutils.ncbi.nlm.nih.gov", "clinicalproblemsolving.com", "thecurbsiders.com"})
 
 
 def test_a_lookalike_host_is_still_refused() -> None:

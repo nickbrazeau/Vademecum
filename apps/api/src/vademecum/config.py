@@ -229,6 +229,13 @@ class Settings(BaseSettings):
     # product may hold (AGENTS.md). Empty by default.
     literature_ncbi_key: str = ""
 
+    # --- the Case Series hub (ADR 0022) ---
+    # Fixed public requests to three publishers of teaching cases, on a timer
+    # the owner switches on in the dashboard. Off here means no hub at all.
+    cases_enabled: bool = True
+    cases_interval_hours: float = Field(default=6.0, ge=1, le=168)
+    cases_max_results: int = Field(default=60, ge=10, le=100)
+
     def resolve_claude_path(self) -> Path:
         from .model.claude_cli import default_claude_path
 

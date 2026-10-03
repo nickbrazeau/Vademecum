@@ -116,7 +116,7 @@ def register(
             # One learner, the owner (ADR 0017): the same passphrase the
             # assistants are approved with.
             form = pages.owner_form(LOGIN_PATH, "")
-            lead = "Your Vademecum: Today, your sources, the Tutor and the Improvement Map."
+            lead = "Your Vademecum: Today, your sources, the Tutor, the Improvement Map and the Case Series."
         else:
             form = pages.learner_forms(LOGIN_PATH, "", approve_label="Sign in", register_label="Create my workspace", deny=False)
             lead = "Your desk: upload material, manage your sources, export or delete your workspace."

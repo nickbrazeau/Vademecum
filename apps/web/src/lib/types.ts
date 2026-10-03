@@ -784,3 +784,79 @@ export interface BuildSchedule {
   last_run: ScheduledRun | null
   disclosure: string
 }
+
+/** The Case Series hub (ADR 0022): other people's cases, by title and link. */
+export type CaseSeriesId = 'nejm_cpc' | 'nejm_cps' | 'cps' | 'curbsiders'
+
+export interface CasePoint {
+  point: string
+  /** The verbatim words in the publisher's notes the point rests on. */
+  quote: string
+}
+
+export interface CaseEntry {
+  id: string
+  series: string
+  series_name: string
+  series_short: string
+  publisher: string
+  subseries: string
+  external_id: string
+  title: string
+  url: string
+  credit: string
+  published_on: string | null
+  status: 'new' | 'synthesised' | 'failed'
+  status_detail: string
+  one_liner: string
+  points: CasePoint[]
+  think_first: string[]
+  specialty_id: string | null
+  synthesised_at: string | null
+  first_seen_at: string
+  snippet: string
+}
+
+export interface CaseCatalogueEntry {
+  id: string
+  name: string
+  short: string
+  publisher: string
+  home: string
+}
+
+export interface CaseCounts {
+  total: number
+  pending: number
+  by_series: Record<string, number>
+}
+
+export interface CaseList {
+  entries: CaseEntry[]
+  catalogue: CaseCatalogueEntry[]
+  counts: CaseCounts
+  credit: string
+}
+
+export interface CaseRefresh {
+  at: string
+  reason: string
+  fetched: Record<string, { new: number; error: string }>
+  synthesised: number
+  failed: number
+}
+
+export interface CaseSettings {
+  enabled: boolean
+  interval_hours: number
+  series: Record<string, boolean>
+  fetches_here: boolean
+  can_synthesise: boolean
+  running: boolean
+  last_refresh: CaseRefresh | null
+  counts: CaseCounts
+  catalogue: CaseCatalogueEntry[]
+  note: string
+  disclosure: string
+  credit: string
+}

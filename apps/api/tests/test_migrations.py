@@ -43,6 +43,7 @@ EXPECTED_TABLES = {
     "sync_log",
     "exam_reports",
     "exam_areas",
+    "case_entries",
 }
 
 # Pinned so a future migration that changes a column has to say so here.
@@ -60,6 +61,11 @@ EXPECTED_COLUMNS = {
     "sync_log": {"seq", "table_name", "row_key", "op", "at"},
     "exam_reports": {"id", "display_name", "media_type", "sha256", "byte_size", "stored_name", "text", "status", "status_detail", "created_at", "updated_at", "parsed_at"},
     "exam_areas": {"id", "report_id", "ordinal", "topic", "specialty_id", "standing", "quote", "note", "created_at"},
+    "case_entries": {
+        "id", "series", "subseries", "external_id", "title", "url", "credit", "published_on", "text", "status",
+        "status_detail", "attempts", "one_liner", "points", "think_first", "specialty_id", "synthesised_at",
+        "first_seen_at", "created_at", "updated_at",
+    },
     "app_state": {
         "key",
         "updated_at",
@@ -383,6 +389,7 @@ def test_applying_every_migration_produces_the_expected_schema(tmp_path: Path) -
         "0007_sync_log",
         "0008_sync_backfill",
         "0009_exam_reports",
+        "0010_case_series",
     ]
     assert _tables(connection) == EXPECTED_TABLES
     for table, columns in EXPECTED_COLUMNS.items():
@@ -432,7 +439,7 @@ def test_upgrade_preserves_existing_notes_flags_and_confidence(
     # Reopen as startup does, apply forward-only migrations, and verify repeat startup.
     connection = connect(database)
     applied = apply_migrations(connection)
-    assert applied[-1] == "0009_exam_reports"
+    assert applied[-1] == "0010_case_series"
     assert apply_migrations(connection) == []
     for name in tables:
         assert [tuple(row) for row in connection.execute(f"SELECT * FROM {name}")] == before[name]

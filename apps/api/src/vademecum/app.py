@@ -22,6 +22,7 @@ from starlette.responses import Response
 from . import __version__
 from .api import errors, origin
 from .api import (
+    routes_cases,
     routes_flags,
     routes_health,
     routes_literature,
@@ -44,6 +45,7 @@ from .config import DATABASE_FILENAME, Settings, find_repo_root, get_settings, s
 from .db import connect
 from .ingest import folder as folder_intake
 from .literature import ALLOWED_HOSTS, HttpsFetcher, LiteratureWatcher, PubMedProvider
+from .literature.pubmed import HOST as PUBMED_HOST
 from .logging_setup import log_requests
 from .model import BuildService
 from .model.host import HostTurns
@@ -100,7 +102,8 @@ def build_fetcher(settings: Settings) -> HttpsFetcher | None:
     """
     if not settings.literature_enabled:
         return None
-    host = next(iter(sorted(ALLOWED_HOSTS)))
+    host = PUBMED_HOST
+    assert host in ALLOWED_HOSTS
     return HttpsFetcher(
         host,
         timeout=settings.literature_request_timeout,
@@ -457,6 +460,31 @@ def create_app(
                 before=before_builds,
             )
             app.state.build_scheduler.start()
+            # The Case Series hub (ADR 0022): fixed public requests on a
+            # timer, off until chosen, and only on Domi; teaching points on
+            # the Mac's own model connection.
+            from .literature.cases import build_fetch_groups
+            from .model.case_hub import CaseHub
+
+            groups = (
+                build_fetch_groups(
+                    pubmed_fetcher=app.state.literature_fetcher,
+                    timeout=resolved.literature_request_timeout,
+                    max_results=resolved.cases_max_results,
+                    contact_email=resolved.literature_contact_email,
+                )
+                if resolved.cases_enabled
+                else []
+            )
+            app.state.case_hub = CaseHub(
+                database_path=owner.database_path,
+                groups=groups,
+                turn_factory=owner.turn_factory if resolved.model_provider in ("codex", "claude") else None,
+                model_mode=resolved.model_provider,
+                fetches_here=resolved.cases_enabled and resolved.sync_role_name == "domi",
+                default_interval_hours=resolved.cases_interval_hours,
+            )
+            app.state.case_hub.start()
             app.state.host_turns = owner.host_turns
             app.state.literature_watcher = owner.watcher
             if resolved.model_provider in ("codex", "claude"):
@@ -490,6 +518,9 @@ def create_app(
             scheduler = getattr(app.state, "build_scheduler", None)
             if scheduler is not None:
                 await scheduler.stop()
+            hub = getattr(app.state, "case_hub", None)
+            if hub is not None:
+                await hub.stop()
             for task in (folder_task, backfill_task, parent_task, sync_task):
                 if task is None:
                     continue
@@ -533,6 +564,7 @@ def create_app(
 
     for router in (
         routes_health.router,
+        routes_cases.router,
         routes_piles.router,
         routes_reports.router,
         routes_schedule.router,

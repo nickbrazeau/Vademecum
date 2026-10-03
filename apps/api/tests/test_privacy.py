@@ -358,6 +358,10 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         # Builds on a timer (ADR 0018): a standing consent, read and set here.
         "/api/build/schedule",
         "/api/build/schedule/run",
+        # The Case Series hub (ADR 0022): fixed public requests, a switch, a refresh.
+        "/api/cases",
+        "/api/cases/settings",
+        "/api/cases/refresh",
         # Two Vademecums that sync (ADR 0015): served only with a peer token.
         "/api/sync/status",
         "/api/sync/changes",

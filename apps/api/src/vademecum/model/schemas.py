@@ -261,3 +261,36 @@ FLAGS_SCHEMA = {
         "flags": {"type": "array", "maxItems": MAX_FLAGS_PER_FILING, "items": FILED_FLAG_SCHEMA},
     },
 }
+
+
+# --- a case's study notes (ADR 0022) ---------------------------------------------
+#
+# Each teaching point carries the verbatim quote it rests on; the server drops
+# a point whose quote is not in the public text, so a title alone yields no
+# points, only think-first prompts. There is no field for a diagnosis.
+
+MAX_CASE_POINTS = 6
+MAX_CASE_PROMPTS = 4
+
+CASE_POINT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["point", "quote"],
+    "properties": {
+        "point": _string(300),
+        "quote": _string(MAX_QUOTE),
+    },
+}
+
+CASE_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["one_liner", "teaching_points", "think_first", "specialty", "credit"],
+    "properties": {
+        "one_liner": _string(200),
+        "teaching_points": {"type": "array", "maxItems": MAX_CASE_POINTS, "items": CASE_POINT_SCHEMA},
+        "think_first": {"type": "array", "maxItems": MAX_CASE_PROMPTS, "items": _string(200)},
+        "specialty": _string(40),
+        "credit": _string(200),
+    },
+}

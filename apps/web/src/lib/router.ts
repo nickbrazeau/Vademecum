@@ -1,18 +1,19 @@
 /**
- * Five views and a browser history entry each. A router library would be more
+ * Six views and a browser history entry each. A router library would be more
  * code than this and would not do anything else this app needs.
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import { inChat } from './host'
 
-export type RouteName = 'today' | 'tutor' | 'sources' | 'map' | 'model'
+export type RouteName = 'today' | 'tutor' | 'sources' | 'map' | 'cases' | 'model'
 
 export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'today', path: '/', label: 'Today' },
   { name: 'tutor', path: '/tutor', label: 'Tutor' },
   { name: 'sources', path: '/sources', label: 'Sources' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
+  { name: 'cases', path: '/cases', label: 'Case Series' },
   { name: 'model', path: '/model', label: 'Model' }
 ]
 
