@@ -287,7 +287,7 @@ CASE_SCHEMA = {
     "additionalProperties": False,
     "required": ["one_liner", "teaching_points", "think_first", "specialty", "credit"],
     "properties": {
-        "one_liner": _string(200),
+        "one_liner": _string(300),
         "teaching_points": {"type": "array", "maxItems": MAX_CASE_POINTS, "items": CASE_POINT_SCHEMA},
         "think_first": {"type": "array", "maxItems": MAX_CASE_PROMPTS, "items": _string(200)},
         "specialty": _string(40),

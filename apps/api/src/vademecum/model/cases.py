@@ -51,16 +51,34 @@ def _names_in(credit: str, text: str) -> str:
     return ", ".join(kept)[:300]
 
 
+_PLAIN = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "–": "-", "—": "-", " ": " "})
+
+
+def _plain(value: str) -> str:
+    """Curly quotes and dashes straightened on both sides: show notes mix them, and a
+    quote that differs only in the shape of an apostrophe is the same words."""
+    return value.translate(_PLAIN)
+
+
+def quoted_in(text: str, quote: str) -> bool:
+    return quote_in(_plain(text), _plain(quote))
+
+
 def check_synthesis(payload: dict[str, Any], *, text: str, specialty_ids: set[str]) -> dict[str, Any]:
     """What the server keeps of the model's answer: quoted points, bounded prompts, a listed specialty."""
     points: list[dict[str, str]] = []
+    offered = 0
     for item in payload.get("teaching_points") or []:
         if not isinstance(item, dict):
             continue
+        offered += 1
         point = " ".join(str(item.get("point") or "").split())
         quote = str(item.get("quote") or "")
-        if point and text and quote_in(text, quote):
+        if point and text and quoted_in(text, quote):
             points.append({"point": point, "quote": quote})
+    if offered:
+        # Counts only: how many points the model offered and how many quoted the text.
+        logger.info("case_points offered=%d kept=%d text_chars=%d", offered, len(points), len(text))
     prompts_kept = [
         " ".join(str(item).split())
         for item in (payload.get("think_first") or [])
