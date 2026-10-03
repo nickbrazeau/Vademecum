@@ -72,7 +72,18 @@ import type {
   CaseCounts,
   CaseEntry,
   CaseList,
-  CaseSettings
+  CaseSettings,
+  BoardAnswer,
+  BoardAttempt,
+  BoardNext,
+  BoardOverview,
+  BoardQuestion,
+  EncyclopediaCounts,
+  EncyclopediaEntry,
+  EncyclopediaList,
+  EncyclopediaPage,
+  EncyclopediaRefresh,
+  PageCitation
 } from './types'
 
 type Dict = Record<string, unknown>
@@ -773,7 +784,10 @@ export function coverSheet(value: unknown): CoverSheet {
   const held = obj(raw['held'])
   const literature = obj(raw['literature'])
   const tutor = obj(raw['tutor'])
+  const encyclopedia = obj(raw['encyclopedia'])
   return {
+    page: raw['page'] && typeof raw['page'] === 'object' ? encyclopediaEntry(raw['page']) : null,
+    encyclopedia: { ...encyclopediaCounts(encyclopedia), message: str(encyclopedia['message']) },
     worth_a_look: points(raw['worth_a_look']),
     worth_a_look_message: str(raw['worth_a_look_message']),
     held: {
@@ -899,6 +913,165 @@ export function buildSchedule(raw: unknown): import('./types').BuildSchedule {
     next_run_at: typeof data.next_run_at === 'string' ? data.next_run_at : null,
     last_run: lastRun && Array.isArray(lastRun.piles) ? lastRun : null,
     disclosure: typeof data.disclosure === 'string' ? data.disclosure : ''
+  }
+}
+
+/** The encyclopedia and the board bank (ADR 0023). */
+function pageCitation(raw: unknown): PageCitation {
+  const data = obj(raw)
+  return {
+    id: str(data.id),
+    claim: str(data.claim),
+    support: str(data.support),
+    support_label: str(data.support_label),
+    held: data.held === true,
+    sources: arr(data.sources).map((item) => {
+      const source = obj(item)
+      return { source_id: str(source.source_id), display_name: str(source.display_name), locator: str(source.locator), quote: str(source.quote) }
+    })
+  }
+}
+
+export function encyclopediaCounts(raw: unknown): EncyclopediaCounts {
+  const data = obj(raw)
+  return {
+    entries: num(data.entries),
+    stale: num(data.stale),
+    questions_eligible: num(data.questions_eligible),
+    questions_held: num(data.questions_held),
+    questions_total: num(data.questions_total)
+  }
+}
+
+export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
+  const data = obj(raw)
+  return {
+    id: str(data.id),
+    topic: str(data.topic),
+    title: str(data.title, str(data.topic)),
+    specialty_id: typeof data.specialty_id === 'string' ? data.specialty_id : null,
+    summary: str(data.summary),
+    sections: arr(data.sections).map((item) => {
+      const section = obj(item)
+      return {
+        heading: str(section.heading),
+        paragraphs: arr(section.paragraphs).map((p) => {
+          const paragraph = obj(p)
+          return { text: str(paragraph.text), point_ids: strings(paragraph.point_ids) }
+        })
+      }
+    }),
+    point_count: num(data.point_count),
+    question_count: num(data.question_count),
+    status: str(data.status, 'current'),
+    status_detail: str(data.status_detail),
+    version: num(data.version),
+    compiled_at: typeof data.compiled_at === 'string' ? data.compiled_at : null,
+    citations: arr(data.citations).map(pageCitation)
+  }
+}
+
+function encyclopediaRefresh(raw: unknown): EncyclopediaRefresh | null {
+  const data = obj(raw)
+  if (typeof data.at !== 'string') return null
+  const pages = obj(data.pages)
+  const questions = obj(data.questions)
+  return {
+    at: data.at,
+    reason: str(data.reason),
+    pages: { compiled: num(pages.compiled), failed: num(pages.failed), remaining: num(pages.remaining) },
+    questions: { entries: num(questions.entries), written: num(questions.written), held: num(questions.held), failed: num(questions.failed) }
+  }
+}
+
+export function encyclopediaList(raw: unknown): EncyclopediaList {
+  const data = obj(raw)
+  return {
+    entries: arr(data.entries).map(encyclopediaEntry),
+    counts: encyclopediaCounts(data.counts),
+    can_compile: data.can_compile === true,
+    running: data.running === true,
+    last_refresh: encyclopediaRefresh(data.last_refresh),
+    note: str(data.note),
+    disclosure: str(data.disclosure)
+  }
+}
+
+export function encyclopediaPage(raw: unknown): EncyclopediaPage {
+  const data = obj(raw)
+  return {
+    page: data.page && typeof data.page === 'object' ? encyclopediaEntry(data.page) : null,
+    counts: encyclopediaCounts(data.counts),
+    message: str(data.message)
+  }
+}
+
+export function boardQuestion(raw: unknown): BoardQuestion {
+  const data = obj(raw)
+  const question: BoardQuestion = {
+    id: str(data.id),
+    entry_id: str(data.entry_id),
+    topic: str(data.topic),
+    title: str(data.title),
+    stem: str(data.stem),
+    options: arr(data.options).map((item) => {
+      const option = obj(item)
+      return { letter: str(option.letter), text: str(option.text) }
+    }),
+    objective: str(data.objective),
+    status: str(data.status),
+    point_ids: strings(data.point_ids)
+  }
+  if (typeof data.answer_index === 'number') question.answer_index = data.answer_index
+  if (typeof data.answer_letter === 'string') question.answer_letter = data.answer_letter
+  if (typeof data.explanation === 'string') question.explanation = data.explanation
+  return question
+}
+
+function boardAttempt(raw: unknown): BoardAttempt | null {
+  const data = obj(raw)
+  if (typeof data.id !== 'string') return null
+  return {
+    id: data.id,
+    question_id: typeof data.question_id === 'string' ? data.question_id : null,
+    chosen_index: num(data.chosen_index),
+    chosen_letter: str(data.chosen_letter),
+    correct: data.correct === true,
+    created_at: str(data.created_at)
+  }
+}
+
+export function boardNext(raw: unknown): BoardNext {
+  const data = obj(raw)
+  return {
+    question: data.question && typeof data.question === 'object' ? boardQuestion(data.question) : null,
+    cycle: cycle(data.cycle),
+    last_attempt: boardAttempt(data.last_attempt),
+    history_count: num(data.history_count),
+    empty_reason: str(data.empty_reason)
+  }
+}
+
+export function boardAnswer(raw: unknown): BoardAnswer {
+  const data = obj(raw)
+  const attempt = boardAttempt(data.attempt)
+  return {
+    attempt: attempt ?? { id: '', question_id: null, chosen_index: 0, chosen_letter: '', correct: false, created_at: '' },
+    question: boardQuestion(data.question),
+    citations: arr(data.citations).map(pageCitation)
+  }
+}
+
+export function boardOverview(raw: unknown): BoardOverview {
+  const data = obj(raw)
+  return {
+    eligible: num(data.eligible),
+    held: num(data.held),
+    total: num(data.total),
+    pages: num(data.pages),
+    answered_total: num(data.answered_total),
+    answered_correct: num(data.answered_correct),
+    cycle: cycle(data.cycle)
   }
 }
 

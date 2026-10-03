@@ -23,6 +23,7 @@ from . import __version__
 from .api import errors, origin
 from .api import (
     routes_cases,
+    routes_encyclopedia,
     routes_flags,
     routes_health,
     routes_literature,
@@ -453,11 +454,25 @@ def create_app(
                 await file_flags()
                 return count
 
+            # The encyclopedia (ADR 0023): compiled from what the builds made,
+            # after them, and on "Compile now"; needs the Mac's own connection.
+            from .model import encyclopedia as encyclopedia_service
+
+            async def refresh_encyclopedia(*, reason: str = "scheduled") -> dict:
+                return await encyclopedia_service.refresh(owner.database_path, owner.turn_factory, reason=reason)
+
+            if resolved.model_provider in ("codex", "claude"):
+                app.state.encyclopedia_runner = refresh_encyclopedia
+            else:
+                app.state.encyclopedia_runner = None
+            app.state.encyclopedia_task = None
+
             app.state.build_scheduler = BuildScheduler(
                 database_path=owner.database_path,
                 service=owner.build_service,
                 model_mode=resolved.model_provider,
                 before=before_builds,
+                after=refresh_encyclopedia if resolved.model_provider in ("codex", "claude") else None,
             )
             app.state.build_scheduler.start()
             # The Case Series hub (ADR 0022): fixed public requests on a
@@ -521,6 +536,13 @@ def create_app(
             hub = getattr(app.state, "case_hub", None)
             if hub is not None:
                 await hub.stop()
+            compile_task = getattr(app.state, "encyclopedia_task", None)
+            if compile_task is not None and not compile_task.done():
+                compile_task.cancel()
+                try:
+                    await compile_task
+                except (asyncio.CancelledError, Exception):
+                    pass
             for task in (folder_task, backfill_task, parent_task, sync_task):
                 if task is None:
                     continue
@@ -565,6 +587,8 @@ def create_app(
     for router in (
         routes_health.router,
         routes_cases.router,
+        routes_encyclopedia.router,
+        routes_encyclopedia.board_router,
         routes_piles.router,
         routes_reports.router,
         routes_schedule.router,

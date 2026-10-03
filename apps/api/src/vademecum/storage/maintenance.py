@@ -86,6 +86,11 @@ EXPORTED_TABLES: tuple[str, ...] = (
     # The Case Series hub (ADR 0022): other people's cases by title and link,
     # with Vademecum's study notes beside them.
     "case_entries",
+    # The encyclopedia and the board bank (ADR 0023).
+    "encyclopedia_entries",
+    "board_questions",
+    "board_cycle_entries",
+    "board_attempts",
 )
 
 DATABASE_MEMBER = "vademecum.sqlite3"

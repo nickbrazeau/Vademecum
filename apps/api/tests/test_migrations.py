@@ -44,6 +44,10 @@ EXPECTED_TABLES = {
     "exam_reports",
     "exam_areas",
     "case_entries",
+    "encyclopedia_entries",
+    "board_questions",
+    "board_cycle_entries",
+    "board_attempts",
 }
 
 # Pinned so a future migration that changes a column has to say so here.
@@ -390,6 +394,7 @@ def test_applying_every_migration_produces_the_expected_schema(tmp_path: Path) -
         "0008_sync_backfill",
         "0009_exam_reports",
         "0010_case_series",
+        "0011_encyclopedia",
     ]
     assert _tables(connection) == EXPECTED_TABLES
     for table, columns in EXPECTED_COLUMNS.items():
@@ -439,7 +444,7 @@ def test_upgrade_preserves_existing_notes_flags_and_confidence(
     # Reopen as startup does, apply forward-only migrations, and verify repeat startup.
     connection = connect(database)
     applied = apply_migrations(connection)
-    assert applied[-1] == "0010_case_series"
+    assert applied[-1] == "0011_encyclopedia"
     assert apply_migrations(connection) == []
     for name in tables:
         assert [tuple(row) for row in connection.execute(f"SELECT * FROM {name}")] == before[name]

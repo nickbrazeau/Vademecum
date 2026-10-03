@@ -82,6 +82,16 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     ("GET", r"/api/cases/settings"),
     ("PUT", r"/api/cases/settings"),
     ("POST", r"/api/cases/refresh"),
+    # The encyclopedia and the board bank (ADR 0023).
+    ("GET", rf"/api/encyclopedia{QUERY}"),
+    ("GET", rf"/api/encyclopedia/page{QUERY}"),
+    ("GET", rf"/api/encyclopedia/{ID}"),
+    ("POST", r"/api/encyclopedia/compile"),
+    ("GET", r"/api/tutor/board"),
+    ("GET", r"/api/tutor/board/next"),
+    ("POST", r"/api/tutor/board/answer"),
+    ("POST", r"/api/tutor/board/advance"),
+    ("GET", rf"/api/tutor/board/history{QUERY}"),
 )
 _COMPILED = [(method, re.compile(pattern + r"\Z")) for method, pattern in ALLOWED]
 
@@ -106,8 +116,8 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     )
     async def open_vademecum(
         view: Annotated[
-            Literal["today", "tutor", "sources", "map", "cases"],
-            Field(description="Which page to open on: today (the cover sheet), tutor, sources, map, or cases (the Case Series hub)."),
+            Literal["today", "tutor", "sources", "map", "cases", "encyclopedia"],
+            Field(description="Which page to open on: today (the cover sheet), tutor, sources, map, cases (the Case Series hub), or encyclopedia."),
         ] = "today",
     ) -> dict[str, Any]:
         """Show the Vademecum dashboard inside this conversation, drawn by the

@@ -88,6 +88,7 @@ describe('the shell', () => {
     expect(nav).toHaveTextContent('Tutor')
     expect(nav).toHaveTextContent('Improvement Map')
     expect(nav).toHaveTextContent('Case Series')
+    expect(nav).toHaveTextContent('Encyclopedia')
   })
 
   it('navigates without a page load', async () => {

@@ -282,6 +282,82 @@ CASE_POINT_SCHEMA = {
     },
 }
 
+# --- an encyclopedia page (ADR 0023) ---------------------------------------------
+#
+# Every paragraph names the point handles it rests on; the server drops a
+# paragraph whose handles it cannot map, so nothing on a page is unsourced.
+
+MAX_ENTRY_SECTIONS = 6
+MAX_ENTRY_PARAGRAPHS = 4
+
+ENTRY_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["title", "summary", "specialty", "sections"],
+    "properties": {
+        "title": _string(120),
+        "summary": _string(600),
+        "specialty": _string(40),
+        "sections": {
+            "type": "array",
+            "maxItems": MAX_ENTRY_SECTIONS,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["heading", "paragraphs"],
+                "properties": {
+                    "heading": _string(80),
+                    "paragraphs": {
+                        "type": "array",
+                        "maxItems": MAX_ENTRY_PARAGRAPHS,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["text", "points"],
+                            "properties": {
+                                "text": _string(900),
+                                "points": {"type": "array", "maxItems": 8, "items": _string(16)},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+}
+
+
+# --- board questions (ADR 0023) ----------------------------------------------------
+#
+# Single best answer, five options, one key. The explanation cites point
+# handles from the page; a question without a mappable handle is held.
+
+MAX_BOARD_QUESTIONS = 5
+
+BOARD_QUESTION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["stem", "options", "answer", "explanation", "objective", "points"],
+    "properties": {
+        "stem": _string(1500),
+        "options": {"type": "array", "minItems": 5, "maxItems": 5, "items": _string(240)},
+        "answer": {"type": "string", "enum": ["A", "B", "C", "D", "E"]},
+        "explanation": _string(1500),
+        "objective": _string(240),
+        "points": {"type": "array", "maxItems": 6, "items": _string(16)},
+    },
+}
+
+BOARD_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["questions"],
+    "properties": {
+        "questions": {"type": "array", "maxItems": MAX_BOARD_QUESTIONS, "items": BOARD_QUESTION_SCHEMA},
+    },
+}
+
+
 CASE_SCHEMA = {
     "type": "object",
     "additionalProperties": False,

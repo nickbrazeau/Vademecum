@@ -18,6 +18,7 @@
 
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
+import { BoardTutor } from '../components/BoardTutor'
 import { PhiWarning } from '../components/PhiWarning'
 import { SupportBadge, SupportMeaning, TopicTags } from '../components/SupportBadge'
 import {
@@ -132,7 +133,25 @@ function Reference({ question }: { question: TutorQuestion }) {
   )
 }
 
+/**
+ * The Tutor (ADR 0023): board-style questions from the encyclopedia when there
+ * are any; otherwise the open-answer questions a Build made, so nothing that
+ * was built before the encyclopedia goes unasked.
+ */
 export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
+  const board = useLoad(() => api.boardNext(), [])
+  if (board.result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
+  // A board question is asked only when it is whole: five options and a stem.
+  // Anything less is not a question, and the open-answer bank is asked instead.
+  const candidate = board.result.state === 'ready' ? board.result.value.question : null
+  if (board.result.state === 'ready' && candidate !== null && candidate.options.length === 5 && candidate.stem !== '') {
+    return <BoardTutor initial={board.result.value} onNavigate={onNavigate} />
+  }
+  const reason = board.result.state === 'ready' ? board.result.value.empty_reason : ''
+  return <OpenTutor onNavigate={onNavigate} boardReason={reason} />
+}
+
+function OpenTutor({ onNavigate, boardReason }: { onNavigate?: (name: RouteName) => void; boardReason: string }) {
   const { result, reload } = useLoad(() => api.tutorNext(), [])
   const [view, setView] = useState<TutorNext | null>(null)
   const [answer, setAnswer] = useState('')
@@ -174,17 +193,14 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
       <div className="stack">
         <section className="card" aria-labelledby="tutor-empty-heading">
           <h2 id="tutor-empty-heading">No questions yet</h2>
-          <p className="body">
-            {view.empty_reason === ''
-              ? 'There is no question bank on this Mac yet.'
-              : view.empty_reason}
-          </p>
+          <p className="body">{boardReason || (view.empty_reason === '' ? 'There is no question bank on this Mac yet.' : view.empty_reason)}</p>
           <p className="muted">
-            Questions are built from files you add in{' '}
+            Board questions are written from the Encyclopedia, which is compiled from the learning
+            points a Build makes from files you add in{' '}
             <a href="/sources" onClick={goSources}>
               Sources
             </a>
-            , and only when you press Build learning material there.
+            .
           </p>
         </section>
       </div>

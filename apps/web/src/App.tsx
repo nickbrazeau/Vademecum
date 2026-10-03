@@ -10,6 +10,7 @@ import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
 import { ROUTES, isRouteName, useRoute } from './lib/router'
 import { CaseSeries } from './pages/CaseSeries'
+import { Encyclopedia } from './pages/Encyclopedia'
 import { ImprovementMap } from './pages/ImprovementMap'
 import { Model } from './pages/Model'
 import { Sources } from './pages/Sources'
@@ -19,6 +20,7 @@ import { Tutor } from './pages/Tutor'
 const TITLES = {
   today: 'Today',
   tutor: 'Tutor',
+  encyclopedia: 'Encyclopedia',
   sources: 'Sources',
   map: 'Improvement Map',
   cases: 'Case Series',
@@ -148,6 +150,7 @@ export function App() {
         {route === 'sources' ? <Sources /> : null}
         {route === 'map' ? <ImprovementMap reloadToken={reloadToken} /> : null}
         {route === 'cases' ? <CaseSeries /> : null}
+        {route === 'encyclopedia' ? <Encyclopedia /> : null}
         {route === 'model' && !compact && !hostMode ? <Model /> : null}
       </main>
 

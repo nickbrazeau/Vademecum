@@ -539,7 +539,137 @@ export interface ConfidenceSummary {
   source_count: number
 }
 
+/** The encyclopedia and the board bank (ADR 0023). */
+export interface PageParagraph {
+  text: string
+  point_ids: string[]
+}
+
+export interface PageSection {
+  heading: string
+  paragraphs: PageParagraph[]
+}
+
+export interface PageSource {
+  source_id: string
+  display_name: string
+  locator: string
+  quote: string
+}
+
+export interface PageCitation {
+  id: string
+  claim: string
+  support: string
+  support_label: string
+  held: boolean
+  sources: PageSource[]
+}
+
+export interface EncyclopediaEntry {
+  id: string
+  topic: string
+  title: string
+  specialty_id: string | null
+  summary: string
+  sections: PageSection[]
+  point_count: number
+  question_count: number
+  status: string
+  status_detail: string
+  version: number
+  compiled_at: string | null
+  citations: PageCitation[]
+}
+
+export interface EncyclopediaCounts {
+  entries: number
+  stale: number
+  questions_eligible: number
+  questions_held: number
+  questions_total: number
+}
+
+export interface EncyclopediaRefresh {
+  at: string
+  reason: string
+  pages: { compiled: number; failed: number; remaining: number }
+  questions: { entries: number; written: number; held: number; failed: number }
+}
+
+export interface EncyclopediaList {
+  entries: EncyclopediaEntry[]
+  counts: EncyclopediaCounts
+  can_compile: boolean
+  running: boolean
+  last_refresh: EncyclopediaRefresh | null
+  note: string
+  disclosure: string
+}
+
+export interface EncyclopediaPage {
+  page: EncyclopediaEntry | null
+  counts: EncyclopediaCounts
+  message: string
+}
+
+export interface BoardOption {
+  letter: string
+  text: string
+}
+
+export interface BoardQuestion {
+  id: string
+  entry_id: string
+  topic: string
+  title: string
+  stem: string
+  options: BoardOption[]
+  objective: string
+  status: string
+  point_ids: string[]
+  /** Present only once answered. */
+  answer_index?: number
+  answer_letter?: string
+  explanation?: string
+}
+
+export interface BoardAttempt {
+  id: string
+  question_id: string | null
+  chosen_index: number
+  chosen_letter: string
+  correct: boolean
+  created_at: string
+}
+
+export interface BoardNext {
+  question: BoardQuestion | null
+  cycle: Cycle
+  last_attempt: BoardAttempt | null
+  history_count: number
+  empty_reason: string
+}
+
+export interface BoardAnswer {
+  attempt: BoardAttempt
+  question: BoardQuestion
+  citations: PageCitation[]
+}
+
+export interface BoardOverview {
+  eligible: number
+  held: number
+  total: number
+  pages: number
+  answered_total: number
+  answered_correct: number
+  cycle: Cycle
+}
+
 export interface CoverSheet {
+  page: EncyclopediaEntry | null
+  encyclopedia: EncyclopediaCounts & { message: string }
   worth_a_look: LearningPoint[]
   worth_a_look_message: string
   held: { points: number; questions: number; needs_re_review: number; reasons: string[] }

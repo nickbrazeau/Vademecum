@@ -71,7 +71,7 @@ def confidence_summary(connection: sqlite3.Connection) -> list[dict[str, Any]]:
 def cover_sheet(
     connection: sqlite3.Connection, *, on_day: date | None = None
 ) -> dict[str, Any]:
-    del on_day  # kept for signature compatibility; selection is not date-rotated
+    # on_day chooses the page of the day (ADR 0023); nothing else here rotates by date.
     bank = bank_summary(connection)
     points = list_points(connection, held=False, limit=WORTH_A_LOOK_LIMIT)
     tutor = tutor_overview(connection)
@@ -85,7 +85,18 @@ def cover_sheet(
     except sqlite3.Error:  # pragma: no cover - schema is always present
         updates, unread, topic_count = [], 0, 0
 
+    from . import encyclopedia as encyclopedia_store
+
+    page = encyclopedia_store.page_of_the_day(connection, on_day=on_day)
+    page_payload = None
+    if page is not None:
+        page_payload = page.as_dict()
+        page_payload["citations"] = encyclopedia_store.cited_points(connection, list(page.point_ids))
+    encyclopedia_counts = encyclopedia_store.entry_counts(connection)
+
     return {
+        "page": page_payload,
+        "encyclopedia": {**encyclopedia_counts, "message": "" if page is not None else encyclopedia_store.NO_PAGES},
         "worth_a_look": [point.as_dict() for point in points],
         "worth_a_look_message": "" if points else NO_MATERIAL,
         "held": {

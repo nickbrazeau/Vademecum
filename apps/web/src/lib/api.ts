@@ -375,6 +375,20 @@ export const api = {
   /** Transmits: the unfiled flags' text, once, to the Mac's model connection (ADR 0021). */
   fileFlags: () => request<{ started: boolean }>('/flags/file', { method: 'POST' }),
 
+  // The encyclopedia and the board bank (ADR 0023). Reading and answering are
+  // local; Compile now starts the two model turns the page's disclosure names.
+  encyclopediaList: (q?: string) => request<unknown>(`/encyclopedia${query({ q })}`).then(normalize.encyclopediaList),
+  encyclopediaPage: (options: { random?: boolean; not_id?: string } = {}) =>
+    request<unknown>(`/encyclopedia/page${query(options)}`).then(normalize.encyclopediaPage),
+  encyclopediaEntry: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}`).then(normalize.encyclopediaEntry),
+  compileEncyclopedia: () => request<unknown>('/encyclopedia/compile', { method: 'POST' }).then(normalize.encyclopediaList),
+  boardOverview: () => request<unknown>('/tutor/board').then(normalize.boardOverview),
+  boardNext: () => request<unknown>('/tutor/board/next').then(normalize.boardNext),
+  boardAnswer: (questionId: string, choice: number) =>
+    request<unknown>('/tutor/board/answer', { method: 'POST', ...body({ question_id: questionId, choice }) }).then(normalize.boardAnswer),
+  boardAdvance: (questionId: string) =>
+    request<unknown>('/tutor/board/advance', { method: 'POST', ...body({ question_id: questionId }) }).then(normalize.boardNext),
+
   // The Case Series hub (ADR 0022). Listing reads this Mac; the switch and
   // "Refresh now" are the explicit acts behind the fixed public requests the
   // disclosure on the page describes.

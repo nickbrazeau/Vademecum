@@ -43,10 +43,14 @@ in Safari; those device checks remain a human acceptance step.
 - **Today.** The cover sheet: new literature with why it is relevant, the learning points worth a
   look with their sources beneath them, and what is held for review. Nothing counts down, nothing
   is owed.
-- **Tutor.** Open questions built from your own sources, in a durable shuffled cycle — no repeats
-  until the cycle is exhausted. Type an answer, press **Grade**, get reference-based feedback. No
-  quotas, no streaks, no due counts. If the model is unavailable it says so, reveals the reference
-  answer, and offers a clearly-labelled self-assessment instead.
+- **Encyclopedia.** Your sources, compiled: one page per topic, written from the learning points
+  a Build made, with every paragraph naming the points and sources it rests on. Today opens on one
+  page to review each day ([ADR 0023](docs/adr/0023-encyclopedia-and-board-bank.md)).
+- **Tutor.** Board-style questions in the ABIM format — a vignette, five options, one best
+  answer — written from the encyclopedia's pages and checked on this Mac against the key, with an
+  explanation that cites the page's points. A durable shuffled cycle, no repeats until it is
+  exhausted. No quotas, no streaks, no due counts. The older open-answer questions, graded by the
+  model with a reference answer, are still asked while the board bank is empty.
 - **Sources** (the Source library; `/piles` still works). Piles rated Low/Medium/High **source
   confidence** — your judgment of accuracy and usefulness, not how well you know it. Upload PDFs, PowerPoint
   decks, Word documents, text and Markdown. **Build learning material** shows you exactly which
@@ -90,6 +94,7 @@ also contact OpenAI through Codex; they do not send your study material.
 | **Check literature**, a Build's evidence lookup, or an enabled weekly check | Short public topic phrases (derived during Build; reviewable/editable for watched topics) and public PubMed identifiers for retrieval/status checks. Never source excerpts, filenames or learner answers. | PubMed (NCBI E-utilities) |
 | **Add a score report** on the Improvement Map ([ADR 0020](docs/adr/0020-exam-reports-on-the-map.md)) | The whole report's text, once, to read out content areas and your standing in each; the disclosure is above the button. | The Mac's own model connection, Codex or Claude, on your sign-in |
 | **File them now** on the Improvement Map, and each scheduled run ([ADR 0021](docs/adr/0021-filing-flags.md)) | The text of your unfiled flags, once, so each gets a topic and a subspecialty. Nothing else. | The Mac's own model connection, Codex or Claude, on your sign-in |
+| **Compile now** on the Encyclopedia, and after each scheduled build run ([ADR 0023](docs/adr/0023-encyclopedia-and-board-bank.md)) | Per topic, the learning points already built from your sources: claims, details, support labels and source names, once, to write the page. Then, per page, the page and its points, with the Case Series teaching points in its specialty and your open flags on the topic as context, to write board questions. No source file. | The Mac's own model connection, Codex or Claude, on your sign-in |
 | **Case Series**, while the hub is on, and **Refresh now** ([ADR 0022](docs/adr/0022-case-series-hub.md)) | Fixed public requests with nothing of yours in them: one PubMed query naming the journal and article type, and one request each to the two podcast sites for their latest episodes. Then each case's public title and show notes, once, for its teaching points. | PubMed (NCBI E-utilities), `clinicalproblemsolving.com`, `thecurbsiders.com`; the teaching points go to the Mac's own model connection, Codex or Claude, on your sign-in |
 | **Builds on a timer** ([ADR 0018](docs/adr/0018-builds-on-a-timer.md)), only while you have the schedule on, and **Build now** | For every pile with unbuilt passages, the same as Build above, without a per-batch preview: a standing consent you gave once, shown on Today with the moment you gave it, and withdrawn by turning the schedule off. | OpenAI, through the Codex process on this Mac, on your ChatGPT sign-in; needs the Mac in `codex` mode (`mcp.sh setup login --model codex`) |
 | **Sync**, only if you configured a second Vademecum ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)) | Your own workspace: the rows of every record and the stored files, both ways. | Your own second Vademecum, at the address you set, over HTTPS, with the token you set. Nowhere else, and nothing at all unless configured. |

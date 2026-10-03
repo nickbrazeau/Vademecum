@@ -362,6 +362,16 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/cases",
         "/api/cases/settings",
         "/api/cases/refresh",
+        # The encyclopedia and the board bank (ADR 0023).
+        "/api/encyclopedia",
+        "/api/encyclopedia/page",
+        "/api/encyclopedia/compile",
+        "/api/encyclopedia/{entry_id}",
+        "/api/tutor/board",
+        "/api/tutor/board/next",
+        "/api/tutor/board/answer",
+        "/api/tutor/board/advance",
+        "/api/tutor/board/history",
         # Two Vademecums that sync (ADR 0015): served only with a peer token.
         "/api/sync/status",
         "/api/sync/changes",

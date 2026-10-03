@@ -449,6 +449,18 @@ def list_points(
     return [_point(connection, row) for row in connection.execute(sql, params).fetchall()]
 
 
+def points_for_topic(connection: sqlite3.Connection, topic: str) -> list[LearningPoint]:
+    """The unheld, machine-reviewed points filed under one topic: what a page is compiled from."""
+    rows = connection.execute(
+        _POINT_SELECT
+        + " JOIN learning_point_topics t ON t.learning_point_id = p.id"
+        " WHERE t.topic = ? AND p.held = 0 AND p.review_state = 'machine_reviewed'"
+        " ORDER BY p.created_at, p.id",
+        (topic,),
+    ).fetchall()
+    return [_point(connection, row) for row in rows]
+
+
 def get_point(connection: sqlite3.Connection, point_id: str) -> LearningPoint:
     row = connection.execute(_POINT_SELECT + " WHERE p.id = ?", (point_id,)).fetchone()
     if row is None:

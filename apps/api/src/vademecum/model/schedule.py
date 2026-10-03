@@ -63,13 +63,16 @@ class BuildScheduler:
         model_mode: str,
         now: Callable[[], datetime] | None = None,
         before: Callable[[], Awaitable[Any]] | None = None,
+        after: Callable[[], Awaitable[Any]] | None = None,
     ) -> None:
         self._database_path = Path(database_path)
         self._service = service
         self._model_mode = model_mode
         # Work that goes before the builds in a run: reading any exam report
-        # still waiting (ADR 0020).
+        # still waiting (ADR 0020). And after them: compiling the encyclopedia
+        # and writing board questions from what was built (ADR 0023).
         self._before = before
+        self._after = after
         self._now = now or (lambda: datetime.now().astimezone())
         self._task: asyncio.Task[None] | None = None
         self._wake: asyncio.Event | None = None
@@ -181,7 +184,13 @@ class BuildScheduler:
         for pile in piles:
             outcome = await self._run_pile(pile.id, pile.title, schedule["batches_per_run"])
             results.append(outcome)
-        report = {"at": utc_now(), "reason": reason, "ran": True, "note": "", "piles": results, "reports_read": reports_read}
+        after: Any = None
+        if self._after is not None:
+            try:
+                after = await self._after()
+            except Exception as exc:  # noqa: BLE001 - recorded on the run, never fatal
+                logger.error("scheduled_after_failed error=%s", type(exc).__name__)
+        report = {"at": utc_now(), "reason": reason, "ran": True, "note": "", "piles": results, "reports_read": reports_read, "encyclopedia": after}
         self._record(report)
         logger.info("scheduled_build piles=%d batches=%d", len(results), sum(r["batches"] for r in results))
         return report

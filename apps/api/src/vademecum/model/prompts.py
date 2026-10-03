@@ -46,15 +46,11 @@ SYNTHESIS_DEVELOPER = (
     "verbatim from that excerpt.\n"
     "- Set unclear=true when the excerpts are vague, contradictory or partial on "
     "that point. Do not resolve the ambiguity from your own knowledge.\n"
-    "- For each point, write at most two open questions. Each needs a reference "
-    "answer that the cited excerpts alone can justify, and a rubric listing the "
-    "specific things a good answer must contain.\n"
-    "- Do not write a question whose answer is not present in the excerpts.\n"
-    "- A question must stand on its own when read later without the excerpts: "
-    "never say 'the excerpt', 'the passage', 'the slide', 'the text' or 'the "
-    "material'. Name the clinical situation instead (for example 'In adult "
-    "cardiac arrest, how does initial treatment differ between shockable and "
-    "non-shockable rhythms?').\n"
+    "- questions: leave every point's questions list empty. Questions are written "
+    "later, from the encyclopedia page the points are compiled into, not here.\n"
+    "- Give each point a 'detail' that would read well on an encyclopedia page: "
+    "the mechanism, the threshold, the exception, in one or two sentences the "
+    "excerpts support.\n"
     "- search_topics: three to six SHORT public topic phrases (a condition, a "
     "drug class, a test) suitable for a PubMed search. No patient details, no "
     "quotes from the material, no filenames."
@@ -226,6 +222,57 @@ def flags_prompt(items: list[tuple[str, str]], specialties: list[tuple[str, str]
         f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
         f"ITEMS, each with its id in brackets:\n{_fence(body)}"
     )
+
+
+ENTRY_DEVELOPER = (
+    "The supplied material is a list of learning points on one topic, each with an id in "
+    "brackets, a claim, a detail, how well it is supported and where it came from. Compile "
+    "them into one encyclopedia page for a resident: a 'title' (the topic, as a page heading); "
+    "a 'summary' of two or three sentences; a 'specialty' id from the list, or an empty string; "
+    "and up to six 'sections', each with a short heading and up to four paragraphs. Every "
+    "paragraph must name in 'points' the ids of the points it rests on, and must say only what "
+    "those points say -- organise, connect and clarify, but never add a fact, a number, a drug "
+    "or a recommendation the points do not contain. Where points disagree or a point is marked "
+    "uncertain, say so in the paragraph. Write plainly; no bullet characters, no markdown. "
+    "Never include a patient identifier."
+)
+
+
+def entry_prompt(topic: str, points: list[tuple[str, str, str, str, str]], specialties: list[tuple[str, str]]) -> str:
+    """points: (handle, claim, detail, support label, sources)."""
+    listed = "\n".join(f"- {identifier}: {name}" for identifier, name in specialties)
+    body = "\n\n".join(
+        f"[{handle}] {claim}\n{detail}\n(support: {support}; from: {sources})" for handle, claim, detail, support, sources in points
+    )
+    return (
+        f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
+        f"TOPIC: {topic}\n\nLEARNING POINTS, each with its id in brackets:\n{_fence(body)}"
+    )
+
+
+BOARD_DEVELOPER = (
+    "The supplied material is one encyclopedia page, compiled from a learner's own sources, "
+    "with the id of each point it rests on in brackets, followed by other context (teaching "
+    "points from published case series, and gaps the learner flagged) that may shape what is "
+    "worth asking. Write up to five single-best-answer questions in the style of the ABIM "
+    "certification examination. Each 'stem' is a clinical vignette: age, sex, presentation, "
+    "relevant history, examination findings and results with units, then one lead-in question "
+    "such as 'Which of the following is the most appropriate next step in management?' or "
+    "'Which of the following is the most likely diagnosis?'. Give exactly five 'options', "
+    "homogeneous and parallel, no 'all of the above', no 'none of the above', no 'except'. "
+    "Exactly one option is correct; name its letter in 'answer'. The correct answer must be "
+    "established by the page's points -- cite their ids in 'points' -- and the 'explanation' "
+    "must say why it is right and why each distractor is wrong, from the page. 'objective' is "
+    "the one-sentence educational objective. Prefer the high-yield: the decision, threshold, "
+    "exception or mechanism a board question would test. A stem must stand on its own: never "
+    "say 'the page', 'the text', 'the excerpt' or 'according to the material'. The patient "
+    "in a vignette is invented; never include a real patient's details."
+)
+
+
+def board_prompt(page: str, other_context: str, specialties_note: str = "") -> str:
+    body = f"THE PAGE:\n{page}\n\nOTHER CONTEXT (may shape what is asked; never the source of a correct answer):\n{other_context or '(none)'}"
+    return f"{specialties_note}{_fence(body)}"
 
 
 CASE_DEVELOPER = (

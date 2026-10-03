@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
+import { EncyclopediaPage } from '../components/EncyclopediaPage'
 import { LiteratureSettings } from '../components/LiteratureSettings'
 import { PointCard } from '../components/PointCard'
 import { PaperLink } from '../components/PaperLink'
@@ -16,7 +17,7 @@ import { MachineReviewedNote } from '../components/SupportBadge'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import { dateLabel, momentLabel } from '../lib/format'
-import type { CoverSheet, Update, UpdateState } from '../lib/types'
+import type { CoverSheet, EncyclopediaEntry, Update, UpdateState } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import type { RouteName } from '../lib/router'
 
@@ -115,6 +116,66 @@ function UpdateEntry({
   )
 }
 
+/** One page a day, the same page all day; another on request. Nothing is owed on it. */
+function PageToReview({ sheet, onNavigate }: { sheet: CoverSheet; onNavigate?: (name: RouteName) => void }) {
+  const [page, setPage] = useState<EncyclopediaEntry | null>(sheet.page)
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<ApiError | null>(null)
+
+  useEffect(() => setPage(sheet.page), [sheet.page])
+
+  const go = (name: RouteName) => (event: MouseEvent) => {
+    if (onNavigate === undefined) return
+    event.preventDefault()
+    onNavigate(name)
+  }
+
+  const another = async () => {
+    setBusy(true)
+    setFailure(null)
+    try {
+      const next = await api.encyclopediaPage({ random: true, not_id: page?.id })
+      if (next.page) setPage(next.page)
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card" aria-labelledby="page-heading">
+      <h2 id="page-heading">A page to review</h2>
+      {page === null ? (
+        <p className="muted">
+          {sheet.encyclopedia.message || 'No page today.'}{' '}
+          <a href="/encyclopedia" onClick={go('encyclopedia')}>
+            Open the Encyclopedia
+          </a>{' '}
+          to compile pages from what a Build has made.
+        </p>
+      ) : (
+        <>
+          <EncyclopediaPage page={page} />
+          {failure ? (
+            <p className="failure" role="alert">
+              {failure.message}
+            </p>
+          ) : null}
+          <div className="actions">
+            <button type="button" className="button" disabled={busy || sheet.encyclopedia.entries < 2} onClick={() => void another()}>
+              Another page
+            </button>
+            <a href="/encyclopedia" className="button ghost" onClick={go('encyclopedia')}>
+              All {sheet.encyclopedia.entries} page{sheet.encyclopedia.entries === 1 ? '' : 's'}
+            </a>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
 export function Today({
   reloadToken,
   onNavigate
@@ -148,6 +209,8 @@ export function Today({
 
   return (
     <div className="stack">
+      <PageToReview sheet={sheet} onNavigate={onNavigate} />
+
       <section className="card" aria-labelledby="literature-heading">
         <h2 id="literature-heading">New in the literature</h2>
         {unread.length === 0 ? (
