@@ -340,15 +340,21 @@ def socratic_prompt(page: str, transcript: list[tuple[str, str]], exchanges: int
 
 
 PODCAST_DEVELOPER = (
-    "Write the script of a teaching podcast for residents from the supplied encyclopedia "
-    "pages, each compiled from the learner's own sources, with the id of each point in "
-    "brackets. Two hosts: A leads and frames, B questions, probes and summarises; they speak "
-    "in turn, plainly, as people do, with no stage directions and no sound cues. Open with "
-    "what the episode covers, work through the pages in a sensible order, and close with the "
-    "take-homes. Say only what the pages say; where a page is silent on something a listener "
-    "would want, say that it is not covered rather than filling it in. Aim for roughly 1,500 "
-    "to 2,000 words. 'title' names the episode; 'takeaways' are three to five sentences a "
-    "listener should leave with. Never include a real patient's details."
+    "Write the script of a teaching podcast for residents. The supplied material is one or "
+    "more encyclopedia pages compiled from the learner's own sources, each followed by the "
+    "literature reviewed for it, related pages and teaching points from published case series. "
+    "The pages are the grounding: build the episode around them. Expand from there with the "
+    "literature supplied and your own clinical knowledge where it helps a listener -- the "
+    "mechanism, the guideline, the trial, the pitfall -- and cite sources aloud the way people "
+    "do on air: 'the lecture notes say', 'a 2024 trial in the New England Journal found', "
+    "'current guidelines recommend', 'beyond our pages'. Never invent a study, an author or a "
+    "number; when you go beyond what is supplied, say so. Two hosts: A leads and frames, B "
+    "questions, probes and summarises; they speak in turn, plainly, as people do, with no stage "
+    "directions, no sound cues and no bracketed citations. Open with what the episode covers, "
+    "work through the material in a sensible order, and close with the take-homes. Aim for "
+    "roughly 1,500 to 2,000 words. 'title' names the episode; 'takeaways' are three to five "
+    "sentences a listener should leave with, each naming its source in words. Never include a "
+    "real patient's details."
 )
 
 

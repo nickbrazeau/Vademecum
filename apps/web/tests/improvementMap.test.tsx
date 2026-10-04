@@ -145,8 +145,8 @@ describe('the Improvement Map page', () => {
     expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Nephrology'))).toBe(true)
 
     // The list underneath is still the whole record.
-    const everything = screen.getByRole('region', { name: /everything you have flagged/i })
-    expect(within(everything).getAllByRole('listitem')).toHaveLength(4)
+    const everything = screen.getByRole('heading', { name: /everything you have flagged/i }).closest('details') as HTMLElement
+    expect(within(everything).getAllByRole('listitem', { hidden: true })).toHaveLength(4)
 
     const user = userEvent.setup()
     await user.click(within(graph).getByRole('button', { name: /^Influenza/ }))
@@ -229,7 +229,7 @@ describe('the Improvement Map page', () => {
     expect(screen.queryByRole('region', { name: 'Influenza' })).not.toBeInTheDocument()
 
     // The legend is still a legend: nothing about the data changed.
-    expect(within(screen.getByRole('region', { name: /everything you have flagged/i })).getAllByRole('listitem')).toHaveLength(4)
+    expect(within(screen.getByRole('heading', { name: /everything you have flagged/i }).closest('details') as HTMLElement).getAllByRole('listitem', { hidden: true })).toHaveLength(4)
   })
 
   it('says so when nothing has been flagged, and draws nothing', async () => {

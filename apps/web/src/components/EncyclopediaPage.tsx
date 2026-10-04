@@ -6,7 +6,9 @@
  */
 
 import { dateLabel, momentLabel } from '../lib/format'
-import type { EncyclopediaEntry, PageCitation } from '../lib/types'
+import { API_ROOT } from '../lib/api'
+import type { EncyclopediaEntry, PageCitation, PageFigure } from '../lib/types'
+import { Markdown } from './Markdown'
 import { PaperLink } from './PaperLink'
 
 function sourceLabels(pointIds: string[], citations: Map<string, PageCitation>): string[] {
@@ -23,18 +25,45 @@ function sourceLabels(pointIds: string[], citations: Map<string, PageCitation>):
   return labels
 }
 
+/** A picture from the owner's source, with where it came from. Served by this Mac; never generated. */
+export function Figure({ figure }: { figure: PageFigure }) {
+  return (
+    <figure className="page-figure">
+      <img
+        src={`${API_ROOT}/images/${figure.image_id}`}
+        alt={`From ${figure.source}, ${figure.locator}`}
+        loading="lazy"
+        width={figure.width}
+        height={figure.height}
+      />
+      <figcaption className="muted small">
+        From {figure.source}, {figure.locator}
+      </figcaption>
+    </figure>
+  )
+}
+
 export function EncyclopediaPage({ page, compact = false }: { page: EncyclopediaEntry; compact?: boolean }) {
   const citations = new Map(page.citations.map((citation) => [citation.id, citation]))
   return (
     <article className="encyclopedia-page">
-      <h3 className="page-title">{page.title}</h3>
+      {page.edited ? null : <h3 className="page-title">{page.title}</h3>}
       <p className="muted small">
         Compiled from {page.point_count} learning point{page.point_count === 1 ? '' : 's'} in your sources
         {page.version > 1 ? ` · rewritten ${page.version - 1} time${page.version === 2 ? '' : 's'}` : null}
         {page.question_count > 0 ? ` · ${page.question_count} board question${page.question_count === 1 ? '' : 's'}` : null}
       </p>
-      {page.summary ? <p className="body page-summary">{page.summary}</p> : null}
-      {page.sections.map((section) => (
+      {page.edited ? (
+        <>
+          <p className="badges">
+            <span className="badge">Your edit</span>
+            {page.edit_outdated ? <span className="badge">The compiled page has changed since</span> : null}
+          </p>
+          <Markdown text={page.body_md} />
+        </>
+      ) : null}
+      {!page.edited && page.summary ? <p className="body page-summary">{page.summary}</p> : null}
+      {page.edited ? null : page.sections.map((section) => (
         <section key={section.heading} className="page-section">
           <h4>{section.heading}</h4>
           {section.paragraphs.map((paragraph, index) => {
@@ -42,6 +71,9 @@ export function EncyclopediaPage({ page, compact = false }: { page: Encyclopedia
             return (
               <div key={`${section.heading}-${index}`} className="page-paragraph">
                 <p className="body">{paragraph.text}</p>
+                {(paragraph.figures ?? []).map((figure) => (
+                  <Figure key={figure.image_id} figure={figure} />
+                ))}
                 {labels.length > 0 ? (
                   <p className="muted small page-sources">From {labels.join(' · ')}</p>
                 ) : null}

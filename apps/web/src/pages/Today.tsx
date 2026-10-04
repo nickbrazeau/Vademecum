@@ -10,13 +10,13 @@
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { EncyclopediaPage } from '../components/EncyclopediaPage'
-import { LiteratureSettings } from '../components/LiteratureSettings'
 import { PointCard } from '../components/PointCard'
 import { PaperLink } from '../components/PaperLink'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import { dateLabel, momentLabel } from '../lib/format'
-import type { CoverSheet, EncyclopediaEntry, Update, UpdateState } from '../lib/types'
+import { ReviewDashboard } from '../components/ReviewDashboard'
+import type { CaseEntry, CoverSheet, Dashboard, EncyclopediaEntry, Update, UpdateState } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import type { RouteName } from '../lib/router'
 
@@ -116,10 +116,32 @@ function UpdateEntry({
 }
 
 /** One page a day, the same page all day; another on request. Nothing is owed on it. */
-function PageToReview({ sheet, onNavigate }: { sheet: CoverSheet; onNavigate?: (name: RouteName) => void }) {
+function PageToReview({
+  sheet,
+  onNavigate,
+  onReviewed
+}: {
+  sheet: CoverSheet
+  onNavigate?: (name: RouteName) => void
+  onReviewed: (dashboard: Dashboard) => void
+}) {
   const [page, setPage] = useState<EncyclopediaEntry | null>(sheet.page)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
+  const [reviewed, setReviewed] = useState<string[]>([])
+
+  const markReviewed = async (entryId: string) => {
+    setBusy(true)
+    setFailure(null)
+    try {
+      onReviewed(await api.markPageReviewed(entryId))
+      setReviewed((current) => [...current, entryId])
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   useEffect(() => setPage(sheet.page), [sheet.page])
 
@@ -162,6 +184,14 @@ function PageToReview({ sheet, onNavigate }: { sheet: CoverSheet; onNavigate?: (
             </p>
           ) : null}
           <div className="actions">
+            <button
+              type="button"
+              className="button primary"
+              disabled={busy || reviewed.includes(page.id)}
+              onClick={() => void markReviewed(page.id)}
+            >
+              {reviewed.includes(page.id) ? 'Reviewed' : 'I reviewed this page'}
+            </button>
             <button type="button" className="button" disabled={busy || sheet.encyclopedia.entries < 2} onClick={() => void another()}>
               Another page
             </button>
@@ -172,6 +202,58 @@ function PageToReview({ sheet, onNavigate }: { sheet: CoverSheet; onNavigate?: (
         </>
       )}
     </section>
+  )
+}
+
+/** A case just published by one of the series the hub follows, with its notes (ADR 0026). */
+function NewCase({ entry, onDone }: { entry: CaseEntry; onDone: (id: string) => void }) {
+  const [busy, setBusy] = useState(false)
+  const done = async () => {
+    setBusy(true)
+    try {
+      await api.acknowledgeCase(entry.id)
+      onDone(entry.id)
+    } catch {
+      setBusy(false)
+    }
+  }
+  return (
+    <li className="case-entry">
+      <p className="badges">
+        <span className="badge">{entry.series_short}</span>
+        {entry.subseries ? <span className="badge">{entry.subseries}</span> : null}
+      </p>
+      <p className="title">
+        <a href={entry.url} target="_blank" rel="noopener noreferrer">
+          {entry.title}
+        </a>
+      </p>
+      <p className="muted small">
+        {entry.published_on ? `${dateLabel(entry.published_on)} · ` : null}
+        {entry.credit ? `By ${entry.credit} · ` : null}
+        {entry.publisher}
+      </p>
+      {entry.one_liner ? <p className="body">{entry.one_liner}</p> : null}
+      {entry.points.length > 0 ? (
+        <ul className="case-points">
+          {entry.points.map((point) => (
+            <li key={point.point}>{point.point}</li>
+          ))}
+        </ul>
+      ) : null}
+      {entry.points.length === 0 && entry.think_first.length > 0 ? (
+        <ul className="case-prompts">
+          {entry.think_first.map((prompt) => (
+            <li key={prompt}>{prompt}</li>
+          ))}
+        </ul>
+      ) : null}
+      <div className="actions">
+        <button type="button" className="button ghost small" disabled={busy} onClick={() => void done()}>
+          Seen it
+        </button>
+      </div>
+    </li>
   )
 }
 
@@ -186,8 +268,13 @@ export function Today({
   // Acknowledging removes an entry from this pass without re-reading the page
   // underneath the owner's hands.
   const [settled, setSettled] = useState<string[]>([])
+  const [seenCases, setSeenCases] = useState<string[]>([])
+  const [board, setBoard] = useState<Dashboard | null>(null)
 
-  useEffect(() => setSettled([]), [reloadToken])
+  useEffect(() => {
+    setSettled([])
+    setBoard(null)
+  }, [reloadToken])
 
   if (result.state === 'loading') {
     return <p className="muted">Reading from this Mac…</p>
@@ -200,6 +287,7 @@ export function Today({
   const unread = sheet.literature.updates.filter(
     (update) => update.state === 'unread' && !settled.includes(update.id)
   )
+  const cases = sheet.new_cases.filter((entry) => !seenCases.includes(entry.id))
   const go = (name: RouteName) => (event: MouseEvent) => {
     if (onNavigate === undefined) return
     event.preventDefault()
@@ -208,15 +296,25 @@ export function Today({
 
   return (
     <div className="stack">
-      <section className="card" aria-labelledby="literature-heading">
-        <h2 id="literature-heading">New in the literature</h2>
+      <ReviewDashboard dashboard={board ?? sheet.dashboard} />
+
+      <PageToReview sheet={sheet} onNavigate={onNavigate} onReviewed={setBoard} />
+
+      <details className="card toggle-card" open aria-labelledby="literature-heading">
+        <summary>
+          <h2 id="literature-heading">New in the literature</h2>
+          <span className="muted small">{unread.length === 0 ? 'nothing unread' : `${unread.length} unread`}</span>
+        </summary>
         {unread.length === 0 ? (
           <p className="muted">
             {sheet.literature.message === ''
               ? 'Nothing unread. New papers appear here only when a topic check finds them.'
               : sheet.literature.message}{' '}
-            <a href="#literature-settings">Literature settings</a>, below, is where you choose the
-            topics and run a check.
+            Topics and checks are in{' '}
+            <a href="/settings" onClick={go('settings')}>
+              Settings
+            </a>
+            .
           </p>
         ) : (
           <ul className="list">
@@ -229,16 +327,27 @@ export function Today({
             ))}
           </ul>
         )}
-        <details className="settings-details" id="literature-settings">
-          <summary>Literature settings</summary>
-          <LiteratureSettings onChecked={reload} />
+      </details>
+
+      {cases.length > 0 ? (
+        <details className="card toggle-card" open aria-labelledby="new-cases-heading">
+          <summary>
+            <h2 id="new-cases-heading">New in the case series</h2>
+            <span className="muted small">{cases.length} new</span>
+          </summary>
+          <ul className="list">
+            {cases.map((entry) => (
+              <NewCase key={entry.id} entry={entry} onDone={(id) => setSeenCases((current) => [...current, id])} />
+            ))}
+          </ul>
         </details>
-      </section>
+      ) : null}
 
-      <PageToReview sheet={sheet} onNavigate={onNavigate} />
-
-      <section className="card" aria-labelledby="worth-a-look-heading">
-        <h2 id="worth-a-look-heading">Worth a look</h2>
+      <details className="card toggle-card" open={sheet.worth_a_look.length > 0} aria-labelledby="worth-a-look-heading">
+        <summary>
+          <h2 id="worth-a-look-heading">Worth a look</h2>
+          <span className="muted small">{sheet.worth_a_look.length} point{sheet.worth_a_look.length === 1 ? '' : 's'}</span>
+        </summary>
         {sheet.worth_a_look.length === 0 ? (
           <p className="muted">
             Nothing here yet. Learning points are built from files you add in{' '}
@@ -254,41 +363,7 @@ export function Today({
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="card" aria-labelledby="held-heading">
-        <h2 id="held-heading">Held for review</h2>
-        {sheet.held.points === 0 && sheet.held.questions === 0 ? (
-          <p className="muted">Nothing is being held back.</p>
-        ) : (
-          <>
-            <p className="body">
-              {sheet.held.points} points and {sheet.held.questions} questions are held back and are
-              not being shown or asked.
-            </p>
-            {sheet.held.reasons.length > 0 ? (
-              <ul className="list small">
-                {sheet.held.reasons.map((reason) => (
-                  <li key={reason} className="muted">
-                    {reason}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <p className="muted small">
-              <a href="/sources" onClick={go('sources')}>
-                Open Sources
-              </a>{' '}
-              to see which pile they came from.
-            </p>
-          </>
-        )}
-        <p className="muted small">
-          Tutor has {sheet.tutor.eligible} questions ready and {sheet.tutor.held} held.{' '}
-          {sheet.tutor.message}
-        </p>
-      </section>
-
+      </details>
     </div>
   )
 }

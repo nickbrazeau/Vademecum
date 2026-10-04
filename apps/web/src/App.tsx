@@ -10,11 +10,10 @@ import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
 import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
-import { CaseSeries } from './pages/CaseSeries'
+import { Construction } from './pages/Construction'
 import { Encyclopedia } from './pages/Encyclopedia'
 import { Flashcards } from './pages/Flashcards'
 import { ImprovementMap } from './pages/ImprovementMap'
-import { Model } from './pages/Model'
 import { Podcasts } from './pages/Podcasts'
 import { Settings } from './pages/Settings'
 import { Sources } from './pages/Sources'
@@ -28,9 +27,8 @@ const TITLES = {
   encyclopedia: 'Encyclopedia',
   sources: 'Sources',
   map: 'Improvement Map',
-  cases: 'Case Series',
   podcasts: 'Podcast Generator',
-  model: 'Model',
+  construction: 'Construction',
   settings: 'Settings'
 } as const
 
@@ -104,7 +102,7 @@ export function App() {
     if (!compact) return undefined
     return onToolResult((result) => {
       const view = (result as { view?: unknown } | null)?.view
-      if (isRouteName(view) && view !== 'model') navigate(view)
+      if (isRouteName(view)) navigate(view)
     })
   }, [compact, navigate])
 
@@ -163,7 +161,6 @@ export function App() {
           onNavigate={navigate}
           routes={ROUTES.filter(
             (entry) =>
-              !((behindGateway || compact || hostMode) && entry.name === 'model') &&
               // No preference, or a malformed one, is every tab: the server never answers fewer than the fixed two.
               (visibleTabs === null || visibleTabs.length === 0 || FIXED_ROUTES.includes(entry.name) || visibleTabs.includes(entry.name))
           )}
@@ -182,12 +179,11 @@ export function App() {
         {route === 'tutor' ? <Tutor onNavigate={navigate} /> : null}
         {route === 'sources' ? <Sources /> : null}
         {route === 'map' ? <ImprovementMap reloadToken={reloadToken} /> : null}
-        {route === 'cases' ? <CaseSeries /> : null}
         {route === 'encyclopedia' ? <Encyclopedia /> : null}
         {route === 'flashcards' ? <Flashcards onNavigate={navigate} /> : null}
         {route === 'podcasts' ? <Podcasts onNavigate={navigate} /> : null}
-        {route === 'settings' ? <Settings onSaved={setVisibleTabs} /> : null}
-        {route === 'model' && !compact && !hostMode ? <Model /> : null}
+        {route === 'construction' ? <Construction onNavigate={navigate} /> : null}
+        {route === 'settings' ? <Settings onSaved={setVisibleTabs} showModel={!behindGateway && !compact && !hostMode} /> : null}
       </main>
 
       <footer className="footer">

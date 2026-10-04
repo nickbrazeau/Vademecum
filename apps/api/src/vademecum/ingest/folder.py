@@ -38,10 +38,8 @@ from ..storage import images as image_store
 from ..storage import piles as pile_store
 from ..storage import sources as store
 from . import UnsupportedUpload, detect, extract_all, safe_display_name
-from .inbox import INBOX_DIRNAME, scan_inbox
 from .limits import MAX_UPLOAD_BYTES
 
-PHONE_DIRNAME = "phone"
 
 PILES_DIRNAME = "piles"
 UNSORTED = "Unsorted"
@@ -89,10 +87,8 @@ text layer are read on this Mac. Schematics your assistant draws are filed
 under "schematics" here. Open this folder as a project in Codex and ask for
 Vademecum: the dashboard opens in the conversation (AGENTS.md says so).
 
-On the phone: ask the assistant for a phone pack. It lands in "phone" here;
-drop it into a ChatGPT or Claude Project beside your material and the
-assistant there tutors from it. Save each session log it writes into "inbox"
-here and the Mac records the attempts and flags on its next scan.
+Encyclopedia pages are kept as Markdown files under "encyclopedia" here.
+Edit one in any editor and the change comes back into Vademecum.
 It reads the folder every few seconds while it is running, and whenever you
 ask your assistant to sync. Move a pile's folder to another tier to change
 its rating. Removing a file here does not remove it from Vademecum; ask your
@@ -141,13 +137,6 @@ def scaffold(folder: Path) -> list[str]:
     if not agents.exists():
         agents.write_text(AGENTS, encoding="utf-8")
         created.append(AGENTS_NAME)
-    # The phone pack goes out through `phone/`; session logs come back through
-    # `inbox/` (ADR 0016).
-    for name in (PHONE_DIRNAME, INBOX_DIRNAME):
-        directory = folder / name
-        if not directory.is_dir():
-            directory.mkdir(parents=True, exist_ok=True)
-            created.append(name)
     return created
 
 
@@ -214,7 +203,6 @@ def scan_folder(
             if pile_dir.name.startswith(SKIP_PREFIXES):
                 continue
             take_all([p for p in pile_dir.iterdir() if p.is_file()], pile_for(pile_dir.name, tier), pile_dir.name.strip())
-    report["inbox"] = scan_inbox(connection, folder)
     return report
 
 

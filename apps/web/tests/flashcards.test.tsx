@@ -73,14 +73,14 @@ describe('settings', () => {
     const today = await screen.findByLabelText(/Today/)
     expect(today).toBeChecked()
     expect(today).toBeDisabled()
-    await userEvent.click(screen.getByLabelText('Case Series'))
+    await userEvent.click(screen.getByLabelText('Podcast Generator'))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true))
     const put = calls.find((call) => call.method === 'PUT')?.body as { visible_tabs: string[] }
-    expect(put.visible_tabs).not.toContain('cases')
+    expect(put.visible_tabs).not.toContain('podcasts')
     expect(put.visible_tabs).toContain('today')
     expect(saved[0]).toEqual(['today', 'tutor', 'settings'])
-    expect(await screen.findByRole('status')).toHaveTextContent('Saved')
+    expect(await screen.findByText(/^Saved\. The tabs you chose/)).toBeInTheDocument()
   })
 
   it('hides unticked tabs from the shell navigation', async () => {

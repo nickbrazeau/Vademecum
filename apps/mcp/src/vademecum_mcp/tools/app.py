@@ -101,6 +101,12 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     ("POST", r"/api/flashcards/review"),
     ("GET", r"/api/preferences"),
     ("PUT", r"/api/preferences"),
+    # The feedback of 4 October (ADR 0026).
+    ("GET", r"/api/tutor/scorecard"),
+    ("GET", r"/api/activity"),
+    ("POST", r"/api/activity/page"),
+    ("GET", r"/api/improvement-map/strengths"),
+    ("POST", rf"/api/cases/{ID}/acknowledge"),
     # The Socratic tutor and the podcast generator (ADR 0025).
     ("GET", r"/api/socratic"),
     ("POST", r"/api/socratic"),
@@ -137,8 +143,8 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     )
     async def open_vademecum(
         view: Annotated[
-            Literal["today", "tutor", "sources", "map", "cases", "encyclopedia", "flashcards", "podcasts"],
-            Field(description="Which page to open on: today (the cover sheet), tutor, sources, map, cases (the Case Series hub), encyclopedia, flashcards, or podcasts."),
+            Literal["today", "tutor", "sources", "map", "encyclopedia", "flashcards", "podcasts", "construction"],
+            Field(description="Which page to open on: today (the cover sheet, with new cases), tutor, sources, map, encyclopedia, flashcards, podcasts, or construction (what is being built and held)."),
         ] = "today",
     ) -> dict[str, Any]:
         """Show the Vademecum dashboard inside this conversation, drawn by the

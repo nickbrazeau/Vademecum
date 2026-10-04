@@ -78,6 +78,11 @@ import type {
   BoardNext,
   BoardOverview,
   BoardQuestion,
+  Dashboard,
+  Scorecard,
+  Standing,
+  Strengths,
+  TopicTally,
   Dissection,
   FlashcardDraw,
   FlashcardOverview,
@@ -796,6 +801,8 @@ export function coverSheet(value: unknown): CoverSheet {
   const tutor = obj(raw['tutor'])
   const encyclopedia = obj(raw['encyclopedia'])
   return {
+    dashboard: dashboard(raw['dashboard']),
+    new_cases: arr(raw['new_cases']).map(caseEntry),
     page: raw['page'] && typeof raw['page'] === 'object' ? encyclopediaEntry(raw['page']) : null,
     encyclopedia: { ...encyclopediaCounts(encyclopedia), message: str(encyclopedia['message']) },
     worth_a_look: points(raw['worth_a_look']),
@@ -886,7 +893,9 @@ export function improvementMap(value: unknown): ImprovementMap {
     })).filter((entry) => entry.topic !== ''),
     confidences: confidences(raw['confidences']),
     unfiled_flag_count: num(raw['unfiled_flag_count']),
-    bank: bank(raw['bank'])
+    bank: bank(raw['bank']),
+    can_file_flags: raw['can_file_flags'] !== false,
+    filing_note: str(raw['filing_note'])
   }
 }
 
@@ -967,7 +976,16 @@ export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
         heading: str(section.heading),
         paragraphs: arr(section.paragraphs).map((p) => {
           const paragraph = obj(p)
-          return { text: str(paragraph.text), point_ids: strings(paragraph.point_ids) }
+          return {
+            text: str(paragraph.text),
+            point_ids: strings(paragraph.point_ids),
+            figures: arr(paragraph.figures)
+              .map((item) => {
+                const f = obj(item)
+                return { image_id: str(f.image_id), source: str(f.source), locator: str(f.locator), width: num(f.width), height: num(f.height) }
+              })
+              .filter((f) => /^[A-Za-z0-9_-]{1,64}$/.test(f.image_id))
+          }
         })
       }
     }),
@@ -979,6 +997,11 @@ export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
     compiled_at: typeof data.compiled_at === 'string' ? data.compiled_at : null,
     literature_checked_at: typeof data.literature_checked_at === 'string' ? data.literature_checked_at : null,
     literature_note: str(data.literature_note),
+    body_md: str(data.body_md),
+    markdown: str(data.markdown),
+    edited: data.edited === true,
+    edit_outdated: data.edit_outdated === true,
+    edited_at: typeof data.edited_at === 'string' ? data.edited_at : null,
     citations: arr(data.citations).map(pageCitation),
     literature: arr(data.literature).map((item) => {
       const record = obj(item)
@@ -1062,6 +1085,17 @@ export function podcastEpisode(raw: unknown): PodcastEpisode {
     takeaways: strings(data.takeaways),
     voices: Object.fromEntries(Object.entries(voices).map(([key, value]) => [key, str(value)])),
     has_audio: data.has_audio === true,
+    sources: arr(data.sources).map((item) => {
+      const source = obj(item)
+      return {
+        kind: str(source.kind),
+        title: str(source.title),
+        journal: str(source.journal),
+        year: str(source.year),
+        pmid: str(source.pmid),
+        entry_id: str(source.entry_id)
+      }
+    }),
     audio_bytes: num(data.audio_bytes),
     duration_seconds: num(data.duration_seconds),
     words: num(data.words),
@@ -1365,5 +1399,91 @@ export function caseSettings(raw: unknown): CaseSettings {
     note: str(data.note),
     disclosure: str(data.disclosure),
     credit: str(data.credit)
+  }
+}
+
+
+/** The feedback of 4 October (ADR 0026). */
+export function dashboard(raw: unknown): Dashboard {
+  const data = obj(raw)
+  const today = obj(data.today)
+  return {
+    days_in_a_row: num(data.days_in_a_row),
+    longest_run: num(data.longest_run),
+    reviewed_today_already: data.reviewed_today_already === true,
+    today: { question: num(today.question), card: num(today.card), socratic: num(today.socratic), page: num(today.page) },
+    today_total: num(data.today_total),
+    week_total: num(data.week_total),
+    all_time_total: num(data.all_time_total),
+    history: arr(data.history).map((item) => {
+      const day = obj(item)
+      return { day: str(day.day), count: num(day.count) }
+    })
+  }
+}
+
+function tallies(raw: unknown): TopicTally[] {
+  return arr(raw).map((item) => {
+    const t = obj(item)
+    return { topic: str(t.topic), answered: num(t.answered), correct: num(t.correct) }
+  })
+}
+
+export function scorecard(raw: unknown): Scorecard {
+  const data = obj(raw)
+  const board = obj(data.board)
+  const recent = obj(board.last_7_days)
+  const open = obj(data.open_answers)
+  const cards = obj(data.flashcards)
+  const socratic = obj(data.socratic)
+  return {
+    board: { answered: num(board.answered), correct: num(board.correct), last_7_days: { answered: num(recent.answered), correct: num(recent.correct) } },
+    weakest_topics: tallies(data.weakest_topics),
+    strongest_topics: tallies(data.strongest_topics),
+    open_answers: { answered: num(open.answered), correct: num(open.correct) },
+    flashcards: { reviewed: num(cards.reviewed), got_it: num(cards.got_it) },
+    socratic: { sessions: num(socratic.sessions), exchanges: num(socratic.exchanges) },
+    dashboard: dashboard(data.dashboard)
+  }
+}
+
+function standing(value: unknown): Standing {
+  return value === 'weak' || value === 'strong' ? value : 'mixed'
+}
+
+export function strengths(raw: unknown): Strengths {
+  const data = obj(raw)
+  return {
+    topic_count: num(data.topic_count),
+    specialties: arr(data.specialties).map((item) => {
+      const group = obj(item)
+      return {
+        id: str(group.id),
+        name: str(group.name),
+        score: num(group.score),
+        label: standing(group.label),
+        weak: num(group.weak),
+        strong: num(group.strong),
+        topics: arr(group.topics).map((topicItem) => {
+          const topic = obj(topicItem)
+          const evidence = obj(topic.evidence)
+          return {
+            topic: str(topic.topic),
+            specialty_id: typeof topic.specialty_id === 'string' ? topic.specialty_id : null,
+            score: num(topic.score),
+            label: standing(topic.label),
+            reasons: strings(topic.reasons),
+            evidence: {
+              missed_questions: strings(evidence.missed_questions),
+              flags: strings(evidence.flags),
+              exam_areas: arr(evidence.exam_areas).map((area) => {
+                const a = obj(area)
+                return { standing: str(a.standing), quote: str(a.quote) }
+              })
+            }
+          }
+        })
+      }
+    })
   }
 }

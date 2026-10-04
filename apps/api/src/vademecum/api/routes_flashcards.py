@@ -14,6 +14,11 @@ from .schemas import RecordId, Strict
 
 router = APIRouter(prefix="/flashcards", tags=["flashcards"])
 preferences_router = APIRouter(prefix="/preferences", tags=["preferences"])
+activity_router = APIRouter(prefix="/activity", tags=["activity"])
+
+
+class PageReviewIn(Strict):
+    entry_id: RecordId
 
 
 class ReviewIn(Strict):
@@ -55,3 +60,19 @@ def read_preferences(connection: sqlite3.Connection = Depends(get_connection)) -
 @preferences_router.put("")
 def write_preferences(payload: PreferencesIn, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
     return preferences.set_visible_tabs(connection, [name[:40] for name in payload.visible_tabs[:40]])
+
+
+@activity_router.get("")
+def activity_dashboard(connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """What the owner reviewed, day by day (ADR 0026). Counts what happened; nothing is due."""
+    from ..storage import activity
+
+    return activity.dashboard(connection)
+
+
+@activity_router.post("/page")
+def page_reviewed(payload: PageReviewIn, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    from ..storage import activity
+
+    activity.record(connection, "page", payload.entry_id)
+    return activity.dashboard(connection)

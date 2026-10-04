@@ -22,10 +22,9 @@ TABS: tuple[dict[str, Any], ...] = (
     {"name": "flashcards", "label": "Flashcards", "fixed": False},
     {"name": "encyclopedia", "label": "Encyclopedia", "fixed": False},
     {"name": "map", "label": "Improvement Map", "fixed": False},
-    {"name": "cases", "label": "Case Series", "fixed": False},
     {"name": "podcasts", "label": "Podcast Generator", "fixed": False},
+    {"name": "construction", "label": "Construction", "fixed": False},
     {"name": "sources", "label": "Sources", "fixed": False},
-    {"name": "model", "label": "Model", "fixed": False},
     {"name": "settings", "label": "Settings", "fixed": True},
 )
 TAB_NAMES = tuple(tab["name"] for tab in TABS)
@@ -50,7 +49,9 @@ def get_preferences(connection: sqlite3.Connection) -> dict[str, Any]:
         visible = list(TAB_NAMES)
     else:
         wanted = {str(name) for name in chosen}
-        visible = [name for name in TAB_NAMES if name in wanted or name in FIXED]
+        # A tab added after the owner chose is shown until they choose again.
+        known = set(stored.get("known_tabs") or [name for name in TAB_NAMES if name != "construction"])
+        visible = [name for name in TAB_NAMES if name in wanted or name in FIXED or name not in known]
     return {"visible_tabs": visible, "tabs": [dict(tab) for tab in TABS]}
 
 
@@ -61,6 +62,6 @@ def set_visible_tabs(connection: sqlite3.Connection, names: list[str]) -> dict[s
         tx.execute(
             "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
             " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-            (KEY, json.dumps({**_read(connection), "visible_tabs": visible}, separators=(",", ":")), utc_now()),
+            (KEY, json.dumps({**_read(connection), "visible_tabs": visible, "known_tabs": list(TAB_NAMES)}, separators=(",", ":")), utc_now()),
         )
     return get_preferences(connection)

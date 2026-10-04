@@ -19,32 +19,6 @@ from .deps import get_connection, get_data_dir, get_database_path, get_source_di
 router = APIRouter(tags=["maintenance"])
 
 
-@router.post("/pack", status_code=status.HTTP_201_CREATED)
-def write_pack(
-    request: Request,
-    connection: sqlite3.Connection = Depends(get_connection),
-    data_dir: Path = Depends(get_data_dir),
-) -> dict:
-    """The phone pack (ADR 0016): the bank as one file for a Project.
-
-    Written into the source folder's `phone/` directory when there is a
-    source folder, otherwise beside the exports. The reply names the file and
-    where it went, never a path.
-    """
-    from ..ingest.folder import PHONE_DIRNAME
-    from ..ingest.pack import build_pack
-
-    pack = build_pack(connection)
-    folder = getattr(request.app.state, "sources_folder", None)
-    if folder is not None:
-        directory, label = folder / PHONE_DIRNAME, "the phone folder in your source folder"
-    else:
-        directory, label = data_dir / "exports", "exports"
-    directory.mkdir(parents=True, exist_ok=True)
-    written = store.write_text_file(directory, "vademecum-pack", ".md", pack.text, label)
-    return {**written.as_dict(), **pack.as_dict()}
-
-
 @router.post(
     "/export", response_model=schemas.WrittenFile, status_code=status.HTTP_201_CREATED
 )

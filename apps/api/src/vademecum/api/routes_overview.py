@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from . import schemas
 from ..storage import map as map_store
 from ..storage import overview as store
-from .deps import get_connection
+from .deps import get_connection, get_model_mode
 
 router = APIRouter(tags=["overview"])
 
@@ -19,9 +19,26 @@ def today(connection: sqlite3.Connection = Depends(get_connection)) -> dict:
     return store.cover_sheet(connection)
 
 
+FILED_ON_THE_MAC = (
+    "This is the copy of Vademecum that runs in the cloud for your phone. Flags are filed under "
+    "topics by your Mac's own model connection, and the topics come back here at the next sync."
+)
+
+
 @router.get("/improvement-map")
-def improvement_map(connection: sqlite3.Connection = Depends(get_connection)) -> dict:
-    return store.improvement_map(connection)
+def improvement_map(connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict:
+    data = store.improvement_map(connection)
+    data["can_file_flags"] = mode in ("codex", "claude")
+    data["filing_note"] = "" if data["can_file_flags"] else FILED_ON_THE_MAC
+    return data
+
+
+@router.get("/improvement-map/strengths")
+def strengths(connection: sqlite3.Connection = Depends(get_connection)) -> dict:
+    """Strong and weak, topic by topic, with the reasons and the evidence (ADR 0026)."""
+    from ..storage import strengths as strengths_store
+
+    return strengths_store.strengths(connection)
 
 
 @router.put("/improvement-map/topics/specialty")

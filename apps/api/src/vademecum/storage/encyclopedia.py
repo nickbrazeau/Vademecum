@@ -68,15 +68,22 @@ class Entry:
     question_count: int = 0
     literature_checked_at: str | None = None
     literature_note: str = ""
+    # The owner's own edit, in Markdown (ADR 0026); shown instead of the compiled text when present.
+    body_md: str = ""
+    edited_at: str | None = None
 
     def as_dict(self, *, include_sections: bool = True) -> dict[str, Any]:
         data = asdict(self)
         data["point_ids"] = list(self.point_ids)
         data["point_count"] = len(self.point_ids)
+        data["edited"] = bool(self.body_md.strip())
+        # The compiled page moved on after the owner's edit: the edit still shows, and says so.
+        data["edit_outdated"] = bool(self.edited_at and self.compiled_at and self.compiled_at > self.edited_at)
         if include_sections:
             data["sections"] = [dict(section) for section in self.sections]
         else:
             del data["sections"]
+            del data["body_md"]
         return data
 
 
@@ -100,6 +107,7 @@ def _entry(connection: sqlite3.Connection, row: sqlite3.Row) -> Entry:
                     "text": str(p.get("text") or ""),
                     "point_ids": [str(x) for x in (p.get("point_ids") or [])],
                     "record_ids": [str(x) for x in (p.get("record_ids") or [])],
+                    "figures": [dict(f) for f in (p.get("figures") or []) if isinstance(f, dict) and f.get("image_id")],
                 }
                 for p in (section.get("paragraphs") or [])
                 if isinstance(p, dict)
@@ -127,6 +135,8 @@ def _entry(connection: sqlite3.Connection, row: sqlite3.Row) -> Entry:
         question_count=int(count),
         literature_checked_at=row["literature_checked_at"] if "literature_checked_at" in keys else None,
         literature_note=row["literature_note"] if "literature_note" in keys else "",
+        body_md=row["body_md"] if "body_md" in keys else "",
+        edited_at=row["edited_at"] if "edited_at" in keys else None,
     )
 
 

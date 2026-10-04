@@ -4,10 +4,11 @@
  * locally with its explanation and citations.
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EncyclopediaPage } from '../src/components/EncyclopediaPage'
+import { Construction } from '../src/pages/Construction'
 import { Encyclopedia } from '../src/pages/Encyclopedia'
 import { Tutor } from '../src/pages/Tutor'
 import { Today } from '../src/pages/Today'
@@ -19,7 +20,8 @@ const PAGE = {
   citations: [{ id: 'lp1', claim: 'Lactate above 2 is abnormal', support: 'evidence_supported', support_label: 'Evidence-supported', held: false, sources: [{ source_id: 's1', display_name: 'Sepsis lecture.pdf', locator: 'Page 3', quote: 'lactate above 2 mmol/L' }] }],
   literature: [{ record_id: 'rec1', cited: true, pmid: '30012345', doi: '', title: 'Lactate targets in septic shock', journal: 'Crit Care', published_on: '2025-01-15', url: '', priority: 'guideline', retracted: false, corrected: false }],
   literature_checked_at: '2026-10-03T00:00:00Z',
-  literature_note: ''
+  literature_note: '',
+  body_md: '', markdown: '# Lactate in sepsis', edited: false, edit_outdated: false, edited_at: null
 }
 const COUNTS = { entries: 1, stale: 0, questions_eligible: 1, questions_held: 0, questions_total: 1 }
 const QUESTION = {
@@ -83,7 +85,7 @@ describe('the dissection agent card', () => {
         return json({})
       })
     )
-    render(<Encyclopedia />)
+    render(<Construction />)
     expect(await screen.findByText(/standing consent/)).toBeInTheDocument()
     const start = await screen.findByRole('button', { name: 'Dissect this pile' })
     await waitFor(() => expect(start).toBeEnabled())
@@ -118,21 +120,25 @@ describe('Today', () => {
 })
 
 describe('the Encyclopedia tab', () => {
-  it('lists pages by subject under a table of contents, with the compile disclosure, and opens one', async () => {
+  it('compiles from Construction, lists pages by subject in toggleable sections, and opens one', async () => {
     const UNSHELVED = { ...PAGE, id: 'ency_2', topic: 'gout', title: 'Gout', specialty_id: null }
     const calls = stub({
       '/api/encyclopedia': { entries: [UNSHELVED, PAGE], specialties: [{ id: 'cardiology', name: 'Cardiology' }, { id: 'infectious-disease', name: 'Infectious Disease' }], counts: COUNTS, can_compile: true, running: false, last_refresh: null, note: '', disclosure: 'Compiling sends, per topic, the learning points already built from your sources.' },
       '/api/encyclopedia/ency_1': PAGE,
       'POST /api/encyclopedia/compile': { entries: [PAGE], counts: COUNTS, can_compile: true, running: true, last_refresh: null, note: '', disclosure: '' }
     })
-    render(<Encyclopedia />)
+    render(<Construction />)
     expect(await screen.findByText(/Compiling sends, per topic/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Compile now' }))
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url === '/api/encyclopedia/compile')).toBe(true))
+    cleanup()
+    render(<Encyclopedia />)
+    await screen.findByRole('navigation', { name: 'Contents' })
     // Subjects come in their own order; one with no page is not listed, and a page with none comes last.
     const contents = screen.getByRole('navigation', { name: 'Contents' })
     expect(within(contents).getAllByRole('link').map((link) => link.textContent)).toEqual(['Infectious Disease', 'Lactate in sepsis', 'Other topics', 'Gout'])
-    const subject = screen.getByRole('region', { name: 'Infectious Disease' })
+    const subject = document.getElementById('subject-infectious-disease') as HTMLElement
+    expect(subject.tagName).toBe('DETAILS')
     expect(within(subject).getByText('Lactate above 2 mmol/L marks hypoperfusion.')).toBeInTheDocument()
     await userEvent.click(within(contents).getByRole('link', { name: 'Lactate in sepsis' }))
     expect(await screen.findByText('A lactate above 2 mmol/L is abnormal in sepsis.')).toBeInTheDocument()
@@ -153,6 +159,7 @@ describe('the board Tutor', () => {
       'POST /api/tutor/board/advance': { question: { ...QUESTION, id: 'bq2', stem: 'A second vignette.' }, cycle: { ...CYCLE, remaining: 2, position: 1 }, last_attempt: null, history_count: 0, empty_reason: '' }
     })
     render(<Tutor />)
+    await userEvent.click(await screen.findByRole('button', { name: /^Board questions/ }))
     expect(await screen.findByText(/A 60-year-old woman/)).toBeInTheDocument()
     expect(screen.getByText(/no model is involved in checking it/)).toBeInTheDocument()
     const check = screen.getByRole('button', { name: 'Check answer' })
@@ -174,6 +181,7 @@ describe('the board Tutor', () => {
       '/api/tutor/next': { question: { id: 'q1', prompt: 'Explain retrieval practice.', support: 'evidence_supported', status: 'eligible' }, cycle: CYCLE }
     })
     render(<Tutor />)
+    await userEvent.click(await screen.findByRole('button', { name: /^Board questions/ }))
     expect(await screen.findByText('Explain retrieval practice.')).toBeInTheDocument()
   })
 })

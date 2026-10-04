@@ -68,8 +68,32 @@ def get_dissector(request: Request):
     return getattr(request.app.state, "dissector", None)
 
 
+class PageEditIn(Strict):
+    body_md: Annotated[str, Field(max_length=200_000)]
+
+
+def _sync_files(request: Request) -> None:
+    """Mirror pages to Markdown files in the source folder, and read the owner's file edits back (ADR 0026)."""
+    from ..app import current_sources_dir
+    from ..db import connect
+    from ..storage import page_files
+
+    settings = request.app.state.settings
+    if settings.tenancy != "single":
+        return
+    folder = current_sources_dir(settings)
+    connection = connect(request.state.workspace.database_path)
+    try:
+        page_files.sync_folder(connection, folder, request.state.workspace.source_dir.parent / "images")
+    finally:
+        connection.close()
+
+
 def _page_payload(connection: sqlite3.Connection, entry: store.Entry) -> dict[str, Any]:
+    from ..storage import page_files
+
     data = entry.as_dict()
+    data["markdown"] = page_files.body_for(connection, entry.id)
     data["citations"] = store.cited_points(connection, list(entry.point_ids))
     data["literature"] = store.records_for_entry(connection, entry.id)
     data["questions"] = [q.as_dict() for q in store.questions_for_entry(connection, entry.id) if q.status == "eligible"]
@@ -162,6 +186,28 @@ async def stop_dissection(request: Request, connection: sqlite3.Connection = Dep
 
 @router.get("/{entry_id}")
 def read_entry(entry_id: str, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    return _page_payload(connection, store.get_entry(connection, entry_id))
+
+
+@router.put("/{entry_id}")
+def edit_entry(entry_id: str, payload: PageEditIn, request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """The owner's own edit, in Markdown, kept beside the compiled text and written to the page's file."""
+    from ..storage import page_files
+
+    store.get_entry(connection, entry_id)
+    page_files.set_edit(connection, entry_id, payload.body_md)
+    _sync_files(request)
+    return _page_payload(connection, store.get_entry(connection, entry_id))
+
+
+@router.delete("/{entry_id}/edit")
+def revert_entry(entry_id: str, request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Drop the owner's edit; the compiled page shows again, and its file follows."""
+    from ..storage import page_files
+
+    store.get_entry(connection, entry_id)
+    page_files.set_edit(connection, entry_id, "")
+    _sync_files(request)
     return _page_payload(connection, store.get_entry(connection, entry_id))
 
 

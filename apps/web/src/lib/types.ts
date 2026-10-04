@@ -540,9 +540,19 @@ export interface ConfidenceSummary {
 }
 
 /** The encyclopedia and the board bank (ADR 0023). */
+/** A picture from the owner's own source, placed beside the paragraph it belongs to (ADR 0026). */
+export interface PageFigure {
+  image_id: string
+  source: string
+  locator: string
+  width: number
+  height: number
+}
+
 export interface PageParagraph {
   text: string
   point_ids: string[]
+  figures?: PageFigure[]
 }
 
 export interface PageSection {
@@ -597,6 +607,13 @@ export interface EncyclopediaEntry {
   literature_note: string
   citations: PageCitation[]
   literature: PageRecord[]
+  /** The owner's own edit, in Markdown (ADR 0026). */
+  body_md: string
+  /** What the page's file holds: the edit, or the compiled page as Markdown. */
+  markdown: string
+  edited: boolean
+  edit_outdated: boolean
+  edited_at: string | null
 }
 
 /** The Socratic tutor and the podcast generator (ADR 0025). */
@@ -658,6 +675,7 @@ export interface PodcastEpisode {
   takeaways: string[]
   voices: Record<string, string>
   has_audio: boolean
+  sources: PodcastSource[]
   audio_bytes: number
   duration_seconds: number
   words: number
@@ -828,7 +846,72 @@ export interface BoardOverview {
   cycle: Cycle
 }
 
+/** The feedback of 4 October (ADR 0026). */
+export interface Dashboard {
+  days_in_a_row: number
+  longest_run: number
+  reviewed_today_already: boolean
+  today: { question: number; card: number; socratic: number; page: number }
+  today_total: number
+  week_total: number
+  all_time_total: number
+  history: { day: string; count: number }[]
+}
+
+export interface TopicTally {
+  topic: string
+  answered: number
+  correct: number
+}
+
+export interface Scorecard {
+  board: { answered: number; correct: number; last_7_days: { answered: number; correct: number } }
+  weakest_topics: TopicTally[]
+  strongest_topics: TopicTally[]
+  open_answers: { answered: number; correct: number }
+  flashcards: { reviewed: number; got_it: number }
+  socratic: { sessions: number; exchanges: number }
+  dashboard: Dashboard
+}
+
+export type Standing = 'weak' | 'mixed' | 'strong'
+
+export interface TopicStrength {
+  topic: string
+  specialty_id: string | null
+  score: number
+  label: Standing
+  reasons: string[]
+  evidence: { missed_questions: string[]; flags: string[]; exam_areas: { standing: string; quote: string }[] }
+}
+
+export interface SpecialtyStrength {
+  id: string
+  name: string
+  score: number
+  label: Standing
+  weak: number
+  strong: number
+  topics: TopicStrength[]
+}
+
+export interface Strengths {
+  specialties: SpecialtyStrength[]
+  topic_count: number
+}
+
+export interface PodcastSource {
+  kind: string
+  title: string
+  journal?: string
+  year?: string
+  pmid?: string
+  entry_id?: string
+}
+
 export interface CoverSheet {
+  dashboard: Dashboard
+  new_cases: CaseEntry[]
   page: EncyclopediaEntry | null
   encyclopedia: EncyclopediaCounts & { message: string }
   worth_a_look: LearningPoint[]
@@ -943,6 +1026,9 @@ export interface ImprovementMap {
   confidences: ConfidenceSummary[]
   unfiled_flag_count: number
   bank: BankSummary
+  /** Whether this node files flags itself (the Mac), or leaves it to the Mac (the cloud copy). */
+  can_file_flags: boolean
+  filing_note: string
 }
 
 export interface WrittenFile {

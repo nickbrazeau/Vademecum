@@ -10,9 +10,8 @@ import { useState } from 'react'
 import { BuildPanel } from '../components/BuildPanel'
 import { BuildSchedule } from '../components/BuildSchedule'
 import { LocalData } from '../components/LocalData'
-import { PrivacyNote } from '../components/PrivacyNote'
 import { PointCard } from '../components/PointCard'
-import { ConfidenceBadge, ConfidenceMeaning } from '../components/ConfidenceBadge'
+import { ConfidenceBadge } from '../components/ConfidenceBadge'
 import { PhiWarning } from '../components/PhiWarning'
 import { SourceList } from '../components/SourceList'
 import { UploadPanel } from '../components/UploadPanel'
@@ -338,16 +337,6 @@ export function Sources() {
     <div className="stack">
       <BuildSchedule onBuilt={refresh} />
 
-      <section className="card" aria-labelledby="sources-intro-heading">
-        <h2 id="sources-intro-heading">Sources</h2>
-        <p className="muted">
-          Add source files here to build learning points and Tutor questions. Saving a file or note
-          is local. Open a pile to preview Build learning material, then choose Send this batch to
-          authorize the model checks. Today also shows relevant public literature updates.
-        </p>
-        <ConfidenceMeaning />
-      </section>
-
       <section className="card" aria-labelledby="new-pile-heading">
         <h2 id="new-pile-heading">New pile</h2>
         <form
@@ -444,7 +433,6 @@ export function Sources() {
           })
         : null}
       <LocalData />
-      <PrivacyNote />
 
     </div>
   )

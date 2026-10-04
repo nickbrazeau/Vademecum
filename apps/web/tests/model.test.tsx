@@ -494,18 +494,20 @@ describe('accessibility', () => {
 })
 
 describe('the shell', () => {
-  it('offers Model in the section navigation', () => {
+  it('is reached through Settings, not a tab of its own', () => {
     stubApi()
     render(<App />)
-    expect(screen.getByRole('navigation', { name: /sections/i })).toHaveTextContent('Model')
+    const nav = screen.getByRole('navigation', { name: /sections/i })
+    expect(nav).not.toHaveTextContent('Model')
+    expect(nav).toHaveTextContent('Settings')
   })
 
   it('navigates to it without a page load', async () => {
     stubApi()
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('link', { name: 'Model' }))
-    expect(window.location.pathname).toBe('/model')
+    await user.click(screen.getByRole('link', { name: 'Settings' }))
+    expect(window.location.pathname).toBe('/settings')
     expect(await screen.findByRole('heading', { name: /model connection/i })).toBeVisible()
   })
 })

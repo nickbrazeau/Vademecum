@@ -186,6 +186,8 @@ async def _watch_folder(app: FastAPI, database_path: Path, source_dir: Path, int
             folder = current_sources_dir(app.state.settings)
             app.state.sources_folder = folder
             report = await asyncio.to_thread(scan_sources_folder, database_path, source_dir, folder)
+            # Encyclopedia pages as Markdown files beside the piles, both ways (ADR 0026).
+            await asyncio.to_thread(sync_page_files, database_path, folder, source_dir)
             if report.get("stored") or report.get("piles_created"):
                 # Something new in a pile: the dissection agent, if it is
                 # watching, builds it now rather than at its next look.
@@ -196,6 +198,21 @@ async def _watch_folder(app: FastAPI, database_path: Path, source_dir: Path, int
             raise
         except Exception as exc:  # noqa: BLE001 - the watch reports and continues
             logger.error("folder_scan_failed error=%s", type(exc).__name__)
+
+
+def sync_page_files(database_path: Path, folder: Path | None, source_dir: Path | None = None) -> dict:
+    from .storage import figures, page_files
+
+    connection = connect(database_path)
+    try:
+        # Figures from the owner's own pictures, placed by provenance, before the files go out.
+        figures.refresh(connection)
+        return page_files.sync_folder(connection, folder, None if source_dir is None else source_dir.parent / "images")
+    except Exception as exc:  # noqa: BLE001 - a file the owner left half-written is no reason to stop the watch
+        logger.error("page_files_failed error=%s", type(exc).__name__)
+        return {"written": 0, "read": 0}
+    finally:
+        connection.close()
 
 
 async def _watch_parent(parent_pid: int, interval: float = 2.0) -> None:
@@ -537,6 +554,7 @@ def create_app(
             if folder is not None:
                 app.state.sources_folder = folder
                 await asyncio.to_thread(scan_sources_folder, owner.database_path, owner.source_dir, folder)
+                await asyncio.to_thread(sync_page_files, owner.database_path, folder, owner.source_dir)
                 folder_task = asyncio.create_task(
                     _watch_folder(app, owner.database_path, owner.source_dir, resolved.sources_scan_interval)
                 )
@@ -621,6 +639,7 @@ def create_app(
         routes_encyclopedia.board_router,
         routes_flashcards.router,
         routes_flashcards.preferences_router,
+        routes_flashcards.activity_router,
         routes_socratic.router,
         routes_podcasts.router,
         routes_piles.router,

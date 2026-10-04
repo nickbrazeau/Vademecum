@@ -1,6 +1,6 @@
 # ADR 0016 — The phone pack: Vademecum in a Project, with no server anywhere
 
-- Status: accepted
+- Status: superseded on 2026-10-04 by the Cloudflare copy (ADR 0017) and removed (ADR 0026)
 - Date: 2026-10-02
 - Extends: [0012](0012-a-local-product-each-learner-installs.md)
 - Beside: [0015](0015-two-vademecums-that-sync.md) (the second-node route; this one needs no node)

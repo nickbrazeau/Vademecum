@@ -191,6 +191,14 @@ def self_assess(
     return {"attempt": attempt.as_dict()}
 
 
+@router.get("/scorecard")
+def scorecard(connection: sqlite3.Connection = Depends(get_connection)) -> dict:
+    """Board, open answers, flashcards and Socratic sessions, counted (ADR 0026). Local."""
+    from ..storage import activity
+
+    return activity.scorecard(connection)
+
+
 @router.get("/history")
 def history(
     limit: int = 20, connection: sqlite3.Connection = Depends(get_connection)

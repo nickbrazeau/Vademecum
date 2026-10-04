@@ -286,6 +286,30 @@ def set_failed(connection: sqlite3.Connection, entry_id: str, detail: str) -> Ca
     return get_entry(connection, entry_id)
 
 
+NEW_CASE_DAYS = 21
+MAX_NEW_CASES = 6
+
+
+def new_cases(connection: sqlite3.Connection) -> list[CaseEntry]:
+    """Cases published in the last three weeks, with their notes, not yet acknowledged on Today (ADR 0026)."""
+    from datetime import date, timedelta
+
+    since = (date.today() - timedelta(days=NEW_CASE_DAYS)).isoformat()
+    rows = connection.execute(
+        "SELECT * FROM case_entries WHERE acknowledged_at IS NULL AND status = 'synthesised'"
+        " AND COALESCE(published_on, substr(first_seen_at, 1, 10)) >= ?"
+        " ORDER BY COALESCE(published_on, '') DESC, first_seen_at DESC LIMIT ?",
+        (since, MAX_NEW_CASES),
+    ).fetchall()
+    return [_entry(row) for row in rows]
+
+
+def acknowledge(connection: sqlite3.Connection, entry_id: str) -> None:
+    get_entry(connection, entry_id)
+    with transaction(connection) as tx:
+        tx.execute("UPDATE case_entries SET acknowledged_at = ?, updated_at = ? WHERE id = ?", (utc_now(), utc_now(), entry_id))
+
+
 def counts(connection: sqlite3.Connection) -> dict[str, Any]:
     rows = connection.execute("SELECT series, status, COUNT(*) AS n FROM case_entries GROUP BY series, status").fetchall()
     by_series: dict[str, int] = {identifier: 0 for identifier in SERIES_IDS}

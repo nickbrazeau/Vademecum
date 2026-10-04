@@ -401,6 +401,16 @@ export const api = {
     request<unknown>(`/podcasts/${episodeId}/render`, { method: 'POST', ...body(voices) }).then(normalize.podcastEpisode),
   deletePodcast: (episodeId: string) => request<void>(`/podcasts/${episodeId}`, { method: 'DELETE' }),
 
+  // The feedback of 4 October (ADR 0026): local reads and writes, no model turn.
+  scorecard: () => request<unknown>('/tutor/scorecard').then(normalize.scorecard),
+  markPageReviewed: (entryId: string) =>
+    request<unknown>('/activity/page', { method: 'POST', ...body({ entry_id: entryId }) }).then(normalize.dashboard),
+  strengths: () => request<unknown>('/improvement-map/strengths').then(normalize.strengths),
+  editPage: (entryId: string, bodyMd: string) =>
+    request<unknown>(`/encyclopedia/${entryId}`, { method: 'PUT', ...body({ body_md: bodyMd }) }).then(normalize.encyclopediaEntry),
+  revertPage: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}/edit`, { method: 'DELETE' }).then(normalize.encyclopediaEntry),
+  acknowledgeCase: (caseId: string) => request<{ acknowledged: boolean }>(`/cases/${caseId}/acknowledge`, { method: 'POST' }),
+
   // Flashcards and preferences (ADR 0024): local, no model turn.
   flashcardsOverview: () => request<unknown>('/flashcards').then(normalize.flashcardOverview),
   flashcardNext: (notId?: string) => request<unknown>(`/flashcards/next${query({ not_id: notId })}`).then(normalize.flashcardDraw),

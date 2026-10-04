@@ -94,7 +94,12 @@ def cover_sheet(
         page_payload["citations"] = encyclopedia_store.cited_points(connection, list(page.point_ids))
     encyclopedia_counts = encyclopedia_store.entry_counts(connection)
 
+    from . import activity
+    from . import cases as case_store
+
     return {
+        "dashboard": activity.dashboard(connection),
+        "new_cases": [case.as_dict() for case in case_store.new_cases(connection)],
         "page": page_payload,
         "encyclopedia": {**encyclopedia_counts, "message": "" if page is not None else encyclopedia_store.NO_PAGES},
         "worth_a_look": [point.as_dict() for point in points],

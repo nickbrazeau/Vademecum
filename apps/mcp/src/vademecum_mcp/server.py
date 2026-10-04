@@ -48,7 +48,9 @@ INSTRUCTIONS = (
     "sync_sources reads it); pasted text goes in with add_text_source. Pictures found in "
     "sources are kept: list_images shows them and view_image returns one to look at; pages "
     "with no text layer are read on the Mac and cited with an '(OCR)' locator. "
-    "When a learning point would be clearer as a drawing, draw a self-contained SVG and "
+    "Encyclopedia pages carry figures taken from the owner's own sources, placed beside the "
+    "paragraphs they belong to; use those. Draw a schematic only when the owner asks for one: "
+    "then draw a self-contained SVG and "
     "keep it with save_schematic; it is filed against that point and copied into the "
     "owner's source folder. The dashboard is the default view: when the owner opens "
     "Vademecum, starts a session, or asks what is new, call open_vademecum (or get_today) "
@@ -84,7 +86,7 @@ INSTRUCTIONS = (
     "verbatim, produce one JSON object matching `output_schema` exactly, and submit it with "
     "build_submit or tutor_record_grade. Never add fields, never assert support, verification "
     "or certainty; `unclear: true` is the only certainty field and it can only lower it. "
-    "No streaks, quotas or due counts exist here; never invent urgency."
+    "Today counts the days in a row the owner reviewed, because they asked for it; nothing is ever due, and there are no quotas: never invent urgency."
 )
 
 

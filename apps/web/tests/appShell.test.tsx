@@ -79,7 +79,7 @@ describe('the quick-flag shortcut', () => {
 })
 
 describe('the shell', () => {
-  it('offers Today, Tutor, Sources, the Improvement Map and the Case Series', () => {
+  it('offers the tabs in the owner’s order, with Construction and Settings, and no Case Series tab', () => {
     stubApi()
     render(<App />)
     const nav = screen.getByRole('navigation', { name: /sections/i })
@@ -87,7 +87,8 @@ describe('the shell', () => {
     expect(nav).toHaveTextContent('Sources')
     expect(nav).toHaveTextContent('Tutor')
     expect(nav).toHaveTextContent('Improvement Map')
-    expect(nav).toHaveTextContent('Case Series')
+    expect(nav).not.toHaveTextContent('Case Series')
+    expect(nav).toHaveTextContent('Construction')
     expect(nav).toHaveTextContent('Encyclopedia')
     expect(nav).toHaveTextContent('Flashcards')
     expect(nav).toHaveTextContent('Settings')

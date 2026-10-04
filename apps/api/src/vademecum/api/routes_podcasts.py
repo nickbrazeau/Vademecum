@@ -27,7 +27,8 @@ from .schemas import RecordId, Strict
 router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
 DISCLOSURE = (
-    "Writing an episode sends the chosen pages -- their text and the points they rest on -- once, "
+    "Writing an episode sends the chosen pages -- their text and the points they rest on -- with the "
+    "literature reviewed for them, related pages and case-series points already on this Mac, once, "
     "to write the script. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
     + " Rendering the audio uses this Mac's own speech voices; the script is spoken on-device and sent nowhere."
 )

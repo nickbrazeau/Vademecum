@@ -347,8 +347,6 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/images/{image_id}",
         "/api/points/{point_id}/schematics",
         "/api/schematics/{schematic_id}",
-        # The phone pack (ADR 0016).
-        "/api/pack",
         # Filing flags under topics on the Mac's model connection (ADR 0021).
         "/api/flags/file",
         # Exam reports for the Improvement Map (ADR 0020).
@@ -393,6 +391,13 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/podcasts/{episode_id}/script",
         "/api/podcasts/{episode_id}/render",
         "/api/podcasts/{episode_id}/audio",
+        # The feedback of 4 October (ADR 0026): local reads and writes, no model turn.
+        "/api/tutor/scorecard",
+        "/api/activity",
+        "/api/activity/page",
+        "/api/encyclopedia/{entry_id}/edit",
+        "/api/cases/{entry_id}/acknowledge",
+        "/api/improvement-map/strengths",
         # Two Vademecums that sync (ADR 0015): served only with a peer token.
         "/api/sync/status",
         "/api/sync/changes",

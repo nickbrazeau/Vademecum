@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ExamReports } from '../components/ExamReports'
+import { StrengthsView } from '../components/StrengthsView'
 import { TopicGraph, isShown } from '../components/TopicGraph'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
@@ -64,9 +65,40 @@ function FlagList({ flags, onChanged }: { flags: Flag[]; onChanged: () => void }
   )
 }
 
+/** Flags by topic, each topic opening on its own (ADR 0026). */
+function FlagGroups({ flags, onChanged }: { flags: Flag[]; onChanged: () => void }) {
+  if (flags.length === 0) {
+    return <p className="muted">Nothing flagged yet. Press ⌘K whenever something comes up.</p>
+  }
+  const groups = new Map<string, Flag[]>()
+  for (const flag of flags) {
+    const key = flag.topic ?? 'Not filed yet'
+    groups.set(key, [...(groups.get(key) ?? []), flag])
+  }
+  const ordered = [...groups.entries()].sort(
+    (a, b) => b[1].filter((f) => f.status === 'open').length - a[1].filter((f) => f.status === 'open').length || a[0].localeCompare(b[0])
+  )
+  return (
+    <div className="flag-groups">
+      {ordered.map(([topic, items]) => (
+        <details key={topic} className="flag-group">
+          <summary>
+            <span className="strength-name">{topic}</span>{' '}
+            <span className="muted small">
+              {items.filter((f) => f.status === 'open').length} open · {items.length} in all
+            </span>
+          </summary>
+          <FlagList flags={items} onChanged={onChanged} />
+        </details>
+      ))}
+    </div>
+  )
+}
+
 export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
   const map = useLoad(() => api.improvementMap(), [reloadToken])
   const flags = useLoad(() => api.listFlags(), [reloadToken])
+  const strengths = useLoad(() => api.strengths(), [reloadToken])
   // Everything in the piles is an area to review, so the map starts with everything shown.
   const [openOnly, setOpenOnly] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
@@ -155,10 +187,6 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
           </p>
         ) : (
           <>
-            <p className="muted small">
-              A map, not a list. Drag a topic to move it, tap it to see its flags, pinch or
-              scroll to zoom. Nothing here is a queue; it describes, it does not assign.
-            </p>
             <div className="chips" role="group" aria-label="Which topics to show">
               <button
                 type="button"
@@ -205,7 +233,12 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
             ) : null}
           </>
         )}
-        {value.unfiled_flag_count > 0 ? (
+        {value.unfiled_flag_count > 0 && !value.can_file_flags ? (
+          <p className="muted small">
+            {value.unfiled_flag_count} flag{value.unfiled_flag_count === 1 ? ' has' : 's have'} no topic yet. {value.filing_note}
+          </p>
+        ) : null}
+        {value.unfiled_flag_count > 0 && value.can_file_flags ? (
           <div className="unfiled">
             <p className="muted small">
               {value.unfiled_flag_count} flag{value.unfiled_flag_count === 1 ? ' has' : 's have'} no topic yet.
@@ -292,10 +325,22 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
         </section>
       ) : null}
 
+      <section className="card" aria-labelledby="strengths-heading">
+        <h2 id="strengths-heading">Strong and weak, and why</h2>
+        {strengths.result.state === 'loading' ? <p className="muted">Reading…</p> : null}
+        {strengths.result.state === 'failed' ? <p className="muted small">Not readable right now. {strengths.result.error.message}</p> : null}
+        {strengths.result.state === 'ready' ? <StrengthsView strengths={strengths.result.value} /> : null}
+      </section>
+
       <ExamReports onChanged={reloadBoth} />
 
-      <section className="card" aria-labelledby="flags-heading">
-        <h2 id="flags-heading">Everything you have flagged</h2>
+      <details className="card toggle-card" aria-labelledby="flags-heading">
+        <summary>
+          <h2 id="flags-heading">Everything you have flagged</h2>
+          <span className="muted small">
+            {flags.result.state === 'ready' ? `${flags.result.value.filter((flag) => flag.status === 'open').length} open` : ''}
+          </span>
+        </summary>
         {flags.result.state === 'loading' ? <p className="muted">Reading…</p> : null}
         {flags.result.state === 'failed' ? (
           <Unavailable
@@ -304,9 +349,9 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
           />
         ) : null}
         {flags.result.state === 'ready' ? (
-          <FlagList flags={flags.result.value} onChanged={reloadBoth} />
+          <FlagGroups flags={flags.result.value} onChanged={reloadBoth} />
         ) : null}
-      </section>
+      </details>
     </div>
   )
 }

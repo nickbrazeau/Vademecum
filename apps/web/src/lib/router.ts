@@ -6,17 +6,30 @@
 import { useCallback, useEffect, useState } from 'react'
 import { inChat } from './host'
 
-export type RouteName = 'today' | 'tutor' | 'flashcards' | 'encyclopedia' | 'sources' | 'map' | 'cases' | 'podcasts' | 'model' | 'settings'
+export type RouteName =
+  | 'today'
+  | 'tutor'
+  | 'flashcards'
+  | 'encyclopedia'
+  | 'map'
+  | 'podcasts'
+  | 'construction'
+  | 'sources'
+  | 'settings'
 
+/**
+ * The tabs, in the owner's order (ADR 0026): Sources second to last, Settings
+ * last. The Model page lives inside Settings, and the Case Series reaches
+ * Today when a new case is published, so neither is a tab of its own.
+ */
 export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'today', path: '/', label: 'Today' },
   { name: 'tutor', path: '/tutor', label: 'Tutor' },
   { name: 'flashcards', path: '/flashcards', label: 'Flashcards' },
   { name: 'encyclopedia', path: '/encyclopedia', label: 'Encyclopedia' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
-  { name: 'cases', path: '/cases', label: 'Case Series' },
   { name: 'podcasts', path: '/podcasts', label: 'Podcast Generator' },
-  { name: 'model', path: '/model', label: 'Model' },
+  { name: 'construction', path: '/construction', label: 'Construction' },
   { name: 'sources', path: '/sources', label: 'Sources' },
   { name: 'settings', path: '/settings', label: 'Settings' }
 ]
@@ -30,7 +43,9 @@ export const FIXED_ROUTES: RouteName[] = ['today', 'settings']
  * alias rather than 404ing into Today.
  */
 export const ALIASES: Record<string, RouteName> = {
-  '/piles': 'sources'
+  '/piles': 'sources',
+  '/model': 'settings',
+  '/cases': 'settings'
 }
 
 export function isRouteName(value: unknown): value is RouteName {

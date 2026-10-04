@@ -13,7 +13,7 @@ import { momentLabel } from '../lib/format'
 import type { EncyclopediaEntry, EncyclopediaList, Specialty } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 
-function CompileCard({ state, onChanged }: { state: EncyclopediaList; onChanged: () => void }) {
+export function CompileCard({ state, onChanged }: { state: EncyclopediaList; onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
 
@@ -78,7 +78,7 @@ const PHASE_LABEL: Record<string, string> = {
   stopped: 'stopped'
 }
 
-function DissectionCard({ onChanged }: { onChanged: () => void }) {
+export function DissectionCard({ onChanged }: { onChanged: () => void }) {
   const { result, reload } = useLoad(() => api.dissection(), [])
   const piles = useLoad(() => api.listPiles(), [])
   const [pileId, setPileId] = useState('')
@@ -112,14 +112,8 @@ function DissectionCard({ onChanged }: { onChanged: () => void }) {
   return (
     <section className="card" aria-labelledby="dissection-heading">
       <h2 id="dissection-heading">Dissect a pile</h2>
-      <p className="muted small">
-        An agent that works through a pile, or every pile, to the end: builds batch after batch,
-        and every few batches compiles a page per topic with a PubMed review and board questions.
-        It does not stop on a failure, resumes after a restart, and once it is done keeps watching:
-        a file dropped into a pile is built and compiled as soon as the folder scan sees it.
-      </p>
       {!state.can_run ? (
-        <p className="muted">{state.blocked_reason}</p>
+        <p className="muted small">Building happens on your Mac; this copy shows what it has built.</p>
       ) : (
         <>
           <p className="muted small">{state.disclosure}</p>
@@ -183,6 +177,78 @@ function DissectionCard({ onChanged }: { onChanged: () => void }) {
   )
 }
 
+/**
+ * A page, and on the Mac its editor (ADR 0026). The edit is Markdown, kept beside
+ * the compiled text and written to the page's file in the source folder, where
+ * any editor can change it too; the next scan reads that change back.
+ */
+function EditablePage({ page, onSaved, canEdit }: { page: EncyclopediaEntry; onSaved: (page: EncyclopediaEntry) => void; canEdit: boolean }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(page.markdown)
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<ApiError | null>(null)
+
+  const act = async (action: () => Promise<EncyclopediaEntry>) => {
+    setBusy(true)
+    setFailure(null)
+    try {
+      const next = await action()
+      onSaved(next)
+      setDraft(next.markdown)
+      setEditing(false)
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      {editing ? (
+        <div className="page-editor">
+          <label className="field">
+            <span>Edit this page (Markdown)</span>
+            <textarea rows={24} value={draft} disabled={busy} spellCheck onChange={(event) => setDraft(event.target.value)} />
+          </label>
+          <p className="muted small">
+            # heading, ## section, a blank line between paragraphs, - for a list, **bold**, *italic*. Saved on this Mac and to the page’s file in
+            your source folder under encyclopedia/.
+          </p>
+          <div className="actions">
+            <button type="button" className="button primary" disabled={busy} onClick={() => void act(() => api.editPage(page.id, draft))}>
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            <button type="button" className="button ghost" disabled={busy} onClick={() => { setDraft(page.markdown); setEditing(false) }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <EncyclopediaPage page={page} />
+          {/* Edited on the Mac, whose copy is the page's: the cloud copy shows the edit once it syncs. */}
+          {canEdit ? <div className="actions">
+            <button type="button" className="button" onClick={() => { setDraft(page.markdown); setEditing(true) }}>
+              Edit
+            </button>
+            {page.edited ? (
+              <button type="button" className="button ghost" disabled={busy} onClick={() => void act(() => api.revertPage(page.id))}>
+                Go back to the compiled page
+              </button>
+            ) : null}
+          </div> : null}
+        </>
+      )}
+      {failure ? (
+        <p className="failure" role="alert">
+          {failure.message}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
 export interface Subject {
   id: string
   name: string
@@ -201,13 +267,15 @@ export function pagesBySubject(entries: EncyclopediaEntry[], specialties: Specia
 
 function jumpTo(id: string) {
   // Scrolled by hand: inside the conversation the app has no address bar for a fragment to land in.
-  document.getElementById(id)?.scrollIntoView?.({ block: 'start' })
+  const target = document.getElementById(id)
+  if (target instanceof HTMLDetailsElement) target.open = true
+  target?.scrollIntoView?.({ block: 'start' })
 }
 
 export function Encyclopedia() {
   const [typed, setTyped] = useState('')
   const [q, setQ] = useState('')
-  const [reloadToken, setReloadToken] = useState(0)
+  const [reloadToken] = useState(0)
   const [open, setOpen] = useState<EncyclopediaEntry | null>(null)
   const [opening, setOpening] = useState<ApiError | null>(null)
   const { result, reload } = useLoad(() => api.encyclopediaList(q || undefined), [q, reloadToken])
@@ -240,7 +308,7 @@ export function Encyclopedia() {
               ← All pages
             </button>
           </div>
-          <EncyclopediaPage page={open} />
+          <EditablePage page={open} onSaved={setOpen} canEdit={result.state === 'ready' && result.value.can_compile} />
         </section>
       </div>
     )
@@ -261,19 +329,6 @@ export function Encyclopedia() {
 
   return (
     <div className="stack">
-      <section className="card" aria-labelledby="encyclopedia-heading">
-        <h2 id="encyclopedia-heading">Encyclopedia</h2>
-        <p className="muted">
-          Your sources, compiled: one page per topic, written from the learning points a Build made,
-          with every paragraph naming the points and sources it rests on. Today shows one page to
-          review each day, and the Tutor’s board questions are written from these pages.
-        </p>
-      </section>
-
-      <DissectionCard onChanged={() => setReloadToken((value) => value + 1)} />
-
-      {result.state === 'ready' ? <CompileCard state={result.value} onChanged={() => setReloadToken((value) => value + 1)} /> : null}
-
       <section className="card" aria-labelledby="pages-heading">
         <h2 id="pages-heading">Pages</h2>
         <form className="case-search" onSubmit={search}>
@@ -337,8 +392,13 @@ export function Encyclopedia() {
               </ol>
             </nav>
             {subjects.map((subject) => (
-              <section key={subject.id} id={`subject-${subject.id}`} className="page-subject" aria-labelledby={`subject-heading-${subject.id}`}>
-                <h3 id={`subject-heading-${subject.id}`}>{subject.name}</h3>
+              <details key={subject.id} id={`subject-${subject.id}`} className="page-subject" open={subjects.length <= 2 || q !== ''}>
+                <summary>
+                  <span className="page-subject-name">{subject.name}</span>{' '}
+                  <span className="muted small">
+                    {subject.entries.length} page{subject.entries.length === 1 ? '' : 's'}
+                  </span>
+                </summary>
                 <ul className="list page-list">
                   {subject.entries.map((entry) => (
                     <li key={entry.id}>
@@ -351,7 +411,7 @@ export function Encyclopedia() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </details>
             ))}
           </>
         ) : null}

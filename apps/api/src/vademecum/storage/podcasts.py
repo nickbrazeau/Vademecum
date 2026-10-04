@@ -39,9 +39,12 @@ class Episode:
     duration_seconds: int
     created_at: str
     updated_at: str
+    # What the episode was written from (ADR 0026): the pages and the literature reviewed for them.
+    sources: tuple[dict[str, str], ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
+        data["sources"] = [dict(item) for item in self.sources]
         data["entry_ids"] = list(self.entry_ids)
         data["script"] = [dict(line) for line in self.script]
         data["takeaways"] = list(self.takeaways)
@@ -78,6 +81,11 @@ def _episode(row: sqlite3.Row) -> Episode:
         duration_seconds=int(row["duration_seconds"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        sources=tuple(
+            {str(k): str(v) for k, v in item.items()}
+            for item in (_loads(row["sources"], []) if "sources" in row.keys() else [])
+            if isinstance(item, dict)
+        ),
     )
 
 
@@ -103,6 +111,11 @@ def get_episode(connection: sqlite3.Connection, episode_id: str) -> Episode:
 def list_episodes(connection: sqlite3.Connection, *, limit: int = 50) -> list[Episode]:
     rows = connection.execute("SELECT * FROM podcast_episodes ORDER BY created_at DESC, id LIMIT ?", (max(1, int(limit)),)).fetchall()
     return [_episode(row) for row in rows]
+
+
+def set_sources(connection: sqlite3.Connection, episode_id: str, sources: list[dict[str, str]]) -> None:
+    with transaction(connection) as tx:
+        tx.execute("UPDATE podcast_episodes SET sources = ? WHERE id = ?", (json.dumps(sources[:40]), episode_id))
 
 
 def set_script(connection: sqlite3.Connection, episode_id: str, *, title: str, script: list[dict[str, str]], takeaways: list[str]) -> Episode:

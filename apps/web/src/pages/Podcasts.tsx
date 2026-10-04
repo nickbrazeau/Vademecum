@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
+import { PaperLink } from '../components/PaperLink'
 import { Unavailable } from '../components/Unavailable'
 import { API_ROOT, ApiError, api, asApiError } from '../lib/api'
 import { byteLabel, momentLabel } from '../lib/format'
@@ -122,6 +123,21 @@ function EpisodeCard({ episode, voices, canRender, onChanged }: { episode: Podca
         </audio>
       ) : null}
       {episode.script.length > 0 ? <Script episode={episode} /> : null}
+      {episode.sources.length > 0 ? (
+        <details className="support-details">
+          <summary>Sources ({episode.sources.length})</summary>
+          <ul className="list small">
+            {episode.sources.map((source, index) => (
+              <li key={`${source.kind}-${index}`}>
+                {source.kind === 'paper' && source.pmid ? <PaperLink pmid={source.pmid} title={source.title} /> : <span>{source.title}</span>}
+                <span className="muted small">
+                  {source.kind === 'page' ? ' · encyclopedia page' : ` · ${[source.journal, source.year].filter(Boolean).join(', ')}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       {episode.script.length > 0 && canRender ? (
         <div className="podcast-voices">
           <label htmlFor={`voice-a-${episode.id}`}>Host A voice</label>
@@ -216,8 +232,9 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
       <section className="card" aria-labelledby="podcasts-heading">
         <h2 id="podcasts-heading">Podcast Generator</h2>
         <p className="muted">
-          A two-host episode written from your encyclopedia, saying only what the pages say, with take-homes at the end. The audio is
-          made on this Mac with its own voices: no service, no key. On the phone the browser reads the script aloud instead.
+          A two-host episode grounded in your encyclopedia, expanding from there with the literature reviewed for each page and the
+          hosts’ own knowledge, with sources cited as they go and take-homes at the end. The audio is made on this Mac with its own
+          voices: no service, no key. On the phone the browser reads the script aloud instead.
         </p>
         {list.can_write ? (
           <>

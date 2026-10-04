@@ -55,14 +55,14 @@ describe('the shell behind the gateway', () => {
   it('changes nothing on the owner’s Mac', async () => {
     stubApi({ status: 'ok', tenancy: 'single', model_mode: 'codex' })
     render(<App />)
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Model' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 
   it('treats a health check that says nothing as the owner’s Mac', async () => {
     stubApi({ status: 'ok' })
     render(<App />)
-    await waitFor(() => expect(screen.getByRole('link', { name: 'Model' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 })

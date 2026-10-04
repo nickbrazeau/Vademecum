@@ -59,7 +59,7 @@ describe('the Socratic tutor on the Mac', () => {
     })
     const user = userEvent.setup()
     render(<Tutor />)
-    await user.click(await screen.findByRole('button', { name: 'Socratic tutor' }))
+    await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
     expect(await screen.findByText(/sends the page the session is about/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Start a session' }))
     expect(await screen.findByText(/What is on your differential/)).toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('the Socratic tutor on the Mac', () => {
       '/api/socratic': { open: null, recent: [], mode: 'host', can_answer_here: false, note: 'In this Vademecum the Socratic tutor runs in the conversation.', disclosure: '' }
     })
     render(<Tutor />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Socratic tutor' }))
+    await userEvent.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
     expect(await screen.findByText(/runs in the conversation/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start a session' })).not.toBeInTheDocument()
   })

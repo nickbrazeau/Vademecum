@@ -199,6 +199,14 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any, prov
         finally:
             connection.close()
         return {"topic": topic, "status": "failed", "detail": "unsourced"}
+    # Figures from the owner's own material, beside the paragraphs whose points share their page or slide.
+    from ..storage import figures as figure_store
+
+    connection = connect(database_path)
+    try:
+        checked["sections"] = figure_store.place(connection, checked["sections"])
+    finally:
+        connection.close()
     owner_call = assigned.get(topic)
     specialty_id = owner_call.id if owner_call is not None else checked["specialty_id"]
     connection = connect(database_path)

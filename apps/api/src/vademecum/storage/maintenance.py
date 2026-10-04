@@ -99,6 +99,8 @@ EXPORTED_TABLES: tuple[str, ...] = (
     # stays with the Mac that rendered it.
     "socratic_sessions",
     "podcast_episodes",
+    # What the owner reviewed, for the dashboard on Today (ADR 0026).
+    "review_events",
 )
 
 DATABASE_MEMBER = "vademecum.sqlite3"

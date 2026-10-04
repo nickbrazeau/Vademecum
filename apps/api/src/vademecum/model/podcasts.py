@@ -26,7 +26,7 @@ from ..db import connect
 from ..storage import encyclopedia as pages
 from ..storage import podcasts as store
 from . import prompts, schemas
-from .socratic import page_material
+from .socratic import further_context, page_material
 
 logger = logging.getLogger("vademecum.podcasts")
 
@@ -77,12 +77,23 @@ async def write_script(database_path: Path, episode_id: str, turn_factory: Any) 
     try:
         episode = store.get_episode(connection, episode_id)
         texts: list[str] = []
+        sources: list[dict[str, str]] = []
         for entry_id in episode.entry_ids:
             try:
                 entry = pages.get_entry(connection, entry_id)
             except Exception:  # noqa: BLE001 - a page removed since is simply not in the episode
                 continue
-            texts.append(page_material(connection, entry))
+            context = further_context(connection, entry)
+            texts.append(page_material(connection, entry) + (f"\n\nFURTHER CONTEXT:\n{context}" if context else ""))
+            sources.append({"kind": "page", "title": entry.title, "entry_id": entry.id})
+            for record in pages.records_for_entry(connection, entry.id):
+                if record["retracted"] or record["is_notice"]:
+                    continue
+                sources.append(
+                    {"kind": "paper", "title": record["title"], "journal": record["journal"], "year": (record["published_on"] or "")[:4], "pmid": record["pmid"]}
+                )
+        # The sources are the server's own record of what went in, not the model's claim.
+        store.set_sources(connection, episode_id, sources)
     finally:
         connection.close()
     if not texts:

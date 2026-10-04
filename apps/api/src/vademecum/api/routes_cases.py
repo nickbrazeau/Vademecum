@@ -120,3 +120,10 @@ async def refresh_now(request: Request, connection: sqlite3.Connection = Depends
     if not hub.refresh_now():
         raise ConflictError("refresh_in_progress", "A refresh is already in progress.")
     return {"started": True, **_settings_payload(hub, connection)}
+
+
+@router.post("/{entry_id}/acknowledge")
+def acknowledge(entry_id: str, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Seen on Today: it leaves the list of new cases and stays in the hub."""
+    store.acknowledge(connection, entry_id)
+    return {"acknowledged": True}

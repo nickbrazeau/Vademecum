@@ -118,9 +118,20 @@ def test_a_rewritten_page_holds_cards_whose_points_left(connection) -> None:
 def test_preferences_keep_today_and_settings_and_follow_the_catalogue(connection) -> None:
     default = preferences.get_preferences(connection)
     assert default["visible_tabs"][0] == "today" and default["visible_tabs"][-1] == "settings"
-    chosen = preferences.set_visible_tabs(connection, ["tutor", "bogus", "cases"])
-    assert chosen["visible_tabs"] == ["today", "tutor", "cases", "settings"]
+    chosen = preferences.set_visible_tabs(connection, ["tutor", "bogus", "podcasts"])
+    assert chosen["visible_tabs"] == ["today", "tutor", "podcasts", "settings"]
     assert preferences.set_visible_tabs(connection, [])["visible_tabs"] == ["today", "settings"]
+
+
+def test_a_tab_added_after_the_owner_chose_is_shown(connection) -> None:
+    import json
+
+    connection.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES ('preferences', ?, '2026-10-01T00:00:00Z')",
+        (json.dumps({"visible_tabs": ["today", "tutor", "settings"]}),),
+    )
+    connection.commit()
+    assert preferences.get_preferences(connection)["visible_tabs"] == ["today", "tutor", "construction", "settings"]
 
 
 def test_preferences_over_the_api(tmp_path: Path) -> None:

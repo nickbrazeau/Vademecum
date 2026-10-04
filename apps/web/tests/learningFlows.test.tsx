@@ -199,6 +199,7 @@ describe('Tutor verdicts and local drafts', () => {
       : next))
     render(<Tutor />)
     const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /^Board questions/ }))
     const answer = await screen.findByRole('textbox', { name: 'Your answer' })
     await user.type(answer, 'My unfinished general study response')
     await user.click(screen.getByRole('button', { name: 'Grade with the model' }))
@@ -221,6 +222,7 @@ describe('Tutor verdicts and local drafts', () => {
     })
     const first = render(<Tutor />)
     const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: /^Board questions/ }))
     await user.type(await screen.findByRole('textbox', { name: 'Your answer' }), 'Recall without looking.')
     await user.click(screen.getByRole('button', { name: 'Grade with the model' }))
     expect(await screen.findByRole('heading', { name: 'Correct' })).toBeVisible()
@@ -228,6 +230,7 @@ describe('Tutor verdicts and local drafts', () => {
     first.unmount()
     fail = true
     render(<Tutor />)
+    await user.click(await screen.findByRole('button', { name: /^Board questions/ }))
     await user.type(await screen.findByRole('textbox', { name: 'Your answer' }), 'My next response')
     await user.click(screen.getByRole('button', { name: 'Grade with the model' }))
     expect(await screen.findByRole('heading', { name: /judge it yourself/i })).toBeVisible()

@@ -81,8 +81,34 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
   }, [])
 
   const lastTutorLine = session?.transcript.filter((turn) => turn.role === 'tutor').at(-1)
+  // Voice mode: the question is spoken, then the tutor listens, and what you say
+  // is sent when you stop speaking. The browser's own voice and dictation; nothing else.
+  const answerRef = useRef('')
+  answerRef.current = answer
+  const sessionRef = useRef<SocraticSession | null>(null)
+  sessionRef.current = session
+  const listen = (autoSend: boolean) => {
+    setListening(true)
+    stopListening.current = dictate(
+      (text) => setAnswer(text),
+      () => {
+        setListening(false)
+        const current = sessionRef.current
+        if (autoSend && current && current.status === 'open' && answerRef.current.trim()) {
+          const said = answerRef.current
+          void act(() => api.socraticAnswer(current.id, said))
+        }
+      }
+    )
+  }
   useEffect(() => {
-    if (voiceOn && lastTutorLine) stopSpeaking.current = speak(lastTutorLine.text)
+    if (!voiceOn || !lastTutorLine) return
+    stopSpeaking.current = speak(lastTutorLine.text, {
+      onEnd: () => {
+        if (sessionRef.current?.status === 'open' && canDictate()) listen(true)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceOn, lastTutorLine])
 
   if (result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
@@ -130,11 +156,7 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
       setListening(false)
       return
     }
-    setListening(true)
-    stopListening.current = dictate(
-      (text) => setAnswer(text),
-      () => setListening(false)
-    )
+    listen(false)
   }
 
   const heading = (
@@ -150,6 +172,10 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
           the knowledge underneath, one at a time, never the answer first. The tutor assesses and probes beyond the page from the
           literature reviewed for it, related pages, and its own knowledge, saying which is which. At the end, how you reasoned and
           what to revisit; each gap becomes a flag.
+        </p>
+        <p className="muted small">
+          In ChatGPT or Claude: open the app, start voice, and say “Start a Socratic session in Vademecum”. The assistant asks in its own
+          voice and the session lands here. On this Mac, Voice mode speaks each question and listens for your answer.
         </p>
         {overview.can_answer_here ? (
           <>
@@ -230,8 +256,18 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
                 </button>
               ) : null}
               {canSpeak() ? (
-                <button type="button" className="button ghost" onClick={() => setVoiceOn((on) => !on)}>
-                  {voiceOn ? 'Stop reading aloud' : 'Read questions aloud'}
+                <button
+                  type="button"
+                  className={`button${voiceOn ? ' primary' : ''}`}
+                  onClick={() => {
+                    if (voiceOn) {
+                      stopSpeaking.current()
+                      stopListening.current()
+                    }
+                    setVoiceOn((on) => !on)
+                  }}
+                >
+                  {voiceOn ? 'Voice mode on' : 'Voice mode'}
                 </button>
               ) : null}
               <button type="button" className="button ghost" disabled={busy} onClick={() => void act(() => api.socraticAbandon(session.id))}>

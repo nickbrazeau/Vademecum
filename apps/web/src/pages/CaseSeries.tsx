@@ -93,7 +93,7 @@ function CaseCard({ entry }: { entry: CaseEntry }) {
   )
 }
 
-function HubSettings({ onChanged }: { onChanged: () => void }) {
+export function HubSettings({ onChanged }: { onChanged: () => void }) {
   const { result, reload } = useLoad(() => api.caseSettings(), [])
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
@@ -206,7 +206,7 @@ function HubSettings({ onChanged }: { onChanged: () => void }) {
   )
 }
 
-export function CaseSeries() {
+export function CaseSeries({ embedded = false }: { embedded?: boolean } = {}) {
   const [series, setSeries] = useState('')
   const [typed, setTyped] = useState('')
   const [q, setQ] = useState('')
@@ -223,7 +223,7 @@ export function CaseSeries() {
 
   return (
     <div className="stack">
-      <HubSettings onChanged={() => setReloadToken((value) => value + 1)} />
+      {embedded ? null : <HubSettings onChanged={() => setReloadToken((value) => value + 1)} />}
 
       <section className="card" aria-labelledby="case-list-heading">
         <h2 id="case-list-heading">Cases</h2>

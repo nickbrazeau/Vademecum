@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { BoardTutor } from '../components/BoardTutor'
 import { PhiWarning } from '../components/PhiWarning'
+import { Scorecard } from '../components/Scorecard'
 import { SocraticTutor } from '../components/SocraticTutor'
 import { SupportBadge, SupportMeaning, TopicTags } from '../components/SupportBadge'
 import {
@@ -140,32 +141,63 @@ function Reference({ question }: { question: TutorQuestion }) {
  * was built before the encyclopedia goes unasked.
  */
 export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
+  const [mode, setMode] = useState<'home' | 'questions' | 'socratic'>('home')
+  const card = useLoad(() => api.scorecard(), [mode])
+
+  if (mode === 'home') {
+    return (
+      <div className="stack">
+        <section className="card tutor-home" aria-labelledby="tutor-home-heading">
+          <h2 id="tutor-home-heading">Tutor</h2>
+          <div className="tutor-choices">
+            <button type="button" className="button primary tutor-choice" onClick={() => setMode('questions')}>
+              <strong>Board questions</strong>
+              <span className="small">ABIM-style vignettes from your encyclopedia, checked on this Mac</span>
+            </button>
+            <button type="button" className="button tutor-choice" onClick={() => setMode('socratic')}>
+              <strong>Socratic tutor</strong>
+              <span className="small">Open questions, by voice or text: the differential, treatment, knowledge</span>
+            </button>
+          </div>
+        </section>
+        {card.result.state === 'ready' ? <Scorecard card={card.result.value} /> : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="stack">
+      <div className="tutor-bar">
+        <div className="chips" role="group" aria-label="Tutor mode">
+          <button type="button" className={`chip${mode === 'questions' ? ' on' : ''}`} onClick={() => setMode('questions')}>
+            Board questions
+          </button>
+          <button type="button" className={`chip${mode === 'socratic' ? ' on' : ''}`} onClick={() => setMode('socratic')}>
+            Socratic tutor
+          </button>
+        </div>
+        <button type="button" className="button ghost small" onClick={() => setMode('home')}>
+          Close
+        </button>
+      </div>
+      {mode === 'socratic' ? <SocraticTutor onNavigate={onNavigate} /> : <Questions onNavigate={onNavigate} />}
+    </div>
+  )
+}
+
+/** Board questions when there are any; otherwise the open-answer questions a Build made. */
+function Questions({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
   const board = useLoad(() => api.boardNext(), [])
-  const [mode, setMode] = useState<'questions' | 'socratic'>('questions')
   if (board.result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
   // A board question is asked only when it is whole: five options and a stem.
   // Anything less is not a question, and the open-answer bank is asked instead.
   const candidate = board.result.state === 'ready' ? board.result.value.question : null
   const whole = board.result.state === 'ready' && candidate !== null && candidate.options.length === 5 && candidate.stem !== ''
   const reason = board.result.state === 'ready' ? board.result.value.empty_reason : ''
-  return (
-    <div className="stack">
-      <div className="chips" role="group" aria-label="Tutor mode">
-        <button type="button" className={`chip${mode === 'questions' ? ' on' : ''}`} onClick={() => setMode('questions')}>
-          Questions
-        </button>
-        <button type="button" className={`chip${mode === 'socratic' ? ' on' : ''}`} onClick={() => setMode('socratic')}>
-          Socratic tutor
-        </button>
-      </div>
-      {mode === 'socratic' ? (
-        <SocraticTutor onNavigate={onNavigate} />
-      ) : whole && board.result.state === 'ready' ? (
-        <BoardTutor initial={board.result.value} onNavigate={onNavigate} />
-      ) : (
-        <OpenTutor onNavigate={onNavigate} boardReason={reason} />
-      )}
-    </div>
+  return whole && board.result.state === 'ready' ? (
+    <BoardTutor initial={board.result.value} onNavigate={onNavigate} />
+  ) : (
+    <OpenTutor onNavigate={onNavigate} boardReason={reason} />
   )
 }
 

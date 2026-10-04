@@ -5,11 +5,20 @@
  */
 
 import { useEffect, useState } from 'react'
+import { LiteratureSettings } from '../components/LiteratureSettings'
+import { PrivacyNote } from '../components/PrivacyNote'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import { useLoad } from '../lib/useLoad'
+import { CaseSeries, HubSettings } from './CaseSeries'
+import { Model } from './Model'
 
-export function Settings({ onSaved }: { onSaved?: (visible: string[]) => void }) {
+/**
+ * Everything that is set rather than used (ADR 0026): the tabs, the model
+ * connection and its allowance, the literature watch, the Case Series hub, and
+ * where your data lives.
+ */
+export function Settings({ onSaved, showModel = true }: { onSaved?: (visible: string[]) => void; showModel?: boolean }) {
   const { result, reload } = useLoad(() => api.preferences(), [])
   const [chosen, setChosen] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
@@ -81,6 +90,40 @@ export function Settings({ onSaved }: { onSaved?: (visible: string[]) => void })
           </p>
         ) : null}
       </section>
+
+      <section className="card" aria-labelledby="model-settings-heading">
+        <h2 id="model-settings-heading">Model and allowance</h2>
+        {showModel ? (
+          <Model />
+        ) : (
+          <p className="muted small">
+            Here the model is the assistant you are talking to, in ChatGPT or Claude. Your Mac’s own connection, and its allowance, show in
+            Settings on the Mac.
+          </p>
+        )}
+      </section>
+
+      <section className="card" aria-labelledby="literature-settings-heading">
+        <h2 id="literature-settings-heading">Literature</h2>
+        <LiteratureSettings onChecked={() => undefined} />
+      </section>
+
+      <section className="card" aria-labelledby="case-settings-heading">
+        <h2 id="case-settings-heading">Case Series</h2>
+        <p className="muted small">New cases from the series you follow appear on Today with their teaching points.</p>
+        <HubSettings onChanged={() => undefined} />
+        <details className="support-details">
+          <summary>Browse every case</summary>
+          <CaseSeries embedded />
+        </details>
+      </section>
+
+      <details className="card toggle-card" aria-labelledby="privacy-settings-heading">
+        <summary>
+          <h2 id="privacy-settings-heading">Where your data lives</h2>
+        </summary>
+        <PrivacyNote />
+      </details>
     </div>
   )
 }
