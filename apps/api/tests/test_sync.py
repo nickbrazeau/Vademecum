@@ -284,6 +284,17 @@ def test_the_same_paper_under_two_ids_is_skipped_not_fatal(pair) -> None:
         finally:
             connection.close()
     away.post("/api/flags", json={"text": "A flag made on the phone", "topic": "Sepsis"})
+    connection = db(away_app)
+    try:
+        # Foris's own bookkeeping on its copy of the paper: a topic it watches, the paper filed under it.
+        connection.execute("INSERT INTO literature_topics (id, label, query, enabled, created_at, updated_at) VALUES ('top_a', 'Sepsis', 'sepsis', 1, ?, ?)", (now, now))
+        connection.execute(
+            "INSERT INTO literature_topic_records (id, topic_id, record_id, state, first_seen_at, updated_at) VALUES ('ltr_a', 'top_a', 'rec_away', 'unread', ?, ?)",
+            (now, now),
+        )
+        connection.commit()
+    finally:
+        connection.close()
     result = run_sync(home_app, away, scope="lean")
     assert result["pulled"] > 0
     assert any(f["text"] == "A flag made on the phone" for f in home.get("/api/flags").json()), "the rest of the batch arrived"

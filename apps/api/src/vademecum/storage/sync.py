@@ -410,6 +410,17 @@ def apply_changes(
                     # A deferred parent left children dangling: nothing from
                     # this batch is kept, and the whole of it is tried again.
                     raise _Dangling()
+                if role == "domi":
+                    # Pulling from foris: a row of foris's own that points at a
+                    # parent domi does not hold (foris's copy of a paper domi
+                    # already had, skipped as a duplicate) is foris's bookkeeping,
+                    # not the owner's work. It is dropped rather than refusing
+                    # the batch (ADR 0026). Foris, receiving, stays strict: domi
+                    # sends the parents again.
+                    for row in tx.execute("PRAGMA foreign_key_check").fetchall():
+                        tx.execute(f"DELETE FROM {row[0]} WHERE rowid = ?", (row[1],))
+                        skipped += 1
+                        applied = max(0, applied - 1)
             finally:
                 tx.execute("UPDATE sync_state SET applying = 0 WHERE id = 1")
     except _Dangling:
