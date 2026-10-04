@@ -59,7 +59,9 @@ def sync_status(request: Request, connection: sqlite3.Connection = Depends(get_c
     data = sync_store.state(connection)
     data["role"] = get_settings_dep(request).sync_role_name
     # What this node holds of each peer's log, by its own records (ADR 0015, 0026).
-    peer = request.headers.get("x-vademecum-node", "")
+    # The asking node names itself in the query: the cloud gateway passes the sync
+    # token through but not other headers.
+    peer = request.query_params.get("node", "") or request.headers.get("x-vademecum-node", "")
     data["received_through"] = sync_store.received_through(connection, peer) if peer else None
     return data
 

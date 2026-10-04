@@ -59,9 +59,9 @@ class Peer:
         return data
 
     def status(self, node_id: str = "") -> dict[str, Any]:
-        if node_id:
-            self._headers["X-Vademecum-Node"] = node_id
-        return self._json("GET", "/api/sync/status")
+        from urllib.parse import quote
+
+        return self._json("GET", "/api/sync/status" + (f"?node={quote(node_id)}" if node_id else ""))
 
     def changes(self, since: int) -> dict[str, Any]:
         return self._json("GET", f"/api/sync/changes?since={int(since)}")
