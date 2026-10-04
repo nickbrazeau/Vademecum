@@ -298,3 +298,10 @@ def test_the_same_paper_under_two_ids_is_skipped_not_fatal(pair) -> None:
     result = run_sync(home_app, away, scope="lean")
     assert result["pulled"] > 0
     assert any(f["text"] == "A flag made on the phone" for f in home.get("/api/flags").json()), "the rest of the batch arrived"
+    # And the other way: foris's copy gives way to domi's, which is the owner's.
+    connection = db(away_app)
+    try:
+        ids = [row[0] for row in connection.execute("SELECT id FROM literature_records WHERE doi = '10.1/x'").fetchall()]
+    finally:
+        connection.close()
+    assert ids == ["rec_home"]

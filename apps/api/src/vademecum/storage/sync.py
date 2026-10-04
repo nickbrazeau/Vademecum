@@ -435,6 +435,12 @@ def apply_changes(
     return Applied(applied, skipped, len(deferred_seqs), through)
 
 
+def _unique_columns(message: str, table: str) -> list[str]:
+    """The columns sqlite names in 'UNIQUE constraint failed: t.a, t.b'."""
+    named = message.split(":", 1)[-1]
+    return [part.strip().split(".", 1)[1] for part in named.split(",") if part.strip().startswith(f"{table}.")]
+
+
 def _apply_one(
     tx: sqlite3.Connection,
     change: Change,
@@ -489,9 +495,24 @@ def _apply_one(
         )
     except sqlite3.IntegrityError as exc:
         tx.execute("ROLLBACK TO sync_row")
-        tx.execute("RELEASE sync_row")
-        if "UNIQUE" not in str(exc):
+        message = str(exc)
+        if "UNIQUE" not in message:
+            tx.execute("RELEASE sync_row")
             raise
+        if role == "foris" and change.table in DOMI_OWNED:
+            # Domi's row is the owner's: foris's own copy of the same thing (a paper
+            # it fetched itself) gives way, and what pointed at it follows the cascade.
+            for column in _unique_columns(message, change.table):
+                value = change.row.get(column)
+                if value is not None:
+                    tx.execute(f"DELETE FROM {change.table} WHERE {column} = ? AND NOT ({_where(pks)})", [value, *change.key])
+            tx.execute(
+                f"INSERT INTO {change.table} ({', '.join(columns)}) VALUES ({placeholders}) {conflict}",
+                [change.row[column] for column in columns],
+            )
+            tx.execute("RELEASE sync_row")
+            return "applied"
+        tx.execute("RELEASE sync_row")
         return "skipped"
     tx.execute("RELEASE sync_row")
     return "applied"
