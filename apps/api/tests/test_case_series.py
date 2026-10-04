@@ -193,6 +193,20 @@ def test_only_quoted_points_and_named_people_survive() -> None:
     assert title_only["specialty_id"] is None and title_only["credit"] == ""
 
 
+def test_a_note_about_the_material_is_not_a_note_about_the_case() -> None:
+    noisy = {
+        "one_liner": "“An Echo Unheard” is a Clinical Problem-Solving case whose title alone does not establish its presentation or diagnosis.",
+        "teaching_points": [{"point": "The summary provides no further clinical details.", "quote": "Check the anion gap and the osmolar gap"}],
+        "think_first": ["What widens an osmolar gap?", "The prodromal symptoms are not described in the supplied material."],
+        "specialty": "",
+        "credit": "",
+    }
+    kept = check_synthesis(noisy, text=TEXT, specialty_ids=set())
+    assert kept["one_liner"] == "" and kept["points"] == [] and kept["think_first"] == ["What widens an osmolar gap?"]
+    fine = check_synthesis({**noisy, "one_liner": "A 4-year-old boy with fatigue, imbalance and frequent falls."}, text="", specialty_ids=set())
+    assert fine["one_liner"] == "A 4-year-old boy with fatigue, imbalance and frequent falls."
+
+
 class CaseTurns:
     """A runner that answers every case the same way, so a refresh racing a scheduled one cannot run out of script."""
 

@@ -14,6 +14,7 @@ hub says so.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,22 @@ def quoted_in(text: str, quote: str) -> bool:
     return quote_in(_plain(text), _plain(quote))
 
 
+# A note about the material is not a note about the case. A sentence that says what
+# the title or the show notes do not tell is dropped, wherever the model put it.
+_ABOUT_THE_MATERIAL = re.compile(
+    r"(title alone|does not (establish|describe|disclose|specify|state|mention|indicate)"
+    r"|not (described|disclosed|provided|stated|specified|given|detailed) in"
+    r"|the (supplied|provided|available) (material|summary|notes|text)"
+    r"|the (summary|notes|title|material) (does|do) not|no further (clinical )?(details|information)"
+    r"|without (further|additional) (details|information)|not disclosed|is not described)",
+    re.IGNORECASE,
+)
+
+
+def about_the_case(sentence: str) -> bool:
+    return bool(sentence.strip()) and _ABOUT_THE_MATERIAL.search(sentence) is None
+
+
 def check_synthesis(payload: dict[str, Any], *, text: str, specialty_ids: set[str]) -> dict[str, Any]:
     """What the server keeps of the model's answer: quoted points, bounded prompts, a listed specialty."""
     points: list[dict[str, str]] = []
@@ -74,7 +91,7 @@ def check_synthesis(payload: dict[str, Any], *, text: str, specialty_ids: set[st
         offered += 1
         point = " ".join(str(item.get("point") or "").split())
         quote = str(item.get("quote") or "")
-        if point and text and quoted_in(text, quote):
+        if point and text and quoted_in(text, quote) and about_the_case(point):
             points.append({"point": point, "quote": quote})
     if offered:
         # Counts only: how many points the model offered and how many quoted the text.
@@ -82,11 +99,12 @@ def check_synthesis(payload: dict[str, Any], *, text: str, specialty_ids: set[st
     prompts_kept = [
         " ".join(str(item).split())
         for item in (payload.get("think_first") or [])
-        if isinstance(item, str) and str(item).strip()
+        if isinstance(item, str) and about_the_case(str(item))
     ]
     specialty = str(payload.get("specialty") or "").strip()
+    one_liner = " ".join(str(payload.get("one_liner") or "").split())
     return {
-        "one_liner": " ".join(str(payload.get("one_liner") or "").split()),
+        "one_liner": one_liner if about_the_case(one_liner) else "",
         "points": points[: store.MAX_POINTS],
         "think_first": prompts_kept[: store.MAX_THINK_FIRST],
         "specialty_id": specialty if specialty in specialty_ids else None,
