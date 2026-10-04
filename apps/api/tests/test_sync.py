@@ -264,3 +264,26 @@ def test_a_foris_restored_from_an_older_copy_of_itself_is_sent_what_it_lost(pair
     run_sync(home_app, away, scope="lean")
     assert any(p["id"] == page["id"] for p in away.get("/api/piles").json()), "sent again"
     assert any(f["id"] == first["id"] for f in away.get("/api/flags").json())
+
+
+
+def test_the_same_paper_under_two_ids_is_skipped_not_fatal(pair) -> None:
+    """ADR 0026: both nodes may fetch one paper from PubMed; the copy that arrives second
+    under another id duplicates a unique DOI and is skipped, and the rest of the batch applies."""
+    home, home_app, away, away_app = pair
+    now = "2026-10-04T00:00:00Z"
+    for app, record_id in ((home_app, "rec_home"), (away_app, "rec_away")):
+        connection = db(app)
+        try:
+            connection.execute(
+                "INSERT INTO literature_records (id, pmid, doi, title, journal, abstract, publication_types, correction_notes, url, priority, first_seen_at, updated_at)"
+                " VALUES (?, '123', '10.1/x', 'Same paper', 'J', '', '[]', '[]', '', 'other', ?, ?)",
+                (record_id, now, now),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+    away.post("/api/flags", json={"text": "A flag made on the phone", "topic": "Sepsis"})
+    result = run_sync(home_app, away, scope="lean")
+    assert result["pulled"] > 0
+    assert any(f["text"] == "A flag made on the phone" for f in home.get("/api/flags").json()), "the rest of the batch arrived"

@@ -466,10 +466,23 @@ def _apply_one(
     placeholders = ", ".join("?" for _ in columns)
     updates = ", ".join(f"{column} = excluded.{column}" for column in columns if column not in pks)
     conflict = f"ON CONFLICT({', '.join(pks)}) DO UPDATE SET {updates}" if updates else f"ON CONFLICT({', '.join(pks)}) DO NOTHING"
-    tx.execute(
-        f"INSERT INTO {change.table} ({', '.join(columns)}) VALUES ({placeholders}) {conflict}",
-        [change.row[column] for column in columns],
-    )
+    # A row that duplicates one this node already holds under another id (both
+    # nodes fetched the same paper, by DOI or PMID) is the same fact twice: it is
+    # skipped, and the batch goes on (ADR 0026). Foreign keys are deferred, so
+    # only a unique key can fail here.
+    tx.execute("SAVEPOINT sync_row")
+    try:
+        tx.execute(
+            f"INSERT INTO {change.table} ({', '.join(columns)}) VALUES ({placeholders}) {conflict}",
+            [change.row[column] for column in columns],
+        )
+    except sqlite3.IntegrityError as exc:
+        tx.execute("ROLLBACK TO sync_row")
+        tx.execute("RELEASE sync_row")
+        if "UNIQUE" not in str(exc):
+            raise
+        return "skipped"
+    tx.execute("RELEASE sync_row")
     return "applied"
 
 
