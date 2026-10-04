@@ -28,7 +28,6 @@ export interface GraphNode extends SimulationNodeDatum {
   addressed: number
   points: number
   specialty: string | null
-  unfiled: boolean
   /** What the newest exam report said about this area (ADR 0020), if it named it. */
   standing: 'below' | 'at' | 'above' | null
 }
@@ -37,16 +36,14 @@ interface GraphLink extends SimulationLinkDatum<GraphNode> {
   weight: number
 }
 
-export const UNFILED_ID = '__not_filed__'
 /** The legend key for topics with no specialty; also what the filter hides them by. */
 export const UNASSIGNED = '__unassigned__'
 const EMPTY_SET: ReadonlySet<string> = new Set()
 // A stable default: a fresh array each render would rebuild the layout every render.
 const NO_REPORTS: ReportArea[] = []
 
-/** Whether a node is drawn under the current legend filter. Unfiled flags are never filtered. */
-export function isShown(node: Pick<GraphNode, 'specialty' | 'unfiled'>, hidden: ReadonlySet<string>): boolean {
-  if (node.unfiled) return true
+/** Whether a node is drawn under the current legend filter. */
+export function isShown(node: Pick<GraphNode, 'specialty'>, hidden: ReadonlySet<string>): boolean {
   return !hidden.has(node.specialty ?? UNASSIGNED)
 }
 
@@ -67,16 +64,16 @@ export function buildGraph(
 ): { nodes: GraphNode[]; links: GraphLink[] } {
   const nodes = new Map<string, GraphNode>()
   for (const gap of topics) {
+    // A flag with no topic yet is not a place on the map; it stays in the list underneath.
+    if (gap.topic === null) continue
     if (openOnly && gap.open_flags === 0) continue
-    const id = gap.topic ?? UNFILED_ID
-    nodes.set(id, {
-      id,
-      label: gap.topic ?? 'Not filed yet',
+    nodes.set(gap.topic, {
+      id: gap.topic,
+      label: gap.topic,
       open: gap.open_flags,
       addressed: gap.addressed_flags,
       points: 0,
       specialty: gap.specialty?.id ?? null,
-      unfiled: gap.topic === null,
       standing: null
     })
   }
@@ -93,7 +90,6 @@ export function buildGraph(
         addressed: 0,
         points: entry.point_count,
         specialty: entry.specialty?.id ?? null,
-        unfiled: false,
         standing: null
       })
     }
@@ -114,7 +110,6 @@ export function buildGraph(
         addressed: 0,
         points: 0,
         specialty: area.specialty_id,
-        unfiled: false,
         standing: area.standing
       })
     }
@@ -245,8 +240,7 @@ function pinchDistance(points: Map<number, { x: number; y: number }>): number {
 }
 
 /** The CSS hook for a node's colour. Specialty ids are slugs, so they are safe in a class name. */
-export function specialtyClass(specialty: string | null, unfiled: boolean): string {
-  if (unfiled) return 'node-unfiled'
+export function specialtyClass(specialty: string | null): string {
   return specialty === null ? 'node-unassigned' : `spec-${specialty}`
 }
 
@@ -302,7 +296,7 @@ export function TopicGraph({
     const ids = new Set(graph.nodes.map((node) => node.specialty).filter((id): id is string => id !== null))
     return specialties.filter((entry) => ids.has(entry.id))
   }, [graph, specialties])
-  const hasUnassigned = graph.nodes.some((node) => !node.unfiled && node.specialty === null)
+  const hasUnassigned = graph.nodes.some((node) => node.specialty === null)
 
   // View transform: pan and zoom, in SVG user units. The initial view fits the
   // laid-out nodes into the frame with room for their labels.
@@ -457,7 +451,7 @@ export function TopicGraph({
             return (
               <g
                 key={node.id}
-                className={`topic-node ${specialtyClass(node.specialty, node.unfiled)} ${node.standing ? `standing-${node.standing}` : ''} ${isSelected ? 'selected' : ''}`}
+                className={`topic-node ${specialtyClass(node.specialty)} ${node.standing ? `standing-${node.standing}` : ''} ${isSelected ? 'selected' : ''}`}
                 transform={`translate(${node.x ?? 0} ${node.y ?? 0})`}
                 role="button"
                 tabIndex={0}

@@ -1,16 +1,16 @@
 /**
  * The Encyclopedia (ADR 0023): every page compiled from your sources, one per
- * topic, with a search, a compile card that says what compiling sends, and the
- * page itself when you open one.
+ * topic, shelved by subject under a table of contents, with a search, a compile
+ * card that says what compiling sends, and the page itself when you open one.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { EncyclopediaPage } from '../components/EncyclopediaPage'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import { momentLabel } from '../lib/format'
-import type { EncyclopediaEntry, EncyclopediaList } from '../lib/types'
+import type { EncyclopediaEntry, EncyclopediaList, Specialty } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 
 function CompileCard({ state, onChanged }: { state: EncyclopediaList; onChanged: () => void }) {
@@ -68,6 +68,141 @@ function CompileCard({ state, onChanged }: { state: EncyclopediaList; onChanged:
   )
 }
 
+const PHASE_LABEL: Record<string, string> = {
+  starting: 'starting',
+  building: 'building the next batch',
+  compiling: 'compiling pages, reviewing the literature, writing questions',
+  waiting: 'waiting for a build already running',
+  backing_off: 'paused after a failure; it will try again',
+  complete: 'complete: the pile is built and every page is current. Still watching for new files.',
+  stopped: 'stopped'
+}
+
+function DissectionCard({ onChanged }: { onChanged: () => void }) {
+  const { result, reload } = useLoad(() => api.dissection(), [])
+  const piles = useLoad(() => api.listPiles(), [])
+  const [pileId, setPileId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<ApiError | null>(null)
+
+  useEffect(() => {
+    if (result.state !== 'ready' || !result.value.running) return undefined
+    const timer = window.setInterval(reload, 15000)
+    return () => window.clearInterval(timer)
+  }, [result, reload])
+
+  if (result.state !== 'ready') return null
+  const state = result.value
+  const chosen = pileId || state.pile_id || (piles.result.state === 'ready' ? (piles.result.value[0]?.id ?? '') : '')
+
+  const act = async (action: () => Promise<unknown>) => {
+    setBusy(true)
+    setFailure(null)
+    try {
+      await action()
+      reload()
+      onChanged()
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card" aria-labelledby="dissection-heading">
+      <h2 id="dissection-heading">Dissect a pile</h2>
+      <p className="muted small">
+        An agent that works through one pile to the end: builds batch after batch, and every few
+        batches compiles a page per topic with a PubMed review and board questions. It does not stop
+        on a failure, resumes after a restart, and keeps watching the pile for new files once it is
+        done.
+      </p>
+      {!state.can_run ? (
+        <p className="muted">{state.blocked_reason}</p>
+      ) : (
+        <>
+          <p className="muted small">{state.disclosure}</p>
+          {state.status === 'running' ? (
+            <>
+              <p className="body">
+                Working through <strong>{state.pile_title}</strong>: {PHASE_LABEL[state.phase] ?? state.phase}.
+              </p>
+              <p className="muted small">
+                {state.batches_done} batch{state.batches_done === 1 ? '' : 'es'} built · {state.points_built} points ·{' '}
+                {state.pages_compiled} page{state.pages_compiled === 1 ? '' : 's'} compiled · {state.questions_written} question
+                {state.questions_written === 1 ? '' : 's'} written
+                {state.coverage ? ` · ${state.coverage.percent}% of the pile’s text processed` : null}
+                {state.consent_at ? ` · consent given ${momentLabel(state.consent_at)}` : null}
+              </p>
+              {state.last_error ? (
+                <p className="warn small">
+                  {state.last_error}
+                  {state.next_retry_at ? ` Next try ${momentLabel(state.next_retry_at)}.` : null}
+                </p>
+              ) : null}
+              <div className="actions">
+                <button type="button" className="button" disabled={busy} onClick={() => void act(() => api.stopDissection())}>
+                  Stop the agent
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {state.status === 'stopped' ? (
+                <p className="muted small">
+                  Stopped on <strong>{state.pile_title}</strong> after {state.batches_done} batch{state.batches_done === 1 ? '' : 'es'}. Starting again resumes it.
+                </p>
+              ) : null}
+              <label htmlFor="dissect-pile">Pile</label>
+              <select id="dissect-pile" value={chosen} disabled={busy} onChange={(event) => setPileId(event.target.value)}>
+                {piles.result.state === 'ready'
+                  ? piles.result.value.map((pile) => (
+                      <option key={pile.id} value={pile.id}>
+                        {pile.title}
+                      </option>
+                    ))
+                  : null}
+              </select>
+              <div className="actions">
+                <button type="button" className="button primary" disabled={busy || !chosen} onClick={() => void act(() => api.startDissection(chosen))}>
+                  Dissect this pile
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      )}
+      {failure ? (
+        <p className="failure" role="alert">
+          {failure.message}
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+export interface Subject {
+  id: string
+  name: string
+  entries: EncyclopediaEntry[]
+}
+
+const NO_SUBJECT = 'other'
+
+/** Pages under their subject, in the subjects' own order; a page with none comes last. */
+export function pagesBySubject(entries: EncyclopediaEntry[], specialties: Specialty[]): Subject[] {
+  const subjects = new Map<string, Subject>(specialties.map((entry) => [entry.id, { ...entry, entries: [] }]))
+  const other: Subject = { id: NO_SUBJECT, name: 'Other topics', entries: [] }
+  for (const entry of entries) (subjects.get(entry.specialty_id ?? '') ?? other).entries.push(entry)
+  return [...subjects.values(), other].filter((subject) => subject.entries.length > 0)
+}
+
+function jumpTo(id: string) {
+  // Scrolled by hand: inside the conversation the app has no address bar for a fragment to land in.
+  document.getElementById(id)?.scrollIntoView?.({ block: 'start' })
+}
+
 export function Encyclopedia() {
   const [typed, setTyped] = useState('')
   const [q, setQ] = useState('')
@@ -110,6 +245,19 @@ export function Encyclopedia() {
     )
   }
 
+  const subjects = result.state === 'ready' ? pagesBySubject(result.value.entries, result.value.specialties) : []
+  const pageLink = (entry: EncyclopediaEntry) => (
+    <a
+      href={`/encyclopedia#${entry.id}`}
+      onClick={(event) => {
+        event.preventDefault()
+        void show(entry.id)
+      }}
+    >
+      {entry.title}
+    </a>
+  )
+
   return (
     <div className="stack">
       <section className="card" aria-labelledby="encyclopedia-heading">
@@ -120,6 +268,8 @@ export function Encyclopedia() {
           review each day, and the Tutor’s board questions are written from these pages.
         </p>
       </section>
+
+      <DissectionCard onChanged={() => setReloadToken((value) => value + 1)} />
 
       {result.state === 'ready' ? <CompileCard state={result.value} onChanged={() => setReloadToken((value) => value + 1)} /> : null}
 
@@ -160,29 +310,49 @@ export function Encyclopedia() {
               : 'No page matches that search.'}
           </p>
         ) : null}
-        {result.state === 'ready' && result.value.entries.length > 0 ? (
-          <ul className="list page-list">
-            {result.value.entries.map((entry) => (
-              <li key={entry.id}>
-                <p className="title">
-                  <a
-                    href={`/encyclopedia#${entry.id}`}
-                    onClick={(event) => {
-                      event.preventDefault()
-                      void show(entry.id)
-                    }}
-                  >
-                    {entry.title}
-                  </a>
-                </p>
-                <p className="muted small">
-                  {entry.point_count} point{entry.point_count === 1 ? '' : 's'} · {entry.question_count} question{entry.question_count === 1 ? '' : 's'}
-                  {entry.compiled_at ? ` · compiled ${momentLabel(entry.compiled_at)}` : null}
-                </p>
-                {entry.summary ? <p className="body small">{entry.summary}</p> : null}
-              </li>
+        {subjects.length > 0 ? (
+          <>
+            <nav className="page-contents" aria-labelledby="contents-heading">
+              <h3 id="contents-heading">Contents</h3>
+              <ol>
+                {subjects.map((subject) => (
+                  <li key={subject.id}>
+                    <a
+                      href={`#subject-${subject.id}`}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        jumpTo(`subject-${subject.id}`)
+                      }}
+                    >
+                      {subject.name}
+                    </a>
+                    <ul>
+                      {subject.entries.map((entry) => (
+                        <li key={entry.id}>{pageLink(entry)}</li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+            {subjects.map((subject) => (
+              <section key={subject.id} id={`subject-${subject.id}`} className="page-subject" aria-labelledby={`subject-heading-${subject.id}`}>
+                <h3 id={`subject-heading-${subject.id}`}>{subject.name}</h3>
+                <ul className="list page-list">
+                  {subject.entries.map((entry) => (
+                    <li key={entry.id}>
+                      <p className="title">{pageLink(entry)}</p>
+                      <p className="muted small">
+                        {entry.point_count} point{entry.point_count === 1 ? '' : 's'} · {entry.question_count} question{entry.question_count === 1 ? '' : 's'}
+                        {entry.compiled_at ? ` · compiled ${momentLabel(entry.compiled_at)}` : null}
+                      </p>
+                      {entry.summary ? <p className="body small">{entry.summary}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </>
         ) : null}
       </section>
     </div>

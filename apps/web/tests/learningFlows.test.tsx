@@ -5,7 +5,6 @@ import { BuildPanel } from '../src/components/BuildPanel'
 import { CoverageBar } from '../src/components/CoverageBar'
 import { LiteratureSettings } from '../src/components/LiteratureSettings'
 import { PaperLink } from '../src/components/PaperLink'
-import { MachineReviewedNote } from '../src/components/SupportBadge'
 import { UploadPanel } from '../src/components/UploadPanel'
 import { answerDraftKey, loadDraft } from '../src/lib/drafts'
 import { api } from '../src/lib/api'
@@ -70,11 +69,6 @@ describe('wire contracts and extracted-text coverage', () => {
     render(<PaperLink pmid="javascript:alert(1)" title="Unsafe identifier" />)
     expect(screen.getByText('Unsafe identifier')).toBeVisible()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
-  })
-  it('does not grant every generated item evidence support in its common caveat', () => {
-    render(<MachineReviewedNote />)
-    expect(screen.getByRole('note')).toHaveTextContent(/each item shows its own/i)
-    expect(screen.getByRole('note')).not.toHaveTextContent(/evidence-supported, machine reviewed/i)
   })
 })
 

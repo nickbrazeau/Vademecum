@@ -7,7 +7,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { UNASSIGNED, UNFILED_ID, buildGraph, isShown, layout, positionsOf, radiusFor, specialtyClass } from '../src/components/TopicGraph'
+import { UNASSIGNED, buildGraph, isShown, layout, positionsOf, radiusFor, specialtyClass } from '../src/components/TopicGraph'
 import type { GraphNode } from '../src/components/TopicGraph'
 import { ImprovementMap } from '../src/pages/ImprovementMap'
 import type { CoveredTopic, Specialty, TopicGap, TopicLink } from '../src/lib/types'
@@ -41,23 +41,22 @@ const links: TopicLink[] = [
 describe('building the graph', () => {
   it('draws only flagged topics by default, and covered topics on request', () => {
     const open = buildGraph([flu, cap, renal, unfiled], covered, links, { openOnly: true })
-    expect(open.nodes.map((node) => node.id).sort()).toEqual([UNFILED_ID, 'Influenza', 'Pneumonia'].sort())
+    expect(open.nodes.map((node) => node.id).sort()).toEqual(['Influenza', 'Pneumonia'].sort())
     // Nephrology has no open flags and Antivirals is only covered: neither is drawn,
     // so neither can carry an edge.
     expect(open.links).toHaveLength(1)
 
     const all = buildGraph([flu, cap, renal, unfiled], covered, links, { openOnly: false })
     expect(all.nodes.map((node) => node.id).sort()).toEqual(
-      [UNFILED_ID, 'Antivirals', 'Influenza', 'Nephrology', 'Pneumonia'].sort()
+      ['Antivirals', 'Influenza', 'Nephrology', 'Pneumonia'].sort()
     )
     expect(all.links).toHaveLength(3)
   })
 
-  it('never links an unfiled flag to anything', () => {
-    const graph = buildGraph([flu, unfiled], covered, [{ a: 'Influenza', b: UNFILED_ID, weight: 1 }], { openOnly: true })
-    // The server never emits the sentinel; if it ever did, it still would not be a topic.
-    expect(graph.links).toHaveLength(1)
-    expect(graph.nodes.find((node) => node.id === UNFILED_ID)?.unfiled).toBe(true)
+  it('never draws flags that have no topic yet', () => {
+    const graph = buildGraph([flu, unfiled], covered, [], { openOnly: true })
+    // They are not a place on the map; the list underneath still has them.
+    expect(graph.nodes.map((node) => node.id)).toEqual(['Influenza'])
   })
 
   it('sizes a node by open flags first', () => {
@@ -102,9 +101,8 @@ describe('building the graph', () => {
   })
 
   it('colours by specialty, never by pile', () => {
-    expect(specialtyClass('infectious-disease', false)).toBe('spec-infectious-disease')
-    expect(specialtyClass(null, false)).toBe('node-unassigned')
-    expect(specialtyClass('nephrology', true)).toBe('node-unfiled')
+    expect(specialtyClass('infectious-disease')).toBe('spec-infectious-disease')
+    expect(specialtyClass(null)).toBe('node-unassigned')
     const graph = buildGraph([flu, cap], covered, [], { openOnly: true })
     expect(graph.nodes.find((node) => node.id === 'Influenza')?.specialty).toBe('infectious-disease')
     expect(graph.nodes.find((node) => node.id === 'Pneumonia')?.specialty).toBeNull()
@@ -139,8 +137,10 @@ describe('the Improvement Map page', () => {
     const graph = await screen.findByRole('group', { name: 'Topic graph' })
     const nodes = within(graph).getAllByRole('button')
     expect(nodes.map((node) => node.getAttribute('aria-label'))).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^Influenza: 3 open/), expect.stringMatching(/^Pneumonia: 1 open/), expect.stringMatching(/^Not filed yet: 2 open/)])
+      expect.arrayContaining([expect.stringMatching(/^Influenza: 3 open/), expect.stringMatching(/^Pneumonia: 1 open/)])
     )
+    // Flags with no topic yet are counted beside the map and listed below it, never drawn as a node.
+    expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Not filed yet'))).toBe(false)
     // Everything in the piles is an area to review: covered topics are drawn by default too.
     expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Nephrology'))).toBe(true)
 
@@ -188,7 +188,7 @@ describe('the Improvement Map page', () => {
     expect(saves[0]!.method).toBe('PUT')
     const sent = (saves[0]!.body as { positions: { topic: string; x: number; y: number }[] }).positions
     // Everything shown by default: the covered topics are remembered too.
-    expect(sent.map((entry) => entry.topic).sort()).toEqual([UNFILED_ID, 'Antivirals', 'Influenza', 'Nephrology', 'Pneumonia'].sort())
+    expect(sent.map((entry) => entry.topic).sort()).toEqual(['Antivirals', 'Influenza', 'Nephrology', 'Pneumonia'].sort())
     // The remembered Influenza position was honoured, within a small drift.
     const influenza = sent.find((entry) => entry.topic === 'Influenza')!
     expect(Math.hypot(influenza.x - 200, influenza.y - 150)).toBeLessThan(40)
@@ -203,10 +203,10 @@ describe('the Improvement Map page', () => {
     vi.useRealTimers()
   })
 
-  it('lets the legend switch a specialty off, and never hides an unfiled flag', async () => {
-    expect(isShown({ specialty: 'nephrology', unfiled: false }, new Set(['nephrology']))).toBe(false)
-    expect(isShown({ specialty: null, unfiled: false }, new Set([UNASSIGNED]))).toBe(false)
-    expect(isShown({ specialty: null, unfiled: true }, new Set([UNASSIGNED]))).toBe(true)
+  it('lets the legend switch a specialty off', async () => {
+    expect(isShown({ specialty: 'nephrology' }, new Set(['nephrology']))).toBe(false)
+    expect(isShown({ specialty: null }, new Set([UNASSIGNED]))).toBe(false)
+    expect(isShown({ specialty: null }, new Set())).toBe(true)
 
     vi.stubGlobal('fetch', vi.fn(async (url: string) => json(String(url).includes('/flags') ? flags : map)))
     render(<ImprovementMap reloadToken={0} />)
@@ -220,7 +220,6 @@ describe('the Improvement Map page', () => {
     const drawn = within(graph).getAllByRole('button').map((node) => node.getAttribute('aria-label') ?? '')
     expect(drawn.some((label) => label.startsWith('Influenza'))).toBe(false)
     expect(drawn.some((label) => label.startsWith('Pneumonia'))).toBe(true)
-    expect(drawn.some((label) => label.startsWith('Not filed yet'))).toBe(true)
 
     // A selected topic that gets filtered out loses its panel rather than lingering.
     await user.click(idToggle)

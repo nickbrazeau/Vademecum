@@ -17,7 +17,6 @@ import type { BuildPreview, Coverage, Run } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { BatchCoverageNote, CoverageBar } from './CoverageBar'
 import { ConfidenceBadge } from './ConfidenceBadge'
-import { MachineReviewedNote } from './SupportBadge'
 import { TransmissionDisclosure } from './TransmissionDisclosure'
 import { Unavailable } from './Unavailable'
 
@@ -273,8 +272,6 @@ export function BuildPanel({ pileId, onChanged }: { pileId: string; onChanged: (
               ))}
             </ul>
           )}
-
-          <MachineReviewedNote />
 
           <div className="actions">
             <button

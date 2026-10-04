@@ -20,7 +20,7 @@ from datetime import date
 from typing import Any
 
 from ..db import transaction
-from .common import NotFoundError, new_id, utc_now
+from .common import NotFoundError, drop_disclaimers, new_id, utc_now
 from .learning import LearningPoint, SUPPORT_LABEL, points_for_topic
 
 KEY_CYCLE = "board.cycle_number"
@@ -66,6 +66,8 @@ class Entry:
     created_at: str
     updated_at: str
     question_count: int = 0
+    literature_checked_at: str | None = None
+    literature_note: str = ""
 
     def as_dict(self, *, include_sections: bool = True) -> dict[str, Any]:
         data = asdict(self)
@@ -94,7 +96,11 @@ def _entry(connection: sqlite3.Connection, row: sqlite3.Row) -> Entry:
         {
             "heading": str(section.get("heading") or ""),
             "paragraphs": [
-                {"text": str(p.get("text") or ""), "point_ids": [str(x) for x in (p.get("point_ids") or [])]}
+                {
+                    "text": str(p.get("text") or ""),
+                    "point_ids": [str(x) for x in (p.get("point_ids") or [])],
+                    "record_ids": [str(x) for x in (p.get("record_ids") or [])],
+                }
                 for p in (section.get("paragraphs") or [])
                 if isinstance(p, dict)
             ],
@@ -102,6 +108,7 @@ def _entry(connection: sqlite3.Connection, row: sqlite3.Row) -> Entry:
         for section in _json_list(row["sections"])
         if isinstance(section, dict)
     )
+    keys = row.keys()
     return Entry(
         id=row["id"],
         topic=row["topic"],
@@ -118,6 +125,8 @@ def _entry(connection: sqlite3.Connection, row: sqlite3.Row) -> Entry:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         question_count=int(count),
+        literature_checked_at=row["literature_checked_at"] if "literature_checked_at" in keys else None,
+        literature_note=row["literature_note"] if "literature_note" in keys else "",
     )
 
 
@@ -233,6 +242,103 @@ def upsert_entry(
                         ("The page was rewritten and a point this question cites is no longer on it.", now, row["id"]),
                     )
     return get_entry(connection, entry_id)
+
+
+def set_entry_literature(
+    connection: sqlite3.Connection, entry_id: str, record_ids: list[str], *, cited: set[str], note: str = ""
+) -> None:
+    """The records reviewed for a page, in the order the provider ranked them, and which were drawn on."""
+    now = utc_now()
+    with transaction(connection) as tx:
+        tx.execute("DELETE FROM encyclopedia_records WHERE entry_id = ?", (entry_id,))
+        for ordinal, record_id in enumerate(dict.fromkeys(record_ids)):
+            tx.execute(
+                "INSERT INTO encyclopedia_records (id, entry_id, record_id, ordinal, cited, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (new_id("encr"), entry_id, record_id, ordinal, 1 if record_id in cited else 0, now),
+            )
+        tx.execute(
+            "UPDATE encyclopedia_entries SET literature_checked_at = ?, literature_note = ?, updated_at = ? WHERE id = ?",
+            (now, note[:300], now, entry_id),
+        )
+
+
+def records_for_entry(connection: sqlite3.Connection, entry_id: str) -> list[dict[str, Any]]:
+    """What the page's literature review shows: the record, its status flags, whether a paragraph drew on it."""
+    rows = connection.execute(
+        "SELECT er.record_id, er.cited, r.pmid, r.doi, r.title, r.journal, r.published_on, r.url, r.priority,"
+        " r.retracted, r.corrected, r.is_notice"
+        " FROM encyclopedia_records er JOIN literature_records r ON r.id = er.record_id"
+        " WHERE er.entry_id = ? ORDER BY er.ordinal",
+        (entry_id,),
+    ).fetchall()
+    return [
+        {
+            "record_id": row["record_id"],
+            "cited": bool(row["cited"]),
+            "pmid": row["pmid"] or "",
+            "doi": row["doi"] or "",
+            "title": row["title"],
+            "journal": row["journal"],
+            "published_on": row["published_on"],
+            "url": row["url"],
+            "priority": row["priority"],
+            "retracted": bool(row["retracted"]),
+            "corrected": bool(row["corrected"]),
+            "is_notice": bool(row["is_notice"]),
+        }
+        for row in rows
+    ]
+
+
+def drop_stored_disclaimers(connection: sqlite3.Connection) -> int:
+    """Take 'not an endorsement' clauses out of prose kept before they were refused at the door.
+
+    Returns how many rows changed. Idempotent, and plain updates, so the change log carries them.
+    """
+    changed = 0
+    with transaction(connection) as tx:
+        for table, column in (("learning_points", "detail"), ("encyclopedia_entries", "summary"), ("board_questions", "explanation")):
+            for row in tx.execute(f"SELECT id, {column} AS text FROM {table} WHERE {column} LIKE '%endorsement%'").fetchall():
+                cleaned = drop_disclaimers(row["text"])
+                if cleaned and cleaned != " ".join(row["text"].split()):
+                    tx.execute(f"UPDATE {table} SET {column} = ? WHERE id = ?", (cleaned, row["id"]))
+                    changed += 1
+        for row in tx.execute("SELECT id, sections FROM encyclopedia_entries WHERE sections LIKE '%endorsement%'").fetchall():
+            sections = []
+            for section in _json_list(row["sections"]):
+                paragraphs = [{**p, "text": drop_disclaimers(str(p.get("text") or ""))} for p in section.get("paragraphs") or []]
+                paragraphs = [p for p in paragraphs if p["text"]]
+                if paragraphs:
+                    sections.append({**section, "paragraphs": paragraphs})
+            if sections and sections != _json_list(row["sections"]):
+                tx.execute("UPDATE encyclopedia_entries SET sections = ? WHERE id = ?", (json.dumps(sections), row["id"]))
+                changed += 1
+    return changed
+
+
+# --- the dissection agent's record ------------------------------------------------
+
+KEY_DISSECTION = "dissection"
+
+
+def get_dissection(connection: sqlite3.Connection) -> dict[str, Any] | None:
+    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (KEY_DISSECTION,)).fetchone()
+    if row is None:
+        return None
+    try:
+        data = json.loads(row["value"])
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def set_dissection(connection: sqlite3.Connection, state: dict[str, Any]) -> None:
+    with transaction(connection) as tx:
+        tx.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (KEY_DISSECTION, json.dumps(state, separators=(",", ":")), utc_now()),
+        )
 
 
 def mark_entry_failed(connection: sqlite3.Connection, topic: str, detail: str) -> None:

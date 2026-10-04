@@ -15,10 +15,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request, status
 from pydantic import Field
 
+from ..model.dissection import NEEDS_MODEL
 from ..model.encyclopedia import WAITING
 from ..storage import encyclopedia as store
+from ..storage import map as map_store
 from ..storage.sources import ConflictError
 from .deps import get_connection, get_model_mode
+from .routes_sources import CLAUDE_DESTINATION, CODEX_DESTINATION
 from .schemas import RecordId, Strict
 
 router = APIRouter(prefix="/encyclopedia", tags=["encyclopedia"])
@@ -46,9 +49,29 @@ class BoardAnswer(Strict):
     choice: Annotated[int, Field(ge=0, le=4)]
 
 
+DISSECTION_DISCLOSURE = (
+    "Dissecting a pile is a standing consent: until you stop it, the agent sends batch after batch "
+    "of the pile's excerpts -- their text, filenames, confidence labels and locations -- and the "
+    "follow-up checks' claims with retrieved abstracts, as Build does, without a further prompt; "
+    "then, per topic, the points built, to write each page, with one public PubMed search of the "
+    "topic's words for its literature review; then each page and its points, to write board "
+    "questions. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
+    + " The topic's words go to PubMed."
+)
+
+
+class DissectIn(Strict):
+    pile_id: RecordId
+
+
+def get_dissector(request: Request):
+    return getattr(request.app.state, "dissector", None)
+
+
 def _page_payload(connection: sqlite3.Connection, entry: store.Entry) -> dict[str, Any]:
     data = entry.as_dict()
     data["citations"] = store.cited_points(connection, list(entry.point_ids))
+    data["literature"] = store.records_for_entry(connection, entry.id)
     data["questions"] = [q.as_dict() for q in store.questions_for_entry(connection, entry.id) if q.status == "eligible"]
     return data
 
@@ -73,7 +96,12 @@ def list_entries(
     mode: str = Depends(get_model_mode),
 ) -> dict[str, Any]:
     entries = store.list_entries(connection, q=(q or "").strip()[:100] or None)
-    return {"entries": [entry.as_dict(include_sections=False) for entry in entries], **_state(request, connection, mode)}
+    return {
+        "entries": [entry.as_dict(include_sections=False) for entry in entries],
+        # The subjects the pages are shelved under, in the map's own order.
+        "specialties": [entry.as_dict() for entry in map_store.list_specialties(connection)],
+        **_state(request, connection, mode),
+    }
 
 
 @router.get("/page")
@@ -103,6 +131,33 @@ async def compile_now(
         raise ConflictError("compile_in_progress", "A compile is already in progress.")
     request.app.state.encyclopedia_task = asyncio.create_task(runner(reason="requested"))
     return {"started": True, **_state(request, connection, mode)}
+
+
+@router.get("/dissection")
+def read_dissection(request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    dissector = get_dissector(request)
+    if dissector is None:
+        return {"status": "idle", "running": False, "can_run": False, "blocked_reason": NEEDS_MODEL, "disclosure": DISSECTION_DISCLOSURE}
+    return {**dissector.describe(connection), "disclosure": DISSECTION_DISCLOSURE}
+
+
+@router.post("/dissection", status_code=status.HTTP_202_ACCEPTED)
+async def start_dissection(payload: DissectIn, request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Start, or resume, the agent on one pile. Pressing this is the consent the disclosure describes."""
+    dissector = get_dissector(request)
+    if dissector is None or not dissector.can_run:
+        raise ConflictError("needs_model", NEEDS_MODEL)
+    dissector.start(payload.pile_id)
+    return {"started": True, **dissector.describe(connection), "disclosure": DISSECTION_DISCLOSURE}
+
+
+@router.post("/dissection/stop")
+async def stop_dissection(request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    dissector = get_dissector(request)
+    if dissector is None:
+        raise ConflictError("needs_model", NEEDS_MODEL)
+    await dissector.stop(by_owner=True)
+    return {"stopped": True, **dissector.describe(connection), "disclosure": DISSECTION_DISCLOSURE}
 
 
 @router.get("/{entry_id}")

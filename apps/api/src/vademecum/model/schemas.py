@@ -313,10 +313,13 @@ ENTRY_SCHEMA = {
                         "items": {
                             "type": "object",
                             "additionalProperties": False,
-                            "required": ["text", "points"],
+                            "required": ["text", "points", "records"],
                             "properties": {
                                 "text": _string(900),
                                 "points": {"type": "array", "maxItems": 8, "items": _string(16)},
+                                # Literature abstracts the paragraph draws on, by handle; the
+                                # server maps them to stored records or drops them.
+                                "records": {"type": "array", "maxItems": 6, "items": _string(16)},
                             },
                         },
                     },

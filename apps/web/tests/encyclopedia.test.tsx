@@ -16,7 +16,10 @@ const PAGE = {
   id: 'ency_1', topic: 'sepsis lactate', title: 'Lactate in sepsis', specialty_id: 'infectious-disease',
   summary: 'Lactate above 2 mmol/L marks hypoperfusion.', point_count: 2, question_count: 1, status: 'current', status_detail: '', version: 1, compiled_at: '2026-10-03T00:00:00Z',
   sections: [{ heading: 'Thresholds', paragraphs: [{ text: 'A lactate above 2 mmol/L is abnormal in sepsis.', point_ids: ['lp1'] }] }],
-  citations: [{ id: 'lp1', claim: 'Lactate above 2 is abnormal', support: 'evidence_supported', support_label: 'Evidence-supported', held: false, sources: [{ source_id: 's1', display_name: 'Sepsis lecture.pdf', locator: 'Page 3', quote: 'lactate above 2 mmol/L' }] }]
+  citations: [{ id: 'lp1', claim: 'Lactate above 2 is abnormal', support: 'evidence_supported', support_label: 'Evidence-supported', held: false, sources: [{ source_id: 's1', display_name: 'Sepsis lecture.pdf', locator: 'Page 3', quote: 'lactate above 2 mmol/L' }] }],
+  literature: [{ record_id: 'rec1', cited: true, pmid: '30012345', doi: '', title: 'Lactate targets in septic shock', journal: 'Crit Care', published_on: '2025-01-15', url: '', priority: 'guideline', retracted: false, corrected: false }],
+  literature_checked_at: '2026-10-03T00:00:00Z',
+  literature_note: ''
 }
 const COUNTS = { entries: 1, stale: 0, questions_eligible: 1, questions_held: 0, questions_total: 1 }
 const QUESTION = {
@@ -52,6 +55,43 @@ describe('an encyclopedia page', () => {
     expect(screen.getByText(/From Sepsis lecture.pdf, Page 3/)).toBeInTheDocument()
     expect(screen.getByText('The points this page rests on')).toBeInTheDocument()
     expect(screen.getByText('Lactate above 2 is abnormal')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Literature reviewed for this page/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Lactate targets in septic shock' })).toHaveAttribute('href', 'https://pubmed.ncbi.nlm.nih.gov/30012345/')
+    expect(screen.getByText(/drawn on above/)).toBeInTheDocument()
+  })
+})
+
+describe('the dissection agent card', () => {
+  const idle = { status: 'idle', phase: '', pile_id: '', pile_title: '', coverage: null, batches_done: 0, points_built: 0, pages_compiled: 0, questions_written: 0, failures: 0, last_error: '', running: false, can_run: true, blocked_reason: '', encyclopedia: COUNTS, disclosure: 'Dissecting a pile is a standing consent: until you stop it, the agent sends batch after batch.' }
+  it('offers a pile, starts with the disclosure shown, and reports progress', async () => {
+    let started = false
+    const calls = stub({})
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET'
+        const target = String(url).split('?')[0] ?? ''
+        calls.push({ url: target, method, body: init?.body ? JSON.parse(String(init.body)) : null })
+        const json = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } })
+        if (target === '/api/encyclopedia/dissection' && method === 'POST') {
+          started = true
+          return json({ ...idle, status: 'running', phase: 'building', pile_id: 'p1', pile_title: 'The book', batches_done: 3, points_built: 31, pages_compiled: 4, questions_written: 9, running: true, coverage: { chars_total: 100, chars_covered: 12, percent: 12, complete: false } }, 202)
+        }
+        if (target === '/api/encyclopedia/dissection') return json(started ? { ...idle, status: 'running', phase: 'building', pile_id: 'p1', pile_title: 'The book', batches_done: 3, points_built: 31, pages_compiled: 4, questions_written: 9, running: true } : idle)
+        if (target === '/api/piles') return json([{ id: 'p1', title: 'The book', tier: 'high' }])
+        if (target === '/api/encyclopedia') return json({ entries: [], counts: COUNTS, can_compile: true, running: false, last_refresh: null, note: '', disclosure: '' })
+        return json({})
+      })
+    )
+    render(<Encyclopedia />)
+    expect(await screen.findByText(/standing consent/)).toBeInTheDocument()
+    const start = await screen.findByRole('button', { name: 'Dissect this pile' })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.click(start)
+    expect(await screen.findByText(/Working through/)).toBeInTheDocument()
+    expect(screen.getByText(/3 batches built · 31 points · 4 pages compiled · 9 questions written/)).toBeInTheDocument()
+    expect(calls.find((call) => call.method === 'POST' && call.url === '/api/encyclopedia/dissection')?.body).toEqual({ pile_id: 'p1' })
+    expect(screen.getByRole('button', { name: 'Stop the agent' })).toBeInTheDocument()
   })
 })
 
@@ -78,9 +118,10 @@ describe('Today', () => {
 })
 
 describe('the Encyclopedia tab', () => {
-  it('lists pages with the compile disclosure and opens one', async () => {
+  it('lists pages by subject under a table of contents, with the compile disclosure, and opens one', async () => {
+    const UNSHELVED = { ...PAGE, id: 'ency_2', topic: 'gout', title: 'Gout', specialty_id: null }
     const calls = stub({
-      '/api/encyclopedia': { entries: [PAGE], counts: COUNTS, can_compile: true, running: false, last_refresh: null, note: '', disclosure: 'Compiling sends, per topic, the learning points already built from your sources.' },
+      '/api/encyclopedia': { entries: [UNSHELVED, PAGE], specialties: [{ id: 'cardiology', name: 'Cardiology' }, { id: 'infectious-disease', name: 'Infectious Disease' }], counts: COUNTS, can_compile: true, running: false, last_refresh: null, note: '', disclosure: 'Compiling sends, per topic, the learning points already built from your sources.' },
       '/api/encyclopedia/ency_1': PAGE,
       'POST /api/encyclopedia/compile': { entries: [PAGE], counts: COUNTS, can_compile: true, running: true, last_refresh: null, note: '', disclosure: '' }
     })
@@ -88,7 +129,12 @@ describe('the Encyclopedia tab', () => {
     expect(await screen.findByText(/Compiling sends, per topic/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Compile now' }))
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url === '/api/encyclopedia/compile')).toBe(true))
-    await userEvent.click(screen.getByRole('link', { name: 'Lactate in sepsis' }))
+    // Subjects come in their own order; one with no page is not listed, and a page with none comes last.
+    const contents = screen.getByRole('navigation', { name: 'Contents' })
+    expect(within(contents).getAllByRole('link').map((link) => link.textContent)).toEqual(['Infectious Disease', 'Lactate in sepsis', 'Other topics', 'Gout'])
+    const subject = screen.getByRole('region', { name: 'Infectious Disease' })
+    expect(within(subject).getByText('Lactate above 2 mmol/L marks hypoperfusion.')).toBeInTheDocument()
+    await userEvent.click(within(contents).getByRole('link', { name: 'Lactate in sepsis' }))
     expect(await screen.findByText('A lactate above 2 mmol/L is abnormal in sepsis.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /All pages/ }))
     expect(await screen.findByRole('heading', { name: 'Pages' })).toBeInTheDocument()

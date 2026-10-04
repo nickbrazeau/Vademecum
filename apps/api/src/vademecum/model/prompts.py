@@ -15,6 +15,7 @@ does not need. Excerpts carry opaque handles.
 
 from __future__ import annotations
 
+from ..storage.flags import UNSORTED_TOPIC
 from ..storage.sources import CONFIDENCE_LABEL, Excerpt
 
 # Shared preamble. Short on purpose: a long instruction block is a long thing to
@@ -32,7 +33,9 @@ BASE_INSTRUCTIONS = (
     "invent a quote, a page number, a citation, an author or an identifier.\n"
     "- You are producing study material, not clinical advice. Never state or "
     "imply that anything has been clinically validated, guideline-endorsed or "
-    "approved by a person.\n"
+    "approved by a person. Do not write a disclaimer to that effect either: say "
+    "what the material says and stop, never adding that it is 'a description, "
+    "not an endorsement' or the like.\n"
     "- If the material does not support something, say so through the fields "
     "provided rather than filling the gap from memory.\n"
     "- Never include patient names, dates of birth, record numbers or any other "
@@ -210,7 +213,7 @@ FLAGS_DEVELOPER = (
     "five words, a condition, a drug, a test or a decision; the same wording for "
     "the same topic), and the subspecialty from the list, or an empty string. If "
     "an item is only a web address, file it under the topic its words or path "
-    "suggest, or 'unsorted link' when nothing can be told. Never include a "
+    f"suggest, or '{UNSORTED_TOPIC}' when nothing can be told. Never include a "
     "patient detail in a topic."
 )
 
@@ -226,29 +229,42 @@ def flags_prompt(items: list[tuple[str, str]], specialties: list[tuple[str, str]
 
 ENTRY_DEVELOPER = (
     "The supplied material is a list of learning points on one topic, each with an id in "
-    "brackets, a claim, a detail, how well it is supported and where it came from. Compile "
+    "brackets, a claim, a detail, how well it is supported and where it came from, followed by "
+    "public abstracts of recent literature on the topic, each with an id in brackets. Compile "
     "them into one encyclopedia page for a resident: a 'title' (the topic, as a page heading); "
     "a 'summary' of two or three sentences; a 'specialty' id from the list, or an empty string; "
     "and up to six 'sections', each with a short heading and up to four paragraphs. Every "
-    "paragraph must name in 'points' the ids of the points it rests on, and must say only what "
-    "those points say -- organise, connect and clarify, but never add a fact, a number, a drug "
-    "or a recommendation the points do not contain. Where points disagree or a point is marked "
-    "uncertain, say so in the paragraph. Write plainly; no bullet characters, no markdown. "
+    "paragraph must name in 'points' the ids of the points it rests on and in 'records' the ids "
+    "of the abstracts it draws on, and must say only what those say -- organise, connect and "
+    "clarify, but never add a fact, a number, a drug or a recommendation they do not contain. "
+    "End with a section headed 'In the literature' whose paragraphs rest on the abstracts: what "
+    "the recent papers and guidelines add, confirm or question, each paragraph naming its "
+    "records. Where points and abstracts disagree, or a point is marked uncertain, say so in "
+    "the paragraph. Write plainly; no bullet characters, no markdown. "
     "Write as a reference page, not as a report on its inputs: never mention 'the supplied "
     "material', 'the points' or 'the excerpts'; say what is known and leave unsaid what is "
     "not. Never include a patient identifier."
 )
 
 
-def entry_prompt(topic: str, points: list[tuple[str, str, str, str, str]], specialties: list[tuple[str, str]]) -> str:
-    """points: (handle, claim, detail, support label, sources)."""
+def entry_prompt(
+    topic: str,
+    points: list[tuple[str, str, str, str, str]],
+    specialties: list[tuple[str, str]],
+    records: list[tuple[str, str, str, str, str]] | None = None,
+) -> str:
+    """points: (handle, claim, detail, support label, sources); records: (handle, title, journal, year, abstract)."""
     listed = "\n".join(f"- {identifier}: {name}" for identifier, name in specialties)
     body = "\n\n".join(
         f"[{handle}] {claim}\n{detail}\n(support: {support}; from: {sources})" for handle, claim, detail, support, sources in points
     )
+    literature = "\n\n".join(
+        f"[{handle}] {title} ({journal}, {year})\n{abstract or '(no public abstract)'}" for handle, title, journal, year, abstract in (records or [])
+    )
     return (
         f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
-        f"TOPIC: {topic}\n\nLEARNING POINTS, each with its id in brackets:\n{_fence(body)}"
+        f"TOPIC: {topic}\n\nLEARNING POINTS, each with its id in brackets, then RECENT LITERATURE, each with its id in brackets:\n"
+        f"{_fence(body + chr(10) + chr(10) + 'RECENT LITERATURE:' + chr(10) + (literature or '(none found)'))}"
     )
 
 

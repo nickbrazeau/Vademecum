@@ -41,9 +41,31 @@ def test_a_page_keeps_only_paragraphs_whose_handles_map() -> None:
     )
     assert page is not None
     assert [s["heading"] for s in page["sections"]] == ["Thresholds"]
-    assert page["sections"][0]["paragraphs"] == [{"text": "Above 2 mmol/L is abnormal.", "point_ids": ["lp_one"]}]
+    assert page["sections"][0]["paragraphs"] == [{"text": "Above 2 mmol/L is abnormal.", "point_ids": ["lp_one"], "record_ids": []}]
     assert page["cited"] == ["lp_one"] and page["specialty_id"] == "infectious-disease"
     assert check_entry({"title": "x", "summary": "", "specialty": "nope", "sections": [{"heading": "h", "paragraphs": [{"text": "t", "points": ["p9"]}]}]}, handles=HANDLES, specialty_ids=set()) is None
+
+
+def test_a_paragraph_may_rest_on_literature_but_a_page_never_on_literature_alone() -> None:
+    records = {"r1": "rec_one"}
+    page = check_entry(
+        {
+            "title": "T", "summary": "", "specialty": "",
+            "sections": [
+                {"heading": "Thresholds", "paragraphs": [{"text": "From the points.", "points": ["p1"], "records": []}]},
+                {"heading": "In the literature", "paragraphs": [{"text": "A 2025 trial found...", "points": [], "records": ["r1", "r9"]}]},
+            ],
+        },
+        handles=HANDLES, specialty_ids=set(), record_handles=records,
+    )
+    assert page is not None
+    assert page["sections"][1]["paragraphs"][0] == {"text": "A 2025 trial found...", "point_ids": [], "record_ids": ["rec_one"]}
+    assert page["cited_records"] == ["rec_one"]
+    only_literature = check_entry(
+        {"title": "T", "summary": "", "specialty": "", "sections": [{"heading": "In the literature", "paragraphs": [{"text": "x", "points": [], "records": ["r1"]}]}]},
+        handles=HANDLES, specialty_ids=set(), record_handles=records,
+    )
+    assert only_literature is None, "a page rests on the owner's points first"
 
 
 def test_board_drafts_are_checked_for_shape_and_held_without_a_citation() -> None:
@@ -166,6 +188,7 @@ def test_a_build_feeds_a_page_which_feeds_board_questions(tmp_path: Path) -> Non
         before = c.get("/api/encyclopedia").json()
         assert before["entries"] == [] and before["counts"]["stale"] >= 1 and before["can_compile"] is True
         assert "once, to the Mac's own model connection" in before["disclosure"]
+        assert {"id": "nephrology", "name": "Nephrology"} in before["specialties"], "the subjects pages are shelved under"
         assert c.get("/api/today").json()["page"] is None
 
         started = c.post("/api/encyclopedia/compile")
@@ -178,6 +201,10 @@ def test_a_build_feeds_a_page_which_feeds_board_questions(tmp_path: Path) -> Non
         full = c.get(f"/api/encyclopedia/{entry['id']}").json()
         assert full["sections"][0]["paragraphs"][0]["point_ids"], "every paragraph names its points"
         assert full["citations"][0]["sources"], "and the points resolve to sources"
+        assert [r["pmid"] for r in full["literature"]] == ["30012345"], "one public search per page: its records are the review"
+        assert full["literature"][0]["cited"] is False and full["literature_checked_at"]
+        assert provider.queries[-1] == entry["topic"], "the search is the topic's own words, nothing of the page"
+        assert "RECENT LITERATURE" in turns.prompts[0] and "[r1] Lactate targets" in turns.prompts[0]
         assert "LEARNING POINTS, each with its id" in turns.prompts[0]
         assert "THE PAGE:" in turns.prompts[1] and "OTHER CONTEXT" in turns.prompts[1]
 
@@ -212,6 +239,61 @@ def test_a_build_feeds_a_page_which_feeds_board_questions(tmp_path: Path) -> Non
         assert again["counts"]["entries"] == 1
 
 
+def _dissection(client: TestClient):
+    return client.get("/api/encyclopedia/dissection").json()
+
+
+def test_the_dissection_agent_works_a_pile_through_to_complete_and_survives_a_failure(tmp_path: Path) -> None:
+    turns = CompileTurns(pages=[_page_for(["p1"])], boards=[_board_for(["p1"])], synthesis=[SYNTHESIS], evidence=[EVIDENCE], assessment=[ASSESSMENT])
+    provider = FakeProvider(articles=[FakeArticle(pmid="30012345", title="Lactate targets", abstract=ABSTRACT)])
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_folder_enabled=False)
+    app = create_app(settings, transport_factory=refusing_factory(), provider_factory=lambda: provider)
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        app.state.turn_factory = turns
+        app.state.build_service._turn_factory = turns
+        for workspace in app.state.workspaces._open.values():  # noqa: SLF001
+            workspace.turn_factory = turns
+        dissector = app.state.dissector
+        dissector._idle_seconds = 0.2  # noqa: SLF001 - the seams for a test that cannot wait ten minutes
+        dissector._backoff_base = 0.1  # noqa: SLF001
+        dissector._poll_seconds = 0.05  # noqa: SLF001
+
+        before = _dissection(c)
+        assert before["status"] == "idle" and before["can_run"] is True and "standing consent" in before["disclosure"]
+        assert c.post("/api/encyclopedia/dissection", json={"pile_id": "pil_nope"}).status_code == 404
+
+        pile = c.post("/api/piles", json={"title": "The book", "tier": "high"}).json()
+        assert upload(c, pile["id"], "chapter.txt", LECTURE.encode()).status_code == 201
+        started = c.post("/api/encyclopedia/dissection", json={"pile_id": pile["id"]})
+        assert started.status_code == 202, started.text
+        assert started.json()["status"] == "running" and started.json()["consent_at"]
+
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            state = _dissection(c)
+            if state.get("phase") == "complete":
+                break
+            time.sleep(0.05)
+        assert state["phase"] == "complete", state
+        assert state["batches_done"] >= 1 and state["points_built"] >= 1 and state["pages_compiled"] >= 1
+        assert state["coverage"]["complete"] is True, "the pile was built to the end"
+        assert state["encyclopedia"]["entries"] >= 1 and state["encyclopedia"]["stale"] == 0
+        assert c.get("/api/tutor/board/next").json()["question"] is not None
+
+        # A file added later is taken up without being asked: the agent is still watching.
+        assert upload(c, pile["id"], "chapter-two.txt", (LECTURE + "\n\nNoradrenaline is titrated to a mean arterial pressure of 65 mm Hg.").encode()).status_code == 201
+        deadline = time.monotonic() + 20
+        while time.monotonic() < deadline:
+            state = _dissection(c)
+            if state.get("batches_done", 0) >= 2 and state.get("phase") == "complete":
+                break
+            time.sleep(0.05)
+        assert state["batches_done"] >= 2, state
+
+        stopped = c.post("/api/encyclopedia/dissection/stop").json()
+        assert stopped["status"] == "stopped" and stopped["running"] is False
+
+
 def test_the_page_of_the_day_is_stable_within_a_day(connection) -> None:
     for index in range(3):
         store.upsert_entry(
@@ -221,6 +303,63 @@ def test_the_page_of_the_day_is_stable_within_a_day(connection) -> None:
     assert first is not None and first.id == store.page_of_the_day(connection, on_day=date(2026, 10, 3)).id
     other = store.random_page(connection, not_id=first.id)
     assert other is not None and other.id != first.id
+
+
+def test_a_page_never_says_it_is_not_an_endorsement() -> None:
+    """The citation says whose statement it is; a clause saying so again is dropped, and only that clause."""
+    page = check_entry(
+        {
+            "title": "Thrombolysis",
+            "summary": "Thrombolysis is described for arrest from pulmonary embolism. It is a description of that protocol, not an endorsement.",
+            "specialty": "",
+            "sections": [
+                {
+                    "heading": "Protocol",
+                    "paragraphs": [
+                        {"text": "CPR continues for at least 15 minutes after lysis; this is a protocol description, not an endorsement.", "points": ["p1"]},
+                        {"text": "This is a description of the source's protocol, not an endorsement.", "points": ["p1"]},
+                        {"text": "Regulatory approval is not an endorsement of off-label use.", "points": ["p2"]},
+                    ],
+                }
+            ],
+        },
+        handles=HANDLES,
+        specialty_ids=set(),
+    )
+    assert page is not None
+    assert page["summary"] == "Thrombolysis is described for arrest from pulmonary embolism."
+    assert [p["text"] for p in page["sections"][0]["paragraphs"]] == [
+        "CPR continues for at least 15 minutes after lysis.",
+        "Regulatory approval is not an endorsement of off-label use.",
+    ]
+    drafts = check_board(
+        {"questions": [{"stem": "Which agent is preferred?", "options": ["a", "b", "c", "d", "e"], "answer": "A", "explanation": "A matches. This describes the source protocol, not an endorsement of its clinical use.", "points": ["p1"]}]},
+        handles=HANDLES,
+    )
+    assert drafts[0]["explanation"] == "A matches."
+
+
+def test_prose_kept_before_the_rule_is_tidied_once(connection) -> None:
+    said = "This is a description of the source's protocol, not an endorsement."
+    entry = store.upsert_entry(
+        connection,
+        topic="t",
+        title="T",
+        specialty_id=None,
+        summary=f"Tenecteplase is preferred. {said}",
+        sections=[{"heading": "H", "paragraphs": [{"text": f"Alteplase is the alternative. {said}", "point_ids": ["lp_a"]}, {"text": said, "point_ids": ["lp_a"]}]}],
+        point_ids=["lp_a"],
+        points_hash_value="1",
+    )
+    store.insert_questions(
+        connection, entry, [{"stem": "Stem?", "options": ["a", "b", "c", "d", "e"], "answer_index": 0, "explanation": f"A matches. {said}", "point_ids": ["lp_a"], "hold_reason": ""}]
+    )
+    assert store.drop_stored_disclaimers(connection) == 3
+    assert store.drop_stored_disclaimers(connection) == 0, "nothing left to change"
+    tidied = store.get_entry(connection, entry.id)
+    assert tidied.summary == "Tenecteplase is preferred." and tidied.version == entry.version
+    assert [p["text"] for p in tidied.sections[0]["paragraphs"]] == ["Alteplase is the alternative."]
+    assert store.questions_for_entry(connection, entry.id)[0].explanation == "A matches."
 
 
 def test_a_rewritten_page_holds_questions_whose_points_left(connection) -> None:

@@ -382,6 +382,10 @@ export const api = {
     request<unknown>(`/encyclopedia/page${query(options)}`).then(normalize.encyclopediaPage),
   encyclopediaEntry: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}`).then(normalize.encyclopediaEntry),
   compileEncyclopedia: () => request<unknown>('/encyclopedia/compile', { method: 'POST' }).then(normalize.encyclopediaList),
+  dissection: () => request<unknown>('/encyclopedia/dissection').then(normalize.dissection),
+  startDissection: (pileId: string) =>
+    request<unknown>('/encyclopedia/dissection', { method: 'POST', ...body({ pile_id: pileId }) }).then(normalize.dissection),
+  stopDissection: () => request<unknown>('/encyclopedia/dissection/stop', { method: 'POST' }).then(normalize.dissection),
   boardOverview: () => request<unknown>('/tutor/board').then(normalize.boardOverview),
   boardNext: () => request<unknown>('/tutor/board/next').then(normalize.boardNext),
   boardAnswer: (questionId: string, choice: number) =>

@@ -58,9 +58,10 @@ fetch. In host mode the fetch still runs and the notes wait, as reports do.
 
 ### 5. Credit is part of the page
 
-Every entry names its authors or hosts and its publisher, links to the original, and the
-hub says, above the list, that these are the work of others and Vademecum writes its study
-notes beside them.
+Every entry names its authors or hosts and its publisher and links to the original; the link
+is the credit. The hub says once, under the list, "Cases sourced from Open Education
+Materials." (Owner, 2026-10-03: the paragraph above the list that said these are the work of
+others was dropped, with the page's introduction and Foris's note that the Mac gathers.)
 
 ## Consequences
 

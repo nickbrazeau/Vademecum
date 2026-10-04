@@ -110,6 +110,8 @@ function HubSettings({ onChanged }: { onChanged: () => void }) {
     )
   }
   const settings: CaseSettings = result.value
+  // Only the Mac gathers cases; anywhere else there is nothing here to set.
+  if (!settings.fetches_here) return null
   const series = chosen ?? settings.series
   const hoursText = hours ?? String(settings.interval_hours)
 
@@ -147,63 +149,54 @@ function HubSettings({ onChanged }: { onChanged: () => void }) {
   return (
     <section className="card" aria-labelledby="case-hub-heading">
       <h2 id="case-hub-heading">Keeping the hub updated</h2>
-      <p className="muted small">{settings.credit}</p>
-      {settings.fetches_here ? (
-        <>
-          <TransmissionDisclosure disclosure={CASES_DISCLOSURE} />
-          {settings.note ? <p className="muted small">{settings.note}</p> : null}
-          <fieldset className="case-series-picker">
-            <legend>Series to follow</legend>
-            {settings.catalogue.map((entry) => (
-              <label key={entry.id} className="case-series-option">
-                <input
-                  type="checkbox"
-                  checked={series[entry.id] !== false}
-                  disabled={busy}
-                  onChange={(event) => setChosen({ ...series, [entry.id]: event.target.checked })}
-                />{' '}
-                {entry.name} <span className="muted small">({entry.publisher})</span>
-              </label>
-            ))}
-          </fieldset>
-          <label htmlFor="case-hours">Hours between refreshes</label>
-          <input
-            id="case-hours"
-            type="number"
-            min={1}
-            max={168}
-            value={hoursText}
-            disabled={busy}
-            onChange={(event) => setHours(event.target.value)}
-          />
-          <p className="muted small">
-            {settings.enabled ? `On, every ${settings.interval_hours} hour${settings.interval_hours === 1 ? '' : 's'} while Vademecum runs on this Mac.` : 'Off until you turn it on.'}{' '}
-            {refreshLine}
-          </p>
-          <div className="actions">
-            <button type="button" className="button primary" disabled={busy} onClick={() => void save(!settings.enabled)}>
-              {settings.enabled ? 'Turn the hub off' : 'Turn the hub on'}
-            </button>
-            {settings.enabled && (chosen !== null || hours !== null) ? (
-              <button type="button" className="button ghost" disabled={busy} onClick={() => void save(true)}>
-                Save changes
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="button"
-              disabled={busy || settings.running}
-              onClick={() => void act(() => api.refreshCases())}
-            >
-              {settings.running ? 'Refreshing…' : 'Refresh now'}
-            </button>
-          </div>
-        </>
-      ) : (
-        <p className="muted small">
-          {settings.note} {refreshLine}
-        </p>
-      )}
+      <TransmissionDisclosure disclosure={CASES_DISCLOSURE} />
+      {settings.note ? <p className="muted small">{settings.note}</p> : null}
+      <fieldset className="case-series-picker">
+        <legend>Series to follow</legend>
+        {settings.catalogue.map((entry) => (
+          <label key={entry.id} className="case-series-option">
+            <input
+              type="checkbox"
+              checked={series[entry.id] !== false}
+              disabled={busy}
+              onChange={(event) => setChosen({ ...series, [entry.id]: event.target.checked })}
+            />{' '}
+            {entry.name} <span className="muted small">({entry.publisher})</span>
+          </label>
+        ))}
+      </fieldset>
+      <label htmlFor="case-hours">Hours between refreshes</label>
+      <input
+        id="case-hours"
+        type="number"
+        min={1}
+        max={168}
+        value={hoursText}
+        disabled={busy}
+        onChange={(event) => setHours(event.target.value)}
+      />
+      <p className="muted small">
+        {settings.enabled ? `On, every ${settings.interval_hours} hour${settings.interval_hours === 1 ? '' : 's'} while Vademecum runs on this Mac.` : 'Off until you turn it on.'}{' '}
+        {refreshLine}
+      </p>
+      <div className="actions">
+        <button type="button" className="button primary" disabled={busy} onClick={() => void save(!settings.enabled)}>
+          {settings.enabled ? 'Turn the hub off' : 'Turn the hub on'}
+        </button>
+        {settings.enabled && (chosen !== null || hours !== null) ? (
+          <button type="button" className="button ghost" disabled={busy} onClick={() => void save(true)}>
+            Save changes
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="button"
+          disabled={busy || settings.running}
+          onClick={() => void act(() => api.refreshCases())}
+        >
+          {settings.running ? 'Refreshing…' : 'Refresh now'}
+        </button>
+      </div>
       {failure ? (
         <p className="failure" role="alert">
           {failure.message}
@@ -230,17 +223,6 @@ export function CaseSeries() {
 
   return (
     <div className="stack">
-      <section className="card" aria-labelledby="case-series-heading">
-        <h2 id="case-series-heading">Case Series</h2>
-        <p className="muted">
-          Other people’s teaching cases, gathered in one place: the NEJM’s Case Records of the
-          Massachusetts General Hospital and Clinical Problem-Solving, the Clinical Problem Solvers,
-          and The Curbsiders. Each links to the original and names who made it. The teaching points
-          beside a case are written on this Mac from the publisher’s public notes, and each rests on a
-          quote; where the publisher offers only a title, you get think-first prompts instead.
-        </p>
-      </section>
-
       <HubSettings onChanged={() => setReloadToken((value) => value + 1)} />
 
       <section className="card" aria-labelledby="case-list-heading">
@@ -304,6 +286,8 @@ export function CaseSeries() {
           </ul>
         ) : null}
       </section>
+
+      <p className="muted small">Cases sourced from Open Education Materials.</p>
     </div>
   )
 }

@@ -5,7 +5,9 @@
  * rather than by claiming to be verified.
  */
 
+import { dateLabel, momentLabel } from '../lib/format'
 import type { EncyclopediaEntry, PageCitation } from '../lib/types'
+import { PaperLink } from './PaperLink'
 
 function sourceLabels(pointIds: string[], citations: Map<string, PageCitation>): string[] {
   const labels: string[] = []
@@ -48,6 +50,29 @@ export function EncyclopediaPage({ page, compact = false }: { page: Encyclopedia
           })}
         </section>
       ))}
+      {page.literature.length > 0 ? (
+        <section className="page-section page-literature">
+          <h4>Literature reviewed for this page</h4>
+          <ul className="list small">
+            {page.literature.map((record) => (
+              <li key={record.record_id}>
+                <PaperLink pmid={record.pmid} title={record.title} />
+                <span className="muted small">
+                  {record.journal ? ` · ${record.journal}` : null}
+                  {record.published_on ? ` · ${dateLabel(record.published_on)}` : null}
+                  {record.priority === 'guideline' ? ' · guideline' : null}
+                  {record.cited ? ' · drawn on above' : null}
+                </span>
+                {record.retracted ? <span className="badge badge-retracted"> Retracted</span> : null}
+                {record.corrected && !record.retracted ? <span className="badge badge-corrected"> Correction notice</span> : null}
+              </li>
+            ))}
+          </ul>
+          {page.literature_checked_at ? <p className="muted small">Searched {momentLabel(page.literature_checked_at)}; PubMed, the topic’s own words only.</p> : null}
+        </section>
+      ) : page.literature_note ? (
+        <p className="muted small">{page.literature_note}</p>
+      ) : null}
       {!compact && page.citations.length > 0 ? (
         <details className="support-details">
           <summary>The points this page rests on</summary>

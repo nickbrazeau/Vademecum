@@ -366,6 +366,8 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/encyclopedia",
         "/api/encyclopedia/page",
         "/api/encyclopedia/compile",
+        "/api/encyclopedia/dissection",
+        "/api/encyclopedia/dissection/stop",
         "/api/encyclopedia/{entry_id}",
         "/api/tutor/board",
         "/api/tutor/board/next",

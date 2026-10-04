@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -37,3 +38,23 @@ def content_hash(*parts: str) -> str:
         digest.update(part.encode("utf-8"))
         digest.update(b"\x00")
     return digest.hexdigest()
+
+
+# A model told never to imply endorsement tends to say so in the text itself: "This is a
+# description of the source's protocol, not an endorsement." The citation beside a statement
+# already says whose it is, so the clause is dropped wherever generated prose is kept. Only a
+# clause that opens with this/it/these is touched; a sentence about a real endorsement is not.
+_DISCLAIMER = re.compile(
+    r"(?:^|(?<=[.!?]\s)|;\s*)(?:this|it|these)\b[^.!?;]*\bnot\b[^.!?;]*\bendorsement\b[^.!?;]*(?:[.!?](?=\s|$))?",
+    re.IGNORECASE,
+)
+
+
+def drop_disclaimers(text: str) -> str:
+    """The text without any 'this is ..., not an endorsement' clause."""
+
+    def closing(match: re.Match[str]) -> str:
+        clause = match.group(0)
+        return clause[-1] if clause.startswith(";") and clause[-1] in ".!?" else ""
+
+    return " ".join(_DISCLAIMER.sub(closing, text).split())

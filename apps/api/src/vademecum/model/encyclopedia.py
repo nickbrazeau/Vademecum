@@ -11,6 +11,7 @@ mode), after scheduled builds and on "Compile now".
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from pathlib import Path
@@ -21,7 +22,7 @@ from ..db import connect
 from ..storage import encyclopedia as store
 from ..storage import flags as flag_store
 from ..storage import map as map_store
-from ..storage.common import utc_now
+from ..storage.common import drop_disclaimers, utc_now
 from ..storage.learning import SUPPORT_LABEL, points_for_topic
 from . import prompts, schemas
 
@@ -52,10 +53,23 @@ def _runner(turn_factory: Any, kind: str, scope_id: str):
 # --- pages ----------------------------------------------------------------------
 
 
-def check_entry(payload: dict[str, Any], *, handles: dict[str, str], specialty_ids: set[str]) -> dict[str, Any] | None:
-    """What the server keeps: paragraphs whose handles all map, sections that keep a paragraph."""
+def check_entry(
+    payload: dict[str, Any],
+    *,
+    handles: dict[str, str],
+    specialty_ids: set[str],
+    record_handles: dict[str, str] | None = None,
+) -> dict[str, Any] | None:
+    """What the server keeps: paragraphs whose handles all map, sections that keep a paragraph.
+
+    A paragraph may rest on points, on literature records, or both; one that names
+    nothing it can be traced to is dropped. At least one section must rest on a point,
+    so a page is never literature alone.
+    """
+    record_handles = record_handles or {}
     sections: list[dict[str, Any]] = []
     cited: list[str] = []
+    cited_records: list[str] = []
     for section in (payload.get("sections") or [])[: schemas.MAX_ENTRY_SECTIONS]:
         if not isinstance(section, dict):
             continue
@@ -63,30 +77,73 @@ def check_entry(payload: dict[str, Any], *, handles: dict[str, str], specialty_i
         for paragraph in (section.get("paragraphs") or [])[: schemas.MAX_ENTRY_PARAGRAPHS]:
             if not isinstance(paragraph, dict):
                 continue
-            text = " ".join(str(paragraph.get("text") or "").split())
-            ids = [handles[str(h)] for h in (paragraph.get("points") or []) if str(h) in handles]
-            ids = list(dict.fromkeys(ids))
-            if not text or not ids:
+            text = drop_disclaimers(str(paragraph.get("text") or ""))
+            ids = list(dict.fromkeys(handles[str(h)] for h in (paragraph.get("points") or []) if str(h) in handles))
+            records = list(dict.fromkeys(record_handles[str(h)] for h in (paragraph.get("records") or []) if str(h) in record_handles))
+            if not text or (not ids and not records):
                 continue
-            paragraphs.append({"text": text, "point_ids": ids})
+            paragraphs.append({"text": text, "point_ids": ids, "record_ids": records})
         heading = " ".join(str(section.get("heading") or "").split())
         if paragraphs and heading:
             sections.append({"heading": heading, "paragraphs": paragraphs})
             for paragraph in paragraphs:
                 cited.extend(paragraph["point_ids"])
-    if not sections:
+                cited_records.extend(paragraph["record_ids"])
+    if not sections or not cited:
         return None
     specialty = str(payload.get("specialty") or "").strip()
     return {
         "title": " ".join(str(payload.get("title") or "").split()),
-        "summary": " ".join(str(payload.get("summary") or "").split()),
+        "summary": drop_disclaimers(str(payload.get("summary") or "")),
         "specialty_id": specialty if specialty in specialty_ids else None,
         "sections": sections,
         "cited": list(dict.fromkeys(cited)),
+        "cited_records": list(dict.fromkeys(cited_records)),
     }
 
 
-async def compile_topic(database_path: Path, topic: str, turn_factory: Any) -> dict[str, Any]:
+MAX_RECORDS_PER_PAGE = 8
+MAX_ABSTRACT_CHARS = 1500
+
+
+def review_literature(database_path: Path, topic: str, provider: Any) -> tuple[list[dict[str, Any]], str]:
+    """One public search for the topic; the records kept, newest and guidelines first. Blocking."""
+    from ..literature.http import ProviderError
+    from ..literature.pubmed import QueryError
+    from ..storage.learning import upsert_evidence_record
+
+    if provider is None:
+        return [], "No literature provider is configured."
+    try:
+        articles = provider.search(topic)
+    except QueryError:
+        return [], "The topic's wording cannot be searched."
+    except ProviderError as exc:
+        return [], f"The literature search failed ({exc.category})."
+    kept: list[dict[str, Any]] = []
+    connection = connect(database_path)
+    try:
+        for article in articles:
+            if getattr(article, "is_notice", False) or getattr(article, "retracted", False):
+                continue
+            record_id = upsert_evidence_record(connection, article)
+            kept.append(
+                {
+                    "id": record_id,
+                    "title": str(getattr(article, "title", "") or ""),
+                    "journal": str(getattr(article, "journal", "") or ""),
+                    "year": str(getattr(article, "published_on", "") or "")[:4],
+                    "abstract": str(getattr(article, "abstract", "") or "")[:MAX_ABSTRACT_CHARS],
+                }
+            )
+            if len(kept) >= MAX_RECORDS_PER_PAGE:
+                break
+    finally:
+        connection.close()
+    return kept, "" if kept else "No public record matched the topic."
+
+
+async def compile_topic(database_path: Path, topic: str, turn_factory: Any, provider: Any = None) -> dict[str, Any]:
     connection = connect(database_path)
     try:
         points = points_for_topic(connection, topic)
@@ -96,6 +153,10 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any) -> d
         connection.close()
     if not points:
         return {"topic": topic, "status": "skipped", "detail": "No points."}
+    # The literature review: one public search for the topic's own words, in a
+    # thread because the client blocks; a failed search is a note on the page.
+    records, literature_note = await asyncio.to_thread(review_literature, database_path, topic, provider)
+    record_handles = {f"r{index + 1}": record["id"] for index, record in enumerate(records)}
     handles = {f"p{index + 1}": point.id for index, point in enumerate(points)}
     listed = [
         (
@@ -113,7 +174,12 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any) -> d
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.ENTRY_DEVELOPER,
-            prompt=prompts.entry_prompt(topic, listed, specialties),
+            prompt=prompts.entry_prompt(
+                topic,
+                listed,
+                specialties,
+                [(handle, r["title"], r["journal"], r["year"], r["abstract"]) for handle, r in zip(record_handles, records, strict=True)],
+            ),
             output_schema=schemas.ENTRY_SCHEMA,
         )
     except BridgeError as exc:
@@ -124,7 +190,7 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any) -> d
         finally:
             connection.close()
         return {"topic": topic, "status": "failed", "detail": exc.category}
-    checked = check_entry(reply.payload, handles=handles, specialty_ids=ids)
+    checked = check_entry(reply.payload, handles=handles, specialty_ids=ids, record_handles=record_handles)
     if checked is None:
         logger.info("entry_compile_empty topic_points=%d", len(points))
         connection = connect(database_path)
@@ -149,13 +215,25 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any) -> d
         )
         if specialty_id and map_store.topic_specialties(connection).get(topic) is None:
             map_store.set_topic_specialty(connection, topic, specialty_id)
+        store.set_entry_literature(
+            connection, entry.id, [r["id"] for r in records], cited=set(checked["cited_records"]), note=literature_note
+        )
     finally:
         connection.close()
-    logger.info("entry_compiled points=%d cited=%d sections=%d", len(points), len(checked["cited"]), len(checked["sections"]))
+    logger.info(
+        "entry_compiled points=%d cited=%d sections=%d records=%d records_cited=%d",
+        len(points),
+        len(checked["cited"]),
+        len(checked["sections"]),
+        len(records),
+        len(checked["cited_records"]),
+    )
     return {"topic": topic, "status": "compiled", "entry_id": entry.id, "version": entry.version}
 
 
-async def compile_pending(database_path: Path, turn_factory: Any, *, limit: int = MAX_COMPILES_PER_RUN) -> dict[str, int]:
+async def compile_pending(
+    database_path: Path, turn_factory: Any, *, limit: int = MAX_COMPILES_PER_RUN, provider: Any = None
+) -> dict[str, int]:
     connection = connect(database_path)
     try:
         topics = store.topics_to_compile(connection)[:limit]
@@ -163,7 +241,7 @@ async def compile_pending(database_path: Path, turn_factory: Any, *, limit: int 
         connection.close()
     tally = {"compiled": 0, "failed": 0, "remaining": 0}
     for topic in topics:
-        result = await compile_topic(database_path, topic, turn_factory)
+        result = await compile_topic(database_path, topic, turn_factory, provider)
         if result["status"] == "compiled":
             tally["compiled"] += 1
         elif result["status"] == "failed":
@@ -226,7 +304,7 @@ def check_board(payload: dict[str, Any], *, handles: dict[str, str]) -> list[dic
         # The letter is the interface's to add; a model that wrote "A. ..." is not wrong, just early.
         options = [re.sub(r"^\(?[A-Ea-e][.)]\s+", "", " ".join(str(o).split())) for o in (item.get("options") or [])]
         answer = str(item.get("answer") or "").strip().upper()
-        explanation = " ".join(str(item.get("explanation") or "").split())
+        explanation = drop_disclaimers(str(item.get("explanation") or ""))
         if not stem or len(options) != store.OPTION_COUNT or any(not o for o in options) or answer not in store.LETTERS or not explanation:
             continue
         if len({o.lower() for o in options}) != store.OPTION_COUNT:
@@ -302,9 +380,11 @@ async def generate_pending(database_path: Path, turn_factory: Any, *, limit: int
     return tally
 
 
-async def refresh(database_path: Path, turn_factory: Any, *, reason: str = "requested") -> dict[str, Any]:
+async def refresh(
+    database_path: Path, turn_factory: Any, *, reason: str = "requested", provider: Any = None
+) -> dict[str, Any]:
     """Compile what is stale, then write questions where a page has too few. Recorded for Today."""
-    compiled = await compile_pending(database_path, turn_factory)
+    compiled = await compile_pending(database_path, turn_factory, provider=provider)
     generated = await generate_pending(database_path, turn_factory)
     report = {"at": utc_now(), "reason": reason, "pages": compiled, "questions": generated}
     connection = connect(database_path)

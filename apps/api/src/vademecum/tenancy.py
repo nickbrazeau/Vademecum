@@ -35,6 +35,7 @@ from typing import Any, Callable, Protocol
 
 from .config import DATA_SUBDIRECTORIES, DATABASE_FILENAME, MODEL_WORKSPACE_DIRNAME, SOURCE_FILES_DIRNAME, Settings
 from .db import apply_migrations, connect
+from .storage import encyclopedia as encyclopedia_store
 from .storage import jobs
 from .storage import literature as literature_store
 
@@ -163,6 +164,7 @@ def prepare_workspace_database(database_path: Path, settings: Settings) -> None:
     try:
         applied = apply_migrations(connection)
         interrupted = jobs.sweep_interrupted(connection)
+        tidied = encyclopedia_store.drop_stored_disclaimers(connection)
         literature_store.seed_settings(connection, interval_hours=settings.literature_interval_hours)
     finally:
         connection.close()
@@ -170,6 +172,8 @@ def prepare_workspace_database(database_path: Path, settings: Settings) -> None:
         logger.info("migrations_applied count=%d", len(applied))
     if interrupted:
         logger.info("interrupted_runs_closed count=%d", interrupted)
+    if tidied:
+        logger.info("stored_disclaimers_dropped count=%d", tidied)
 
 
 class Workspaces:

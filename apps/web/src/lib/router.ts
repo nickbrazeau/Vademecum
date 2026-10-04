@@ -12,10 +12,10 @@ export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'today', path: '/', label: 'Today' },
   { name: 'tutor', path: '/tutor', label: 'Tutor' },
   { name: 'encyclopedia', path: '/encyclopedia', label: 'Encyclopedia' },
-  { name: 'sources', path: '/sources', label: 'Sources' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
   { name: 'cases', path: '/cases', label: 'Case Series' },
-  { name: 'model', path: '/model', label: 'Model' }
+  { name: 'model', path: '/model', label: 'Model' },
+  { name: 'sources', path: '/sources', label: 'Sources' }
 ]
 
 /**

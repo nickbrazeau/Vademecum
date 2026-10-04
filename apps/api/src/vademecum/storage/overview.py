@@ -21,7 +21,7 @@ from . import literature as literature_store
 from . import map as map_store
 from . import reports as reports_store
 from . import sources as source_store
-from .flags import list_flags
+from .flags import UNSORTED_TOPIC, list_flags
 from .learning import bank_summary, list_points
 from .piles import TIERS
 from .tutor import overview as tutor_overview
@@ -151,6 +151,7 @@ def improvement_map(connection: sqlite3.Connection) -> dict[str, Any]:
             last_flagged_at=row["last_flagged_at"],
         )
         for row in rows
+        if (row["topic"] or "").casefold() != UNSORTED_TOPIC
     ]
     # Most open gaps first; unfiled flags sort last so a named topic is never
     # buried under the pile the system has not filed yet.

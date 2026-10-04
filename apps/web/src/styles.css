@@ -205,15 +205,6 @@ h4 {
   color: var(--fail);
 }
 
-.tiers {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
 .tier {
   display: inline-block;
   min-width: 3.5rem;
@@ -928,18 +919,12 @@ kbd {
   stroke-dasharray: 3 2;
 }
 
-.node-unfiled .topic-dot {
-  fill: var(--tag-bg);
-  stroke: var(--line);
-}
-
 .topic-label {
   font: 11px/1 ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
   fill: var(--ink);
   pointer-events: none;
 }
 
-.node-unfiled .topic-label,
 .node-unassigned .topic-label {
   fill: var(--muted);
 }
@@ -1041,6 +1026,34 @@ details.settings-details[open] > summary {
   color: var(--ink);
 }
 
+/* A card that opens and shuts: its heading is the handle. */
+details.card-details > summary {
+  cursor: pointer;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  list-style: none;
+}
+details.card-details > summary::-webkit-details-marker {
+  display: none;
+}
+details.card-details > summary h2 {
+  margin: 0;
+}
+details.card-details > summary::after {
+  content: '+';
+  color: var(--muted);
+  font-size: 1.25rem;
+}
+details.card-details[open] > summary::after {
+  content: '−';
+}
+details.card-details[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
 /* An area an exam report placed below the mark: a dashed ring, before any flag. */
 .topic-node .standing-ring {
   fill: none;
@@ -1076,6 +1089,36 @@ details.settings-details[open] > summary {
 }
 .page-list > li {
   margin-bottom: 0.75rem;
+}
+/* The table of contents: subjects, and under each its pages, in columns where there is room. */
+.page-contents {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+.page-contents h3 {
+  margin-top: 0;
+}
+.page-contents ol {
+  margin: 0;
+  padding-left: 1.25rem;
+  columns: 16rem;
+  column-gap: 2rem;
+}
+.page-contents ol > li {
+  break-inside: avoid;
+  margin-bottom: 0.5rem;
+}
+.page-contents ul {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  font-size: 0.9rem;
+}
+.page-subject {
+  margin-top: 1.25rem;
+  scroll-margin-top: 4rem;
 }
 .board-stem {
   white-space: pre-wrap;

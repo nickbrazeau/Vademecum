@@ -78,6 +78,7 @@ import type {
   BoardNext,
   BoardOverview,
   BoardQuestion,
+  Dissection,
   EncyclopediaCounts,
   EncyclopediaEntry,
   EncyclopediaList,
@@ -967,7 +968,53 @@ export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
     status_detail: str(data.status_detail),
     version: num(data.version),
     compiled_at: typeof data.compiled_at === 'string' ? data.compiled_at : null,
-    citations: arr(data.citations).map(pageCitation)
+    literature_checked_at: typeof data.literature_checked_at === 'string' ? data.literature_checked_at : null,
+    literature_note: str(data.literature_note),
+    citations: arr(data.citations).map(pageCitation),
+    literature: arr(data.literature).map((item) => {
+      const record = obj(item)
+      return {
+        record_id: str(record.record_id),
+        cited: record.cited === true,
+        pmid: str(record.pmid),
+        doi: str(record.doi),
+        title: str(record.title),
+        journal: str(record.journal),
+        published_on: typeof record.published_on === 'string' ? record.published_on : null,
+        url: str(record.url),
+        priority: str(record.priority),
+        retracted: record.retracted === true,
+        corrected: record.corrected === true
+      }
+    })
+  }
+}
+
+export function dissection(raw: unknown): Dissection {
+  const data = obj(raw)
+  const when = (value: unknown) => (typeof value === 'string' ? value : null)
+  return {
+    status: str(data.status, 'idle'),
+    phase: str(data.phase),
+    pile_id: str(data.pile_id),
+    pile_title: str(data.pile_title),
+    coverage: data.coverage && typeof data.coverage === 'object' ? coverage(data.coverage) : null,
+    started_at: when(data.started_at),
+    consent_at: when(data.consent_at),
+    completed_at: when(data.completed_at),
+    batches_done: num(data.batches_done),
+    points_built: num(data.points_built),
+    pages_compiled: num(data.pages_compiled),
+    questions_written: num(data.questions_written),
+    failures: num(data.failures),
+    last_error: str(data.last_error),
+    last_activity_at: when(data.last_activity_at),
+    next_retry_at: when(data.next_retry_at),
+    running: data.running === true,
+    can_run: data.can_run === true,
+    blocked_reason: str(data.blocked_reason),
+    encyclopedia: encyclopediaCounts(data.encyclopedia),
+    disclosure: str(data.disclosure)
   }
 }
 
@@ -988,6 +1035,10 @@ export function encyclopediaList(raw: unknown): EncyclopediaList {
   const data = obj(raw)
   return {
     entries: arr(data.entries).map(encyclopediaEntry),
+    specialties: arr(data.specialties).map((item) => {
+      const entry = obj(item)
+      return { id: str(entry.id), name: str(entry.name) }
+    }),
     counts: encyclopediaCounts(data.counts),
     can_compile: data.can_compile === true,
     running: data.running === true,

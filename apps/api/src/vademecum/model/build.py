@@ -31,6 +31,7 @@ from typing import Any, Callable
 from ..appserver.errors import BridgeError
 from ..db import connect, transaction
 from ..storage import jobs, learning, sources
+from ..storage.common import drop_disclaimers
 from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.model")
@@ -577,7 +578,7 @@ def _stage(
         )
         point = learning.DraftPoint(
             claim=raw["claim"].strip(),
-            detail=raw.get("detail", "").strip(),
+            detail=drop_disclaimers(raw.get("detail", "")),
             topics=topics,
             citations=citations,
             model_uncertain=bool(raw.get("unclear")),

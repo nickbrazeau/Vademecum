@@ -17,6 +17,9 @@ from ..db import transaction
 from .common import NotFoundError, new_id, utc_now
 
 STATUSES: tuple[str, ...] = ("open", "addressed")
+# Where filing puts a saved link it can tell nothing about (ADR 0021). It marks the flag as
+# looked at, so it is not sent again; it is not a topic, and the map does not draw it.
+UNSORTED_TOPIC = "unsorted link"
 
 
 @dataclass(frozen=True)

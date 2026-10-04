@@ -68,11 +68,12 @@ function stubApi(options: { settings?: Record<string, unknown> } = {}) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('the Case Series hub', () => {
-  it('shows the disclosure before the switch and credits every case', async () => {
+  it('shows the disclosure before the switch and credits every case by its link and maker', async () => {
     stubApi()
     render(<CaseSeries />)
     expect(await screen.findByText(/sends fixed public requests, with nothing of yours in them/)).toBeInTheDocument()
-    expect(screen.getByText(CREDIT)).toBeInTheDocument()
+    expect(screen.queryByText(CREDIT)).not.toBeInTheDocument()
+    expect(screen.getByText('Cases sourced from Open Education Materials.')).toBeInTheDocument()
     expect(await screen.findByText(/By Paul Williams · The Curbsiders/)).toBeInTheDocument()
     expect(screen.getByText(/By A Author · The New England Journal of Medicine/)).toBeInTheDocument()
     const original = screen.getAllByRole('link', { name: 'Open the original' })
@@ -109,10 +110,12 @@ describe('the Case Series hub', () => {
     expect(put?.body).toMatchObject({ enabled: true, interval_hours: 6 })
   })
 
-  it('on Foris says the Mac gathers and offers no switch', async () => {
+  it('on Foris shows the cases and offers no switch', async () => {
     stubApi({ settings: { fetches_here: false, note: 'This Vademecum shows the cases Domi gathered.' } })
     render(<CaseSeries />)
-    expect(await screen.findByText(/cases Domi gathered/)).toBeInTheDocument()
+    expect(await screen.findByText('#540 Hotcakes: Toxic alcohols')).toBeInTheDocument()
+    expect(screen.queryByText(/cases Domi gathered/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Keeping the hub updated' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Turn the hub/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Refresh now' })).not.toBeInTheDocument()
   })

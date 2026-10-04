@@ -8,7 +8,7 @@ from mcp.server import MCPServer
 from pydantic import Field
 
 from ..api_client import ApiClient
-from ._shared import READ, WRITE, call, listing
+from ._shared import READ, TRANSMITS, WRITE, call, listing
 
 EntryId = Annotated[str, Field(max_length=64, description="The page's id from encyclopedia_list or encyclopedia_page.")]
 BoardId = Annotated[str, Field(max_length=64, description="The question's id from board_next_question.")]
@@ -59,3 +59,28 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     async def board_advance(question_id: BoardId) -> dict[str, Any]:
         """Mark the current board question served and move to the next one."""
         return await call(api.post("/api/tutor/board/advance", {"question_id": question_id}))
+
+    @mcp.tool(annotations=READ)
+    async def dissect_status() -> dict[str, Any]:
+        """Where the dissection agent stands: which pile it is working through,
+        batches built, pages compiled, questions written, its phase (building,
+        compiling, backing off, complete) and the last error, plus the
+        disclosure that says what starting it consents to."""
+        return await call(api.get("/api/encyclopedia/dissection"))
+
+    @mcp.tool(annotations=TRANSMITS)
+    async def dissect_start(
+        pile_id: Annotated[str, Field(max_length=64, description="The pile to work through, from list_piles.")],
+    ) -> dict[str, Any]:
+        """Start, or resume, the agent that works through one pile until it is
+        fully built and every topic has a page with its literature review and
+        board questions, backing off and retrying on failure, resuming after a
+        restart, and watching the pile for new files afterwards. A standing
+        consent: show the owner dissect_status's disclosure and wait for an
+        explicit yes before calling this. Stop it with dissect_stop."""
+        return await call(api.post("/api/encyclopedia/dissection", {"pile_id": pile_id}))
+
+    @mcp.tool(annotations=WRITE)
+    async def dissect_stop() -> dict[str, Any]:
+        """Stop the dissection agent and withdraw the standing consent."""
+        return await call(api.post("/api/encyclopedia/dissection/stop", {}))

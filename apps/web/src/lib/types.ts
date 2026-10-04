@@ -566,6 +566,20 @@ export interface PageCitation {
   sources: PageSource[]
 }
 
+export interface PageRecord {
+  record_id: string
+  cited: boolean
+  pmid: string
+  doi: string
+  title: string
+  journal: string
+  published_on: string | null
+  url: string
+  priority: string
+  retracted: boolean
+  corrected: boolean
+}
+
 export interface EncyclopediaEntry {
   id: string
   topic: string
@@ -579,7 +593,34 @@ export interface EncyclopediaEntry {
   status_detail: string
   version: number
   compiled_at: string | null
+  literature_checked_at: string | null
+  literature_note: string
   citations: PageCitation[]
+  literature: PageRecord[]
+}
+
+export interface Dissection {
+  status: string
+  phase: string
+  pile_id: string
+  pile_title: string
+  coverage: Coverage | null
+  started_at: string | null
+  consent_at: string | null
+  completed_at: string | null
+  batches_done: number
+  points_built: number
+  pages_compiled: number
+  questions_written: number
+  failures: number
+  last_error: string
+  last_activity_at: string | null
+  next_retry_at: string | null
+  running: boolean
+  can_run: boolean
+  blocked_reason: string
+  encyclopedia: EncyclopediaCounts
+  disclosure: string
 }
 
 export interface EncyclopediaCounts {
@@ -599,6 +640,8 @@ export interface EncyclopediaRefresh {
 
 export interface EncyclopediaList {
   entries: EncyclopediaEntry[]
+  /** The subjects pages are shelved under, in order. */
+  specialties: Specialty[]
   counts: EncyclopediaCounts
   can_compile: boolean
   running: boolean

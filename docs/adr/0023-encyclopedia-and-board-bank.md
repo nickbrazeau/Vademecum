@@ -59,6 +59,35 @@ page it comes from shows the support of every point, the explanation cites them,
 is checked against a key rather than graded by a model. The open-answer bank keeps its rule and
 is still asked when the board bank is empty.
 
+### 5. A literature review per page
+
+Compiling a page runs one public PubMed search of the topic's own words, through the same
+provider and preferences as the literature watch (guidelines and the preferred journals first),
+and hands the top records' titles and abstracts to the compile turn as handles beside the
+points. A paragraph may rest on points, on records, or both; a page is never records alone.
+The page ends with "In the literature", and lists every record reviewed, marking those the page
+drew on, with retraction and correction flags as the watch shows them.
+
+### 6. The dissection agent
+
+A textbook is thousands of pages of this. The dissection agent takes one pile and works it
+through to the end: a batch built as the Build button would, every few batches a compile of
+what is stale (pages, their reviews, their questions), and on any failure a growing pause and
+another try, never a stop. Its record is written after every step, so a restart resumes it;
+when the pile is fully built and every page current it says "complete" and keeps watching the
+pile for files added later. Starting it is a standing consent like the schedule's (ADR 0018),
+with its own disclosure; stopping it withdraws the consent. One compile runs at a time whoever
+asks for it, so the agent, the schedule and "Compile now" never compile the same topic twice.
+
+### 7. Shelved by subject, and no disclaimers in the prose
+
+The Encyclopedia lists its pages under their subspecialty, in the map's order, beneath a table
+of contents; a page with no subspecialty comes last under "Other topics". A model told never to
+imply endorsement tends to write "this is a description of the source's protocol, not an
+endorsement" into pages, points and explanations. The citation already says whose statement it
+is, so the instructions now forbid the disclaimer, the server drops such a clause from any
+prose it accepts, and prose kept earlier is tidied once when a workspace opens.
+
 ## Consequences
 
 - Two more model turns, both on the Mac's own connection, both with a disclosure; the privacy

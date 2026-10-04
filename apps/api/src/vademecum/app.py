@@ -395,6 +395,9 @@ def create_app(
                 turn_factory=pipeline_turns,
                 provider_factory=workspace_provider,
             )
+            # The encyclopedia's literature review uses the same provider, with
+            # the same preferences (ADR 0023).
+            workspace.provider_factory = workspace_provider  # type: ignore[attr-defined]
             watcher: LiteratureWatcher | None = None
             if resolved.literature_enabled:
                 connection = connect(workspace.database_path)
@@ -455,17 +458,31 @@ def create_app(
                 return count
 
             # The encyclopedia (ADR 0023): compiled from what the builds made,
-            # after them, and on "Compile now"; needs the Mac's own connection.
+            # after them, on "Compile now", and by the dissection agent; one
+            # compile at a time, whoever asks; needs the Mac's own connection.
             from .model import encyclopedia as encyclopedia_service
+            from .model.dissection import Dissector
+
+            app.state.encyclopedia_lock = asyncio.Lock()
+            owner_provider_factory = getattr(owner, "provider_factory", None)
 
             async def refresh_encyclopedia(*, reason: str = "scheduled") -> dict:
-                return await encyclopedia_service.refresh(owner.database_path, owner.turn_factory, reason=reason)
+                async with app.state.encyclopedia_lock:
+                    provider = owner_provider_factory() if owner_provider_factory is not None else None
+                    return await encyclopedia_service.refresh(
+                        owner.database_path, owner.turn_factory, reason=reason, provider=provider
+                    )
 
-            if resolved.model_provider in ("codex", "claude"):
-                app.state.encyclopedia_runner = refresh_encyclopedia
-            else:
-                app.state.encyclopedia_runner = None
+            unattended = resolved.model_provider in ("codex", "claude")
+            app.state.encyclopedia_runner = refresh_encyclopedia if unattended else None
             app.state.encyclopedia_task = None
+            app.state.dissector = Dissector(
+                database_path=owner.database_path,
+                service=owner.build_service,
+                refresh=refresh_encyclopedia if unattended else None,
+                model_mode=resolved.model_provider,
+            )
+            app.state.dissector.resume()
 
             app.state.build_scheduler = BuildScheduler(
                 database_path=owner.database_path,
@@ -536,6 +553,10 @@ def create_app(
             hub = getattr(app.state, "case_hub", None)
             if hub is not None:
                 await hub.stop()
+            dissector = getattr(app.state, "dissector", None)
+            if dissector is not None:
+                # Cancelled, not stopped: its record stays "running", so the next start resumes it.
+                await dissector.stop()
             compile_task = getattr(app.state, "encyclopedia_task", None)
             if compile_task is not None and not compile_task.done():
                 compile_task.cancel()

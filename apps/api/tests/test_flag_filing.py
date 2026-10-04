@@ -66,6 +66,7 @@ def test_unfiled_flags_get_topics_and_the_map_draws_them(tmp_path: Path) -> None
         assert f"[{kept['id']}]" not in turns.prompts[0] and "===== BEGIN USER MATERIAL" in turns.prompts[0]
         topics = {t["topic"]: t for t in c.get("/api/improvement-map").json()["topics"]}
         assert topics["Hepatorenal syndrome"]["specialty"]["id"] == "nephrology"
+        assert "unsorted link" not in topics, "a link nothing could be told about is not a place on the map"
 
 
 def test_host_mode_refuses_to_file(tmp_path: Path) -> None:

@@ -68,66 +68,70 @@ export function ExamReports({ onChanged }: { onChanged: () => void }) {
 
   return (
     <section className="card exam-reports" aria-labelledby="exam-reports-heading">
-      <h2 id="exam-reports-heading">Exam reports</h2>
-      <p className="muted small">
-        An in-training exam report, a Step score report, a board feedback letter: the areas it
-        scores become areas on the map, with your standing in each, so the map rests on a test and
-        not only on what you happened to flag.
-      </p>
-      <TransmissionDisclosure disclosure={REPORT_DISCLOSURE} />
-      <PhiWarning />
-      <label className="field">
-        <span>Add a score report</span>
-        <input ref={input} type="file" accept=".pdf,.txt,.md,.docx,.png,.jpg,.jpeg" disabled={busy} />
-      </label>
-      <div className="actions">
-        <button type="button" className="button primary" disabled={busy} onClick={upload}>
-          {busy ? 'Working…' : 'Add and read it'}
-        </button>
-      </div>
-      {note ? (
-        <p className="ok" role="status">
-          {note}
+      <details className="card-details">
+        <summary>
+          <h2 id="exam-reports-heading">Exam reports</h2>
+        </summary>
+        <p className="muted small">
+          An in-training exam report, a Step score report, a board feedback letter: the areas it
+          scores become areas on the map, with your standing in each, so the map rests on a test and
+          not only on what you happened to flag.
         </p>
-      ) : null}
-      {failure ? (
-        <p className="failure" role="alert">
-          {failure.message}
-        </p>
-      ) : null}
-      {reports.result.state === 'ready' && reports.result.value.length > 0 ? (
-        <ul className="list">
-          {reports.result.value.map((report) => (
-            <li key={report.id}>
-              <span className="title">{report.display_name}</span>
-              <span className="muted small">
-                {' '}
-                · {STATUS_LABEL[report.status]} · added {momentLabel(report.created_at)}
-              </span>
-              {report.status_detail ? <p className="muted small">{report.status_detail}</p> : null}
-              {report.areas.length > 0 ? (
-                <ul className="chips">
-                  {report.areas.map((area) => (
-                    <li key={area.id} className={`chip standing-${area.standing}`}>
-                      {area.topic}: {STANDING_LABEL[area.standing]}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <div className="actions">
-                {report.status !== 'parsed' ? (
-                  <button type="button" className="button ghost small" disabled={busy} onClick={() => void act(() => api.parseExamReport(report.id))}>
-                    Read it again
-                  </button>
+        <TransmissionDisclosure disclosure={REPORT_DISCLOSURE} />
+        <PhiWarning />
+        <label className="field">
+          <span>Add a score report</span>
+          <input ref={input} type="file" accept=".pdf,.txt,.md,.docx,.png,.jpg,.jpeg" disabled={busy} />
+        </label>
+        <div className="actions">
+          <button type="button" className="button primary" disabled={busy} onClick={upload}>
+            {busy ? 'Working…' : 'Add and read it'}
+          </button>
+        </div>
+        {note ? (
+          <p className="ok" role="status">
+            {note}
+          </p>
+        ) : null}
+        {failure ? (
+          <p className="failure" role="alert">
+            {failure.message}
+          </p>
+        ) : null}
+        {reports.result.state === 'ready' && reports.result.value.length > 0 ? (
+          <ul className="list">
+            {reports.result.value.map((report) => (
+              <li key={report.id}>
+                <span className="title">{report.display_name}</span>
+                <span className="muted small">
+                  {' '}
+                  · {STATUS_LABEL[report.status]} · added {momentLabel(report.created_at)}
+                </span>
+                {report.status_detail ? <p className="muted small">{report.status_detail}</p> : null}
+                {report.areas.length > 0 ? (
+                  <ul className="chips">
+                    {report.areas.map((area) => (
+                      <li key={area.id} className={`chip standing-${area.standing}`}>
+                        {area.topic}: {STANDING_LABEL[area.standing]}
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
-                <button type="button" className="button ghost small" disabled={busy} onClick={() => void act(() => api.deleteExamReport(report.id))}>
-                  Remove
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+                <div className="actions">
+                  {report.status !== 'parsed' ? (
+                    <button type="button" className="button ghost small" disabled={busy} onClick={() => void act(() => api.parseExamReport(report.id))}>
+                      Read it again
+                    </button>
+                  ) : null}
+                  <button type="button" className="button ghost small" disabled={busy} onClick={() => void act(() => api.deleteExamReport(report.id))}>
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </details>
     </section>
   )
 }

@@ -13,7 +13,6 @@ import { EncyclopediaPage } from '../components/EncyclopediaPage'
 import { LiteratureSettings } from '../components/LiteratureSettings'
 import { PointCard } from '../components/PointCard'
 import { PaperLink } from '../components/PaperLink'
-import { MachineReviewedNote } from '../components/SupportBadge'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import { dateLabel, momentLabel } from '../lib/format'
@@ -209,8 +208,6 @@ export function Today({
 
   return (
     <div className="stack">
-      <PageToReview sheet={sheet} onNavigate={onNavigate} />
-
       <section className="card" aria-labelledby="literature-heading">
         <h2 id="literature-heading">New in the literature</h2>
         {unread.length === 0 ? (
@@ -238,6 +235,8 @@ export function Today({
         </details>
       </section>
 
+      <PageToReview sheet={sheet} onNavigate={onNavigate} />
+
       <section className="card" aria-labelledby="worth-a-look-heading">
         <h2 id="worth-a-look-heading">Worth a look</h2>
         {sheet.worth_a_look.length === 0 ? (
@@ -249,14 +248,11 @@ export function Today({
             , and only when you press Build learning material.
           </p>
         ) : (
-          <>
-            <MachineReviewedNote />
-            <ul className="list">
-              {sheet.worth_a_look.map((point) => (
-                <PointCard key={point.id} point={point} />
-              ))}
-            </ul>
-          </>
+          <ul className="list">
+            {sheet.worth_a_look.map((point) => (
+              <PointCard key={point.id} point={point} />
+            ))}
+          </ul>
         )}
       </section>
 

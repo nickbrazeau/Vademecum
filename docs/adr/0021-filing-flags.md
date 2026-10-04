@@ -30,3 +30,6 @@ done in this version".
   test names it. The README's table of what is sent gains a row.
 - The map has names where it had a dot. Links saved as flags file under the topic their
   words suggest, or "unsorted link".
+- Owner, 2026-10-03: neither "not filed yet" nor "unsorted link" is a place on the map. Flags
+  with no topic are counted beside the graph and listed under it; "unsorted link" stays on the
+  flag, so it is not sent for filing again, and is left out of the map's topics.

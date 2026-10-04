@@ -9,9 +9,8 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { ConfidenceBadge, ConfidenceMeaning } from '../components/ConfidenceBadge'
 import { ExamReports } from '../components/ExamReports'
-import { TopicGraph, UNFILED_ID, isShown } from '../components/TopicGraph'
+import { TopicGraph, isShown } from '../components/TopicGraph'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import type { Flag, MapPosition } from '../lib/types'
@@ -128,17 +127,16 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
   const selectedGap =
     selected === null
       ? null
-      : value.topics.find((gap) => (gap.topic ?? UNFILED_ID) === selected) ?? null
+      : value.topics.find((gap) => gap.topic === selected) ?? null
   const selectedCovered =
     selected === null ? null : value.covered_topics.find((entry) => entry.topic === selected) ?? null
-  const selectedLabel = selected === UNFILED_ID ? 'Not filed yet' : selected
   const selectedSpecialty = selectedGap?.specialty ?? selectedCovered?.specialty ?? null
   const selectedShown =
     selected === null ||
-    isShown({ specialty: selectedSpecialty?.id ?? null, unfiled: selected === UNFILED_ID }, hidden)
+    isShown({ specialty: selectedSpecialty?.id ?? null }, hidden)
   const selectedFlags =
     flags.result.state === 'ready' && selected !== null
-      ? flags.result.value.filter((flag) => (flag.topic ?? UNFILED_ID) === selected)
+      ? flags.result.value.filter((flag) => flag.topic === selected)
       : []
   const neighbours =
     selected === null
@@ -250,36 +248,34 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
 
       {selected !== null && selectedShown ? (
         <section className="card selected-topic" aria-labelledby="selected-heading">
-          <h3 id="selected-heading">{selectedLabel}</h3>
+          <h3 id="selected-heading">{selected}</h3>
           <p className="muted small">
             {selectedGap ? `${selectedGap.open_flags} open · ${selectedGap.addressed_flags} addressed` : 'No flags'}
             {selectedCovered ? ` · ${selectedCovered.point_count} learning points` : ''}
             {selectedCovered?.cluster ? ` · mostly from ${selectedCovered.cluster.title}` : ''}
             {neighbours.length > 0 ? ` · linked to ${neighbours.join(', ')}` : ''}
           </p>
-          {selected !== UNFILED_ID ? (
-            <label className="field specialty-field">
-              <span>
-                Specialty
-                {selectedSpecialty?.assigned_by === 'name' ? (
-                  <span className="muted"> (matched from the name — choose to confirm)</span>
-                ) : null}
-              </span>
-              <select
-                value={selectedSpecialty?.id ?? ''}
-                onChange={(event) =>
-                  void assignSpecialty(selected, event.target.value === '' ? null : event.target.value)
-                }
-              >
-                <option value="">No specialty</option>
-                {value.specialties.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+          <label className="field specialty-field">
+            <span>
+              Specialty
+              {selectedSpecialty?.assigned_by === 'name' ? (
+                <span className="muted"> (matched from the name — choose to confirm)</span>
+              ) : null}
+            </span>
+            <select
+              value={selectedSpecialty?.id ?? ''}
+              onChange={(event) =>
+                void assignSpecialty(selected, event.target.value === '' ? null : event.target.value)
+              }
+            >
+              <option value="">No specialty</option>
+              {value.specialties.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </label>
           {specialtyFailure ? (
             <p className="failure small" role="alert">
               {specialtyFailure.message} The specialty is unchanged.
@@ -297,21 +293,6 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
       ) : null}
 
       <ExamReports onChanged={reloadBoth} />
-
-      <section className="card" aria-labelledby="material-heading">
-        <h2 id="material-heading">Material behind it</h2>
-        <ConfidenceMeaning />
-        <ul className="tiers">
-          {value.confidences.map((entry) => (
-            <li key={entry.confidence}>
-              <ConfidenceBadge tier={entry.confidence} label={entry.label} />
-              <span className="muted small">
-                {entry.pile_count} piles · {entry.source_count} files
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
 
       <section className="card" aria-labelledby="flags-heading">
         <h2 id="flags-heading">Everything you have flagged</h2>

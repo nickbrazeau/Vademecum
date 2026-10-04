@@ -12,7 +12,6 @@ import { BuildSchedule } from '../components/BuildSchedule'
 import { LocalData } from '../components/LocalData'
 import { PrivacyNote } from '../components/PrivacyNote'
 import { PointCard } from '../components/PointCard'
-import { MachineReviewedNote } from '../components/SupportBadge'
 import { ConfidenceBadge, ConfidenceMeaning } from '../components/ConfidenceBadge'
 import { PhiWarning } from '../components/PhiWarning'
 import { SourceList } from '../components/SourceList'
@@ -232,7 +231,6 @@ function GeneratedMaterial({ pileId, token }: { pileId: string; token: number })
   if (!result.value.length) return <p className="muted">No learning points have been built for this pile yet.</p>
   return <section aria-label="Learning points in this pile">
     <h4>Learning points</h4>
-    <MachineReviewedNote />
     <ul className="list">{result.value.map((point) => <PointCard key={point.id} point={point} />)}</ul>
   </section>
 }
