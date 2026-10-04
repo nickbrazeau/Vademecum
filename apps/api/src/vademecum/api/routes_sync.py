@@ -58,6 +58,9 @@ def require_peer(
 def sync_status(request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict:
     data = sync_store.state(connection)
     data["role"] = get_settings_dep(request).sync_role_name
+    # What this node holds of each peer's log, by its own records (ADR 0015, 0026).
+    peer = request.headers.get("x-vademecum-node", "")
+    data["received_through"] = sync_store.received_through(connection, peer) if peer else None
     return data
 
 
@@ -97,6 +100,8 @@ def sync_apply(
         require_files=payload.files,
     )
     sync_store.record_sync(connection, peer_node_id=payload.node_id, note="applied from peer")
+    if result.deferred == 0:
+        sync_store.record_received(connection, payload.node_id, result.through)
     return {"node_id": sync_store.node_id(connection), **result.as_dict()}
 
 

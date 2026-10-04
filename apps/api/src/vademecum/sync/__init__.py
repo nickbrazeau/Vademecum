@@ -58,7 +58,9 @@ class Peer:
             raise SyncError("the peer's reply had the wrong shape")
         return data
 
-    def status(self) -> dict[str, Any]:
+    def status(self, node_id: str = "") -> dict[str, Any]:
+        if node_id:
+            self._headers["X-Vademecum-Node"] = node_id
         return self._json("GET", "/api/sync/status")
 
     def changes(self, since: int) -> dict[str, Any]:
@@ -101,7 +103,7 @@ def sync_once(
     transaction and the cursor moves only with it.
     """
     me = sync_store.node_id(connection)
-    status = peer.status()
+    status = peer.status(me)
     peer_id = str(status.get("node_id", ""))
     if not peer_id:
         raise SyncError("the peer did not say who it is")
@@ -134,6 +136,13 @@ def sync_once(
     # --- push ---------------------------------------------------------------
     pushed = 0
     since = int(sync_store.state(connection)["pushed_through"])
+    # A peer restored from an older copy of itself says it holds less than we
+    # think we sent; send again from there (ADR 0026). Re-applying is harmless.
+    held = status.get("received_through")
+    if isinstance(held, int) and 0 <= held < since:
+        since = held
+    elif held is None and status.get("role") == "foris" and "received_through" in status:
+        since = 0
     while True:
         changes, through, done = sync_store.changes_since(connection, since, scope=scope)
         if not changes:

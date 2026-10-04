@@ -228,3 +228,39 @@ def test_the_lean_scope_carries_records_and_cited_passages_but_no_files(pair, tm
     assert question is not None
     # And a second round moves nothing.
     assert run_sync(home_app, away, scope="lean")["pushed"] == 0
+
+
+def test_a_foris_restored_from_an_older_copy_of_itself_is_sent_what_it_lost(pair) -> None:
+    """ADR 0026: the cloud copy snapshots every few minutes; a restart between snapshots
+    loses rows it had acknowledged. It records what it holds in its own database, so the
+    restored copy says it holds less, and domi sends the rest again."""
+    import shutil
+
+    home, home_app, away, away_app = pair
+    first = home.post("/api/flags", json={"text": "A flag before the snapshot", "topic": "Sepsis"}).json()
+    assert run_sync(home_app, away, scope="lean")["pushed"] > 0
+    snapshot = away_app.state.database_path.with_suffix(".snapshot")
+    away_db = db(away_app)
+    try:
+        away_db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        away_db.close()
+    shutil.copyfile(away_app.state.database_path, snapshot)
+
+    page = home.post("/api/piles", json={"title": "After the snapshot", "tier": "high"}).json()
+    assert run_sync(home_app, away, scope="lean")["pushed"] > 0
+    assert any(p["id"] == page["id"] for p in away.get("/api/piles").json())
+
+    # The cloud copy dies before its next snapshot and comes back from the older one.
+    away_db = db(away_app)
+    try:
+        restored = connect(snapshot)
+        restored.backup(away_db)
+        restored.close()
+    finally:
+        away_db.close()
+    assert not any(p["id"] == page["id"] for p in away.get("/api/piles").json()), "lost with the restart"
+
+    run_sync(home_app, away, scope="lean")
+    assert any(p["id"] == page["id"] for p in away.get("/api/piles").json()), "sent again"
+    assert any(f["id"] == first["id"] for f in away.get("/api/flags").json())

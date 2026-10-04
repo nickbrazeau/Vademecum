@@ -185,6 +185,45 @@ def state(connection: sqlite3.Connection) -> dict[str, Any]:
     return data
 
 
+RECEIVED_KEY = "sync_received_through"
+
+
+def received_through(connection: sqlite3.Connection, peer_node_id: str) -> int | None:
+    """What this node holds of a peer's log, as its own records say (restored with them)."""
+    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (RECEIVED_KEY,)).fetchone()
+    if row is None:
+        return None
+    try:
+        data = json.loads(row["value"])
+    except ValueError:
+        return None
+    value = data.get(peer_node_id) if isinstance(data, dict) else None
+    return int(value) if isinstance(value, int) else None
+
+
+def record_received(connection: sqlite3.Connection, peer_node_id: str, through: int) -> None:
+    """Kept in app_state, in the same database the rows are in, so a node restored from an
+    older copy of itself also says it holds less -- and the sender sends the rest again."""
+    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (RECEIVED_KEY,)).fetchone()
+    try:
+        data = json.loads(row["value"]) if row else {}
+    except ValueError:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    data[peer_node_id] = max(int(through), int(data.get(peer_node_id) or 0)) if isinstance(data.get(peer_node_id), int) else int(through)
+    connection.execute("UPDATE sync_state SET applying = 1 WHERE id = 1")
+    try:
+        connection.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (RECEIVED_KEY, json.dumps(data), utc_now()),
+        )
+    finally:
+        connection.execute("UPDATE sync_state SET applying = 0 WHERE id = 1")
+    connection.commit()
+
+
 def record_sync(
     connection: sqlite3.Connection,
     *,
