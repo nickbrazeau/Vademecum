@@ -15,6 +15,7 @@ import { Encyclopedia } from './pages/Encyclopedia'
 import { Flashcards } from './pages/Flashcards'
 import { ImprovementMap } from './pages/ImprovementMap'
 import { Model } from './pages/Model'
+import { Podcasts } from './pages/Podcasts'
 import { Settings } from './pages/Settings'
 import { Sources } from './pages/Sources'
 import { Today } from './pages/Today'
@@ -28,6 +29,7 @@ const TITLES = {
   sources: 'Sources',
   map: 'Improvement Map',
   cases: 'Case Series',
+  podcasts: 'Podcast Generator',
   model: 'Model',
   settings: 'Settings'
 } as const
@@ -183,6 +185,7 @@ export function App() {
         {route === 'cases' ? <CaseSeries /> : null}
         {route === 'encyclopedia' ? <Encyclopedia /> : null}
         {route === 'flashcards' ? <Flashcards onNavigate={navigate} /> : null}
+        {route === 'podcasts' ? <Podcasts onNavigate={navigate} /> : null}
         {route === 'settings' ? <Settings onSaved={setVisibleTabs} /> : null}
         {route === 'model' && !compact && !hostMode ? <Model /> : null}
       </main>

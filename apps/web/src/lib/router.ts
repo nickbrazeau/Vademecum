@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { inChat } from './host'
 
-export type RouteName = 'today' | 'tutor' | 'flashcards' | 'encyclopedia' | 'sources' | 'map' | 'cases' | 'model' | 'settings'
+export type RouteName = 'today' | 'tutor' | 'flashcards' | 'encyclopedia' | 'sources' | 'map' | 'cases' | 'podcasts' | 'model' | 'settings'
 
 export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'today', path: '/', label: 'Today' },
@@ -15,6 +15,7 @@ export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'encyclopedia', path: '/encyclopedia', label: 'Encyclopedia' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
   { name: 'cases', path: '/cases', label: 'Case Series' },
+  { name: 'podcasts', path: '/podcasts', label: 'Podcast Generator' },
   { name: 'model', path: '/model', label: 'Model' },
   { name: 'sources', path: '/sources', label: 'Sources' },
   { name: 'settings', path: '/settings', label: 'Settings' }

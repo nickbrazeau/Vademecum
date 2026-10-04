@@ -22,7 +22,7 @@ from mcp.server import MCPServer
 
 from ..api_client import ApiClient
 from ..config import McpSettings
-from . import app, build, dashboard, encyclopedia, folder, gaps, library, literature, media, tutor
+from . import app, build, dashboard, encyclopedia, folder, gaps, library, literature, media, socratic, tutor
 
 
 def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None = None) -> None:
@@ -35,4 +35,5 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None = None
     build.register(mcp, api)
     tutor.register(mcp, api)
     encyclopedia.register(mcp, api)
+    socratic.register(mcp, api)
     literature.register(mcp, api)

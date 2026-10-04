@@ -379,6 +379,20 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/flashcards/next",
         "/api/flashcards/review",
         "/api/preferences",
+        # The Socratic tutor and the podcast generator (ADR 0025).
+        "/api/socratic",
+        "/api/socratic/{session_id}",
+        "/api/socratic/{session_id}/material",
+        "/api/socratic/{session_id}/answer",
+        "/api/socratic/{session_id}/turn",
+        "/api/socratic/{session_id}/finish",
+        "/api/socratic/{session_id}/abandon",
+        "/api/podcasts",
+        "/api/podcasts/voices",
+        "/api/podcasts/{episode_id}",
+        "/api/podcasts/{episode_id}/script",
+        "/api/podcasts/{episode_id}/render",
+        "/api/podcasts/{episode_id}/audio",
         # Two Vademecums that sync (ADR 0015): served only with a peer token.
         "/api/sync/status",
         "/api/sync/changes",
@@ -404,7 +418,16 @@ def test_the_only_transmitting_routes_are_the_two_explicit_actions() -> None:
         text = path.read_text(encoding="utf-8")
         if "get_turn_factory" in text or "turn_factory" in text:
             users.append(path.name)
-    assert sorted(users) == ["deps.py", "routes_flags.py", "routes_reports.py", "routes_tutor.py"], users
+    assert sorted(users) == [
+        "deps.py",
+        "routes_flags.py",
+        # Writing a podcast script and answering the Socratic tutor (ADR 0025): a
+        # disclosure sits beside each, and each sends only what it names.
+        "routes_podcasts.py",
+        "routes_reports.py",
+        "routes_socratic.py",
+        "routes_tutor.py",
+    ], users
     # The build path reaches a turn through the BuildService, which is
     # constructed once in app.py and handed the same factory.
     starter = (API_SOURCE / "api" / "routes_sources.py").read_text(encoding="utf-8")

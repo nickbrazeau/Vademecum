@@ -83,6 +83,8 @@ SYNCED_TABLES: tuple[str, ...] = (
     "encyclopedia_records",
     "flashcards",
     "flashcard_reviews",
+    "socratic_sessions",
+    "podcast_episodes",
 )
 
 DOMI_OWNED: frozenset[str] = frozenset(
@@ -109,6 +111,7 @@ DOMI_OWNED: frozenset[str] = frozenset(
         "board_questions",
         "encyclopedia_records",
         "flashcards",
+        "podcast_episodes",
     }
 )
 

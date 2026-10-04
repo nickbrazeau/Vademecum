@@ -82,6 +82,12 @@ import type {
   FlashcardDraw,
   FlashcardOverview,
   Preferences,
+  PodcastEpisode,
+  PodcastList,
+  PodcastVoice,
+  SocraticOverview,
+  SocraticReply,
+  SocraticSession,
   EncyclopediaCounts,
   EncyclopediaEntry,
   EncyclopediaList,
@@ -990,6 +996,100 @@ export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
         corrected: record.corrected === true
       }
     })
+  }
+}
+
+/** The Socratic tutor and the podcast generator (ADR 0025). */
+function socraticSession(raw: unknown): SocraticSession {
+  const data = obj(raw)
+  const assessment = obj(data.assessment)
+  const status = data.status === 'done' || data.status === 'abandoned' ? data.status : 'open'
+  return {
+    id: str(data.id),
+    entry_id: typeof data.entry_id === 'string' ? data.entry_id : null,
+    topic: str(data.topic),
+    title: str(data.title),
+    mode: str(data.mode),
+    status,
+    transcript: arr(data.transcript).map((item) => {
+      const turn = obj(item)
+      return { role: turn.role === 'tutor' ? 'tutor' : 'learner', text: str(turn.text), probe: str(turn.probe) }
+    }),
+    assessment: {
+      differential: str(assessment.differential),
+      treatment: str(assessment.treatment),
+      knowledge_strengths: str(assessment.knowledge_strengths),
+      knowledge_gaps: strings(assessment.knowledge_gaps),
+      summary: str(assessment.summary)
+    },
+    exchanges: num(data.exchanges),
+    created_at: str(data.created_at),
+    finished_at: typeof data.finished_at === 'string' ? data.finished_at : null
+  }
+}
+
+export function socraticOverview(raw: unknown): SocraticOverview {
+  const data = obj(raw)
+  return {
+    open: data.open && typeof data.open === 'object' ? socraticSession(data.open) : null,
+    recent: arr(data.recent).map(socraticSession),
+    mode: str(data.mode),
+    can_answer_here: data.can_answer_here === true,
+    note: str(data.note),
+    disclosure: str(data.disclosure)
+  }
+}
+
+export function socraticReply(raw: unknown): SocraticReply {
+  const data = obj(raw)
+  return { session: socraticSession(data.session), note: str(data.note), gaps_filed: num(data.gaps_filed) }
+}
+
+export function podcastEpisode(raw: unknown): PodcastEpisode {
+  const data = obj(raw)
+  const status = data.status === 'scripted' || data.status === 'rendered' || data.status === 'failed' ? data.status : 'draft'
+  const voices = obj(data.voices)
+  return {
+    id: str(data.id),
+    title: str(data.title),
+    status,
+    status_detail: str(data.status_detail),
+    entry_ids: strings(data.entry_ids),
+    script: arr(data.script).map((item) => {
+      const line = obj(item)
+      return { speaker: line.speaker === 'B' ? 'B' : 'A', text: str(line.text) }
+    }),
+    takeaways: strings(data.takeaways),
+    voices: Object.fromEntries(Object.entries(voices).map(([key, value]) => [key, str(value)])),
+    has_audio: data.has_audio === true,
+    audio_bytes: num(data.audio_bytes),
+    duration_seconds: num(data.duration_seconds),
+    words: num(data.words),
+    created_at: str(data.created_at),
+    ...(typeof data.note === 'string' ? { note: data.note } : {})
+  }
+}
+
+export function podcastList(raw: unknown): PodcastList {
+  const data = obj(raw)
+  return {
+    episodes: arr(data.episodes).map(podcastEpisode),
+    can_write: data.can_write === true,
+    can_render: data.can_render === true,
+    note: str(data.note),
+    disclosure: str(data.disclosure)
+  }
+}
+
+export function podcastVoices(raw: unknown): { voices: PodcastVoice[]; default: Record<string, string> } {
+  const data = obj(raw)
+  const fallback = obj(data.default)
+  return {
+    voices: arr(data.voices).map((item) => {
+      const voice = obj(item)
+      return { name: str(voice.name), locale: str(voice.locale) }
+    }),
+    default: Object.fromEntries(Object.entries(fallback).map(([key, value]) => [key, str(value)]))
   }
 }
 

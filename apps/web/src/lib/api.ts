@@ -382,6 +382,25 @@ export const api = {
     request<unknown>(`/encyclopedia/page${query(options)}`).then(normalize.encyclopediaPage),
   encyclopediaEntry: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}`).then(normalize.encyclopediaEntry),
   compileEncyclopedia: () => request<unknown>('/encyclopedia/compile', { method: 'POST' }).then(normalize.encyclopediaList),
+  // The Socratic tutor and the podcast generator (ADR 0025). Answering a
+  // Socratic question and writing an episode are the two that send; the
+  // disclosure on each page says what. Rendering audio sends nothing.
+  socraticOverview: () => request<unknown>('/socratic').then(normalize.socraticOverview),
+  socraticStart: (entryId?: string) =>
+    request<unknown>('/socratic', { method: 'POST', ...body(entryId ? { entry_id: entryId } : {}) }).then(normalize.socraticReply),
+  socraticAnswer: (sessionId: string, answer: string) =>
+    request<unknown>(`/socratic/${sessionId}/answer`, { method: 'POST', ...body({ answer }) }).then(normalize.socraticReply),
+  socraticAbandon: (sessionId: string) => request<unknown>(`/socratic/${sessionId}/abandon`, { method: 'POST' }).then(normalize.socraticReply),
+  podcasts: () => request<unknown>('/podcasts').then(normalize.podcastList),
+  podcastVoices: () => request<unknown>('/podcasts/voices').then(normalize.podcastVoices),
+  createPodcast: (input: { entry_ids?: string[]; pick: 'chosen' | 'today' | 'improvement'; title?: string }) =>
+    request<unknown>('/podcasts', { method: 'POST', ...body(input) }).then(normalize.podcastEpisode),
+  podcast: (episodeId: string) => request<unknown>(`/podcasts/${episodeId}`).then(normalize.podcastEpisode),
+  rewritePodcast: (episodeId: string) => request<{ started: boolean }>(`/podcasts/${episodeId}/script`, { method: 'POST' }),
+  renderPodcast: (episodeId: string, voices: { voice_a: string; voice_b: string }) =>
+    request<unknown>(`/podcasts/${episodeId}/render`, { method: 'POST', ...body(voices) }).then(normalize.podcastEpisode),
+  deletePodcast: (episodeId: string) => request<void>(`/podcasts/${episodeId}`, { method: 'DELETE' }),
+
   // Flashcards and preferences (ADR 0024): local, no model turn.
   flashcardsOverview: () => request<unknown>('/flashcards').then(normalize.flashcardOverview),
   flashcardNext: (notId?: string) => request<unknown>(`/flashcards/next${query({ not_id: notId })}`).then(normalize.flashcardDraw),

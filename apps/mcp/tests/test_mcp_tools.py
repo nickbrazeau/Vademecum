@@ -74,6 +74,12 @@ EXPECTED_TOOLS = {
     "dissect_status",
     "dissect_start",
     "dissect_stop",
+    "socratic_start",
+    "socratic_turn",
+    "socratic_finish",
+    "podcast_list",
+    "podcast_read",
+    "podcast_create",
     "literature_topics",
     "literature_add_topic",
     "literature_check",
@@ -82,7 +88,7 @@ EXPECTED_TOOLS = {
 }
 
 # The tools that transmit content beyond the Mac, and only those, say so.
-TRANSMITTING = {"build_start", "build_now", "tutor_grade", "literature_check", "dissect_start"}
+TRANSMITTING = {"build_start", "build_now", "tutor_grade", "literature_check", "dissect_start", "podcast_create"}
 
 
 async def wait_for_build(client: Client, pile_id: str) -> dict:

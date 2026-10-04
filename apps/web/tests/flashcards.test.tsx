@@ -17,7 +17,7 @@ const DRAW = { card: CARD, reasons: ['You flagged this topic as a gap.'], citati
 const NEXT = { card: { ...CARD, id: 'card_2', front: 'First-line vasopressor in septic shock?' }, reasons: ['New card.'], citations: CITATIONS, deck: 12, empty_reason: '' }
 const TABS = [
   { name: 'today', label: 'Today', fixed: true }, { name: 'tutor', label: 'Tutor', fixed: false }, { name: 'flashcards', label: 'Flashcards', fixed: false },
-  { name: 'encyclopedia', label: 'Encyclopedia', fixed: false }, { name: 'map', label: 'Improvement Map', fixed: false }, { name: 'cases', label: 'Case Series', fixed: false },
+  { name: 'encyclopedia', label: 'Encyclopedia', fixed: false }, { name: 'map', label: 'Improvement Map', fixed: false }, { name: 'cases', label: 'Case Series', fixed: false }, { name: 'podcasts', label: 'Podcast Generator', fixed: false },
   { name: 'sources', label: 'Sources', fixed: false }, { name: 'model', label: 'Model', fixed: false }, { name: 'settings', label: 'Settings', fixed: true }
 ]
 

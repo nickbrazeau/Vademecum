@@ -1164,6 +1164,65 @@ details.card-details[open] > summary {
   min-width: 1.25rem;
 }
 
+/* The Socratic tutor and the podcast generator (ADR 0025). */
+.socratic-dialogue {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0;
+}
+.socratic-turn {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line);
+}
+.socratic-tutor {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+}
+.socratic-who {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.125rem;
+}
+.socratic-turn .body {
+  margin: 0;
+}
+.podcast-episode {
+  margin-bottom: 1rem;
+}
+.podcast-audio {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+.podcast-lines {
+  list-style: none;
+  padding: 0;
+}
+.podcast-line {
+  margin-bottom: 0.5rem;
+}
+.podcast-speaker {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.podcast-line .body {
+  margin: 0;
+}
+.podcast-voices {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+}
+.podcast-pick,
+.podcast-pages {
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
+}
+
 /* Flashcards and settings (ADR 0024). */
 .flashcard-front {
   font-size: 1.15rem;

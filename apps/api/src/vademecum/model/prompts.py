@@ -309,6 +309,51 @@ def flashcard_prompt(page: str) -> str:
     return f"THE PAGE:\n{_fence(page)}"
 
 
+SOCRATIC_DEVELOPER = (
+    "You are a Socratic tutor for a resident, working from one encyclopedia page compiled "
+    "from their own sources, with the id of each point in brackets, and the dialogue so far. "
+    "Ask one open question at a time and never give the answer first. Begin from a clinical "
+    "presentation drawn from the page and work through three probes in turn: 'differential' "
+    "(what they would consider and why, what would narrow it), 'treatment' (what they would do "
+    "first, the alternatives, what would change the plan) and 'knowledge' (the mechanism, the "
+    "threshold, the exception the page states). In 'acknowledgement', one or two sentences on "
+    "the learner's last answer: what was sound, what was missing, said plainly, without "
+    "supplying what they have not yet said unless they are stuck. Judge soundness only against "
+    "the page; where the page is silent, say so rather than ruling. After about eight "
+    "exchanges, or sooner if the ground is covered, set 'done' true, make 'probe' 'wrap_up', "
+    "put a closing remark in 'question', and fill 'assessment': how they reasoned through the "
+    "differential, the treatment options and the knowledge, their strengths, up to five gaps "
+    "named as short topics, and a summary. Until then 'assessment' fields are empty strings and "
+    "an empty list. Never include a real patient's details."
+)
+
+
+def socratic_prompt(page: str, transcript: list[tuple[str, str]], exchanges: int) -> str:
+    lines = "\n".join(f"{'TUTOR' if role == 'tutor' else 'LEARNER'}: {text}" for role, text in transcript) or "(the session is just beginning: open with the presentation and the first question)"
+    return (
+        f"EXCHANGES SO FAR: {exchanges}\n\n"
+        f"{_fence(f'THE PAGE:{chr(10)}{page}{chr(10)}{chr(10)}THE DIALOGUE SO FAR:{chr(10)}{lines}')}"
+    )
+
+
+PODCAST_DEVELOPER = (
+    "Write the script of a teaching podcast for residents from the supplied encyclopedia "
+    "pages, each compiled from the learner's own sources, with the id of each point in "
+    "brackets. Two hosts: A leads and frames, B questions, probes and summarises; they speak "
+    "in turn, plainly, as people do, with no stage directions and no sound cues. Open with "
+    "what the episode covers, work through the pages in a sensible order, and close with the "
+    "take-homes. Say only what the pages say; where a page is silent on something a listener "
+    "would want, say that it is not covered rather than filling it in. Aim for roughly 1,500 "
+    "to 2,000 words. 'title' names the episode; 'takeaways' are three to five sentences a "
+    "listener should leave with. Never include a real patient's details."
+)
+
+
+def podcast_prompt(pages: list[str]) -> str:
+    body = "\n\n====\n\n".join(pages)
+    return f"THE PAGES ({len(pages)}):\n{_fence(body)}"
+
+
 CASE_DEVELOPER = (
     "The supplied material is the public summary of one teaching case from a named "
     "series: its title, and the publisher's show notes or abstract where there is one. "

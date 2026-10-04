@@ -599,6 +599,85 @@ export interface EncyclopediaEntry {
   literature: PageRecord[]
 }
 
+/** The Socratic tutor and the podcast generator (ADR 0025). */
+export interface SocraticTurn {
+  role: 'tutor' | 'learner'
+  text: string
+  probe: string
+}
+
+export interface SocraticAssessment {
+  differential: string
+  treatment: string
+  knowledge_strengths: string
+  knowledge_gaps: string[]
+  summary: string
+}
+
+export interface SocraticSession {
+  id: string
+  entry_id: string | null
+  topic: string
+  title: string
+  mode: string
+  status: 'open' | 'done' | 'abandoned'
+  transcript: SocraticTurn[]
+  assessment: SocraticAssessment
+  exchanges: number
+  created_at: string
+  finished_at: string | null
+}
+
+export interface SocraticOverview {
+  open: SocraticSession | null
+  recent: SocraticSession[]
+  mode: string
+  can_answer_here: boolean
+  note: string
+  disclosure: string
+}
+
+export interface SocraticReply {
+  session: SocraticSession
+  note: string
+  gaps_filed: number
+}
+
+export interface PodcastLine {
+  speaker: 'A' | 'B'
+  text: string
+}
+
+export interface PodcastEpisode {
+  id: string
+  title: string
+  status: 'draft' | 'scripted' | 'rendered' | 'failed'
+  status_detail: string
+  entry_ids: string[]
+  script: PodcastLine[]
+  takeaways: string[]
+  voices: Record<string, string>
+  has_audio: boolean
+  audio_bytes: number
+  duration_seconds: number
+  words: number
+  created_at: string
+  note?: string
+}
+
+export interface PodcastList {
+  episodes: PodcastEpisode[]
+  can_write: boolean
+  can_render: boolean
+  note: string
+  disclosure: string
+}
+
+export interface PodcastVoice {
+  name: string
+  locale: string
+}
+
 /** Flashcards and preferences (ADR 0024). */
 export interface Flashcard {
   id: string

@@ -388,6 +388,64 @@ FLASHCARD_SCHEMA = {
 }
 
 
+# --- the Socratic tutor (ADR 0025) ----------------------------------------------------
+#
+# One reply per exchange: the next open question and which probe it serves,
+# a sentence acknowledging the last answer without giving the answer away,
+# and -- only when done -- the assessment. No score, no grade.
+
+SOCRATIC_ASSESSMENT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["differential", "treatment", "knowledge_strengths", "knowledge_gaps", "summary"],
+    "properties": {
+        "differential": _string(400),
+        "treatment": _string(400),
+        "knowledge_strengths": _string(400),
+        "knowledge_gaps": {"type": "array", "maxItems": 5, "items": _string(120)},
+        "summary": _string(600),
+    },
+}
+
+SOCRATIC_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["acknowledgement", "question", "probe", "done", "assessment"],
+    "properties": {
+        "acknowledgement": _string(400),
+        "question": _string(400),
+        "probe": {"type": "string", "enum": ["differential", "treatment", "knowledge", "wrap_up"]},
+        "done": {"type": "boolean"},
+        "assessment": SOCRATIC_ASSESSMENT_SCHEMA,
+    },
+}
+
+
+# --- the podcast generator (ADR 0025) --------------------------------------------------
+
+MAX_PODCAST_LINES = 80
+
+PODCAST_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["title", "lines", "takeaways"],
+    "properties": {
+        "title": _string(120),
+        "lines": {
+            "type": "array",
+            "maxItems": MAX_PODCAST_LINES,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["speaker", "text"],
+                "properties": {"speaker": {"type": "string", "enum": ["A", "B"]}, "text": _string(700)},
+            },
+        },
+        "takeaways": {"type": "array", "maxItems": 5, "items": _string(200)},
+    },
+}
+
+
 CASE_SCHEMA = {
     "type": "object",
     "additionalProperties": False,

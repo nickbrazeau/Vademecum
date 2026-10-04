@@ -95,6 +95,10 @@ EXPORTED_TABLES: tuple[str, ...] = (
     # Flashcards and their reviews (ADR 0024).
     "flashcards",
     "flashcard_reviews",
+    # Socratic sessions and podcast episodes (ADR 0025). Rows only; audio
+    # stays with the Mac that rendered it.
+    "socratic_sessions",
+    "podcast_episodes",
 )
 
 DATABASE_MEMBER = "vademecum.sqlite3"

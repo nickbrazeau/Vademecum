@@ -44,8 +44,10 @@ css += '\n:root[data-host="chat"] body{min-height:0}'
 html = html
   .replace(/<link rel="stylesheet"[^>]*>/g, '')
   .replace(/<script type="module"[^>]*><\/script>/g, '')
-  .replace('</head>', `<style>\n${css}\n</style>\n</head>`)
-  .replace('</body>', `<script type="module">\n${js}\n</script>\n</body>`)
+  // Function replacements: a string replacement expands `$&`, `$'` and the
+  // like, and a minified bundle can contain them (a variable named `$`).
+  .replace('</head>', () => `<style>\n${css}\n</style>\n</head>`)
+  .replace('</body>', () => `<script type="module">\n${js}\n</script>\n</body>`)
 
 if (/<script[^>]*\ssrc=|<link\s/i.test(html)) throw new Error('the document still references a file')
 
