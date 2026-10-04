@@ -146,9 +146,10 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
       <section className="card socratic" aria-labelledby="socratic-heading">
         {heading}
         <p className="muted">
-          A dialogue about one page of your encyclopedia: open questions through the differential, the treatment options and the
-          knowledge underneath, one at a time, never the answer first. At the end, how you reasoned and what to revisit; each gap
-          becomes a flag.
+          A dialogue grounded in one page of your encyclopedia: open questions through the differential, the treatment options and
+          the knowledge underneath, one at a time, never the answer first. The tutor assesses and probes beyond the page from the
+          literature reviewed for it, related pages, and its own knowledge, saying which is which. At the end, how you reasoned and
+          what to revisit; each gap becomes a flag.
         </p>
         {overview.can_answer_here ? (
           <>

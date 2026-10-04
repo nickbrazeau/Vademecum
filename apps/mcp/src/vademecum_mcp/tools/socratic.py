@@ -26,13 +26,17 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         entry_id: Annotated[str, Field(max_length=64, description="An encyclopedia page id to work from; empty for one chosen from the owner's gaps.")] = "",
     ) -> dict[str, Any]:
         """Begin a Socratic session and become the tutor. The reply carries the
-        page (compiled from the owner's own sources), the rules, and the
-        dialogue so far. Open with a clinical presentation from the page and
-        ONE open question; never give the answer first. Work through the
-        differential, then treatment, then the underlying knowledge, judging
-        soundness only against the page. Suits voice: ask, listen, respond
-        briefly, ask again. After each answer call socratic_turn; after about
-        eight exchanges call socratic_finish with the assessment."""
+        page (compiled from the owner's own sources), further context already on
+        the Mac (reviewed abstracts, related pages, case-series points), the
+        rules, and the dialogue so far. The page is the grounding; use the
+        context, your own knowledge and web search to assess answers and to
+        probe beyond the page, saying which is which and citing what you
+        searched. Open with a clinical presentation from the page and ONE open
+        question; never give the answer first. Work through the differential,
+        then treatment, then the underlying knowledge. Suits voice: ask,
+        listen, respond briefly, ask again. After each answer call
+        socratic_turn; after about eight exchanges call socratic_finish with
+        the assessment."""
         started = await call(api.post("/api/socratic", {"entry_id": entry_id} if entry_id else {}))
         session = started.get("session") or {}
         material = await call(api.get(f"/api/socratic/{session['id']}/material")) if session.get("id") else {}

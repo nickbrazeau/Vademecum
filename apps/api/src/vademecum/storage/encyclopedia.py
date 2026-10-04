@@ -283,11 +283,11 @@ def set_entry_literature(
         )
 
 
-def records_for_entry(connection: sqlite3.Connection, entry_id: str) -> list[dict[str, Any]]:
+def records_for_entry(connection: sqlite3.Connection, entry_id: str, *, with_abstracts: bool = False) -> list[dict[str, Any]]:
     """What the page's literature review shows: the record, its status flags, whether a paragraph drew on it."""
     rows = connection.execute(
         "SELECT er.record_id, er.cited, r.pmid, r.doi, r.title, r.journal, r.published_on, r.url, r.priority,"
-        " r.retracted, r.corrected, r.is_notice"
+        " r.retracted, r.corrected, r.is_notice, r.abstract"
         " FROM encyclopedia_records er JOIN literature_records r ON r.id = er.record_id"
         " WHERE er.entry_id = ? ORDER BY er.ordinal",
         (entry_id,),
@@ -306,6 +306,7 @@ def records_for_entry(connection: sqlite3.Connection, entry_id: str) -> list[dic
             "retracted": bool(row["retracted"]),
             "corrected": bool(row["corrected"]),
             "is_notice": bool(row["is_notice"]),
+            **({"abstract": str(row["abstract"] or "")[:1500]} if with_abstracts else {}),
         }
         for row in rows
     ]

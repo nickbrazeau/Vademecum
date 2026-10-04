@@ -47,6 +47,37 @@ def page_material(connection, entry: pages.Entry) -> str:
     return f"{_page_text(entry, handles)}\n\nTHE POINTS THE PAGE RESTS ON:\n{_points_text(cited, handles)}"
 
 
+MAX_CONTEXT_RECORDS = 5
+MAX_RELATED_PAGES = 3
+MAX_CASE_POINTS = 6
+
+
+def further_context(connection, entry: pages.Entry) -> str:
+    """Grounding beyond the page, already on this Mac: the abstracts reviewed for the page,
+    related pages in the same specialty, and teaching points from the case series. Nothing new
+    is fetched for a session."""
+    parts: list[str] = []
+    records = [r for r in pages.records_for_entry(connection, entry.id, with_abstracts=True) if not r["retracted"] and not r["is_notice"]]
+    for record in records[:MAX_CONTEXT_RECORDS]:
+        year = (record["published_on"] or "")[:4]
+        parts.append(f"LITERATURE: {record['title']} ({record['journal']}, {year})\n{record.get('abstract') or '(no public abstract)'}")
+    if entry.specialty_id:
+        related = [e for e in pages.list_entries(connection) if e.id != entry.id and e.status == "current" and e.specialty_id == entry.specialty_id]
+        for other in related[:MAX_RELATED_PAGES]:
+            parts.append(f"RELATED PAGE: {other.title}\n{other.summary}")
+        rows = connection.execute(
+            "SELECT title, points FROM case_entries WHERE specialty_id = ? AND status = 'synthesised' ORDER BY published_on DESC LIMIT 12",
+            (entry.specialty_id,),
+        ).fetchall()
+        shown = 0
+        for row in rows:
+            for point in pages._json_list(row["points"]):
+                if isinstance(point, dict) and point.get("point") and shown < MAX_CASE_POINTS:
+                    parts.append(f"CASE SERIES ({row['title'][:60]}): {point['point']}")
+                    shown += 1
+    return "\n\n".join(parts)
+
+
 def choose_page(connection, entry_id: str | None) -> pages.Entry | None:
     """The page asked for, else one weighted towards the map's gaps, else the page of the day."""
     if entry_id:
@@ -75,13 +106,17 @@ def material(connection, session: store.Session) -> dict[str, Any]:
         "session_id": session.id,
         "rules": prompts.SOCRATIC_DEVELOPER,
         "page": page_material(connection, entry) if entry else "",
+        "context": further_context(connection, entry) if entry else "",
         "transcript": [dict(turn) for turn in session.transcript],
         "exchanges": session.exchanges,
         "max_exchanges": store.MAX_EXCHANGES,
         "output_schema": schemas.SOCRATIC_ASSESSMENT_SCHEMA,
         "how": (
-            "Ask one open question at a time, in the owner's voice or text channel; after each answer call "
-            "socratic_turn with your question and their answer; when done call socratic_finish with the assessment."
+            "The page is the grounding; the context, your own knowledge and, where you have it, web search "
+            "are for assessing answers and probing beyond the page -- say which is which, and cite what you "
+            "searched. Ask one open question at a time, in the owner's voice or text channel; after each "
+            "answer call socratic_turn with your question and their answer; when done call socratic_finish "
+            "with the assessment."
         ),
     }
 
@@ -110,6 +145,7 @@ async def answer(database_path: Path, session_id: str, learner_text: str, turn_f
             session = store.append(connection, session_id, role="learner", text=learner_text)
         entry = pages.get_entry(connection, session.entry_id) if session.entry_id else None
         page = page_material(connection, entry) if entry else ""
+        context = further_context(connection, entry) if entry else ""
         transcript = [(turn["role"], turn["text"]) for turn in session.transcript]
         exchanges = session.exchanges
     finally:
@@ -119,7 +155,7 @@ async def answer(database_path: Path, session_id: str, learner_text: str, turn_f
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.SOCRATIC_DEVELOPER,
-            prompt=prompts.socratic_prompt(page, transcript, exchanges),
+            prompt=prompts.socratic_prompt(page, transcript, exchanges, context),
             output_schema=schemas.SOCRATIC_SCHEMA,
         )
     except BridgeError as exc:

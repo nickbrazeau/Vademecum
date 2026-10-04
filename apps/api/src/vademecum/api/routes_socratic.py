@@ -23,9 +23,11 @@ from .schemas import LearnerAnswer, RecordId, Strict
 router = APIRouter(prefix="/socratic", tags=["socratic"])
 
 DISCLOSURE = (
-    "Each answer you give sends the page the session is about, the dialogue so far and your answer, "
-    "once per exchange, to write the next question. In codex mode: " + CODEX_DESTINATION
-    + " In claude mode: " + CLAUDE_DESTINATION + " In a chat host the assistant you are talking to is the tutor."
+    "Each answer you give sends the page the session is about, the abstracts reviewed for it, related "
+    "pages and case-series points already on this Mac, the dialogue so far and your answer, once per "
+    "exchange, to write the next question. The model also draws on its own knowledge beyond the page "
+    "and says when it does. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
+    + " In a chat host the assistant you are talking to is the tutor, with its own web search."
 )
 
 

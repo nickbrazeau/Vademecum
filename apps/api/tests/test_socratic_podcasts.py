@@ -91,6 +91,7 @@ def test_a_session_on_the_mac_asks_answers_assesses_and_files_the_gaps(tmp_path:
         opened = c.post(f"/api/socratic/{session['id']}/answer", json={"answer": ""}).json()["session"]
         assert opened["transcript"][-1]["role"] == "tutor" and "differential" in opened["transcript"][-1]["text"].lower()
         assert "THE DIALOGUE SO FAR" in turns.prompts[0] and "just beginning" in turns.prompts[0]
+        assert "FURTHER CONTEXT:" in turns.prompts[0], "grounding beyond the page rides with every turn"
 
         second = c.post(f"/api/socratic/{session['id']}/answer", json={"answer": "Sepsis, then cardiogenic and haemorrhagic shock."}).json()["session"]
         assert [t["role"] for t in second["transcript"]] == ["tutor", "learner", "tutor"] and second["exchanges"] == 1
@@ -123,6 +124,7 @@ def test_a_chat_host_records_the_dialogue_and_the_assessment(tmp_path: Path) -> 
         assert session["mode"] == "host"
         material = c.get(f"/api/socratic/{session['id']}/material").json()
         assert "Socratic tutor" in material["rules"] and "TITLE: Lactate in sepsis" in material["page"] and material["max_exchanges"] == 12
+        assert "web search" in material["how"] and "context" in material
         assert c.post(f"/api/socratic/{session['id']}/answer", json={"answer": "x"}).status_code == 409
         turned = c.post(f"/api/socratic/{session['id']}/turn", json={"question": "What is on your differential?", "answer": "Sepsis.", "probe": "differential"}).json()
         assert turned["session"]["exchanges"] == 1 and turned["remaining"] == 11
