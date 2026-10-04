@@ -259,6 +259,9 @@ def upsert_entry(
                         "UPDATE board_questions SET status = 'held', hold_reason = ?, updated_at = ? WHERE id = ?",
                         ("The page was rewritten and a point this question cites is no longer on it.", now, row["id"]),
                     )
+            from .flashcards import hold_cards_whose_points_left
+
+            hold_cards_whose_points_left(tx, entry_id, kept)
     return get_entry(connection, entry_id)
 
 

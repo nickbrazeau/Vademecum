@@ -79,6 +79,9 @@ import type {
   BoardOverview,
   BoardQuestion,
   Dissection,
+  FlashcardDraw,
+  FlashcardOverview,
+  Preferences,
   EncyclopediaCounts,
   EncyclopediaEntry,
   EncyclopediaList,
@@ -986,6 +989,53 @@ export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
         retracted: record.retracted === true,
         corrected: record.corrected === true
       }
+    })
+  }
+}
+
+export function flashcardDraw(raw: unknown): FlashcardDraw {
+  const data = obj(raw)
+  const card = obj(data.card)
+  return {
+    card:
+      data.card && typeof data.card === 'object' && typeof card.id === 'string'
+        ? {
+            id: card.id,
+            entry_id: str(card.entry_id),
+            topic: str(card.topic),
+            title: str(card.title),
+            front: str(card.front),
+            back: str(card.back),
+            point_ids: strings(card.point_ids)
+          }
+        : null,
+    reasons: strings(data.reasons),
+    citations: arr(data.citations).map(pageCitation),
+    deck: num(data.deck),
+    empty_reason: str(data.empty_reason)
+  }
+}
+
+export function flashcardOverview(raw: unknown): FlashcardOverview {
+  const data = obj(raw)
+  const improvement = obj(data.improvement)
+  return {
+    eligible: num(data.eligible),
+    held: num(data.held),
+    total: num(data.total),
+    reviews_total: num(data.reviews_total),
+    reviews_again: num(data.reviews_again),
+    improvement: { flagged_topics: num(improvement.flagged_topics), areas_below: num(improvement.areas_below), pages_missed: num(improvement.pages_missed) }
+  }
+}
+
+export function preferencesPayload(raw: unknown): Preferences {
+  const data = obj(raw)
+  return {
+    visible_tabs: strings(data.visible_tabs),
+    tabs: arr(data.tabs).map((item) => {
+      const tab = obj(item)
+      return { name: str(tab.name), label: str(tab.label), fixed: tab.fixed === true }
     })
   }
 }

@@ -55,6 +55,12 @@ in Safari; those device checks remain a human acceptance step.
   confidence** — your judgment of accuracy and usefulness, not how well you know it. Upload PDFs, PowerPoint
   decks, Word documents, text and Markdown. **Build learning material** shows you exactly which
   excerpts would be sent, then turns them into learning points and questions.
+- **Flashcards.** A front and a back written from an encyclopedia page, citing its points. The
+  next card is a weighted draw, not a queue: topics you flagged, areas an exam report put below
+  the mark, pages whose board question you missed, and cards you asked to see again come up more
+  often, and the card says why. Nothing is due ([ADR 0024](docs/adr/0024-flashcards-and-chosen-tabs.md)).
+- **Settings.** Choose which tabs the app shows; Today and Settings always stay. The choice
+  follows you to the phone.
 - **Knowledge Gap Flags.** `⌘K` from anywhere. One textarea, one required field.
 - **Improvement Map.** Where the gaps are, drawn as a graph: a node per topic, sized by open
   flags, coloured by specialty (your assignment, or a match on the topic's own name), and linked

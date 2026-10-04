@@ -83,7 +83,7 @@ describe.skipIf(!existsSync(DOCUMENT))('the in-chat document', () => {
     expect(document.body.textContent).toContain('Educational only')
     // No Model section inside a conversation, and nothing but app_request was called.
     const nav = [...document.querySelectorAll('nav a')].map((a) => a.textContent)
-    expect(nav).toEqual(['Today', 'Tutor', 'Encyclopedia', 'Improvement Map', 'Case Series', 'Sources'])
+    expect(nav).toEqual(['Today', 'Tutor', 'Flashcards', 'Encyclopedia', 'Improvement Map', 'Case Series', 'Sources', 'Settings'])
     for (const call of requested) expect(call.path.startsWith('/api/')).toBe(true)
 
     // The tool that opened it says which page: the Tutor, here.

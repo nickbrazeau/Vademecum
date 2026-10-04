@@ -382,6 +382,16 @@ export const api = {
     request<unknown>(`/encyclopedia/page${query(options)}`).then(normalize.encyclopediaPage),
   encyclopediaEntry: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}`).then(normalize.encyclopediaEntry),
   compileEncyclopedia: () => request<unknown>('/encyclopedia/compile', { method: 'POST' }).then(normalize.encyclopediaList),
+  // Flashcards and preferences (ADR 0024): local, no model turn.
+  flashcardsOverview: () => request<unknown>('/flashcards').then(normalize.flashcardOverview),
+  flashcardNext: (notId?: string) => request<unknown>(`/flashcards/next${query({ not_id: notId })}`).then(normalize.flashcardDraw),
+  flashcardReview: (cardId: string, rating: 'again' | 'good') =>
+    request<{ review: unknown; next: unknown }>('/flashcards/review', { method: 'POST', ...body({ card_id: cardId, rating }) }).then((data) =>
+      normalize.flashcardDraw(data.next)
+    ),
+  preferences: () => request<unknown>('/preferences').then(normalize.preferencesPayload),
+  savePreferences: (visibleTabs: string[]) =>
+    request<unknown>('/preferences', { method: 'PUT', ...body({ visible_tabs: visibleTabs }) }).then(normalize.preferencesPayload),
   dissection: () => request<unknown>('/encyclopedia/dissection').then(normalize.dissection),
   startDissection: (pileId: string) =>
     request<unknown>('/encyclopedia/dissection', { method: 'POST', ...body({ pile_id: pileId }) }).then(normalize.dissection),

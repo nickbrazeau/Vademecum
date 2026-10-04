@@ -380,13 +380,92 @@ async def generate_pending(database_path: Path, turn_factory: Any, *, limit: int
     return tally
 
 
+# --- flashcards (ADR 0024) ----------------------------------------------------------
+
+MIN_CARDS_PER_ENTRY = 4
+MAX_CARD_GENERATIONS_PER_RUN = 12
+
+
+def check_cards(payload: dict[str, Any], *, handles: dict[str, str]) -> list[dict[str, Any]]:
+    """Front and back present, a cited point or a hold, a front that stands alone."""
+    drafts: list[dict[str, Any]] = []
+    for item in (payload.get("cards") or [])[: schemas.MAX_FLASHCARDS]:
+        if not isinstance(item, dict):
+            continue
+        front = " ".join(str(item.get("front") or "").split())
+        back = " ".join(str(item.get("back") or "").split())
+        if not front or not back:
+            continue
+        point_ids = list(dict.fromkeys(handles[str(h)] for h in (item.get("points") or []) if str(h) in handles))
+        hold = ""
+        if not point_ids:
+            hold = "The card cites none of the page's points, so its answer cannot be traced to a source."
+        elif _LEANS_ON_TEXT.search(front):
+            hold = "The front leans on 'the text' instead of standing on its own."
+        drafts.append({"front": front, "back": back, "point_ids": point_ids, "hold_reason": hold})
+    return drafts
+
+
+async def generate_cards_for_entry(database_path: Path, entry_id: str, turn_factory: Any) -> dict[str, Any]:
+    from ..storage import flashcards as card_store
+
+    connection = connect(database_path)
+    try:
+        entry = store.get_entry(connection, entry_id)
+        cited = store.cited_points(connection, list(entry.point_ids))
+    finally:
+        connection.close()
+    handles = {f"p{index + 1}": point_id for index, point_id in enumerate(entry.point_ids)}
+    page = f"{_page_text(entry, handles)}\n\nTHE POINTS THE PAGE RESTS ON:\n{_points_text(cited, handles)}"
+    try:
+        runner = _runner(turn_factory, "flashcards", entry_id)
+        reply = await runner.run(
+            instructions=prompts.BASE_INSTRUCTIONS,
+            developer_instructions=prompts.FLASHCARD_DEVELOPER,
+            prompt=prompts.flashcard_prompt(page),
+            output_schema=schemas.FLASHCARD_SCHEMA,
+        )
+    except BridgeError as exc:
+        logger.info("flashcard_generation_failed category=%s", exc.category)
+        return {"entry_id": entry_id, "status": "failed", "written": 0, "held": 0}
+    drafts = check_cards(reply.payload, handles=handles)
+    connection = connect(database_path)
+    try:
+        tally = card_store.insert_cards(connection, entry_id=entry.id, topic=entry.topic, entry_version=entry.version, drafts=drafts)
+    finally:
+        connection.close()
+    logger.info("flashcards_generated offered=%d written=%d held=%d", len(drafts), tally["written"], tally["held"])
+    return {"entry_id": entry_id, "status": "generated", **tally}
+
+
+async def generate_cards_pending(database_path: Path, turn_factory: Any, *, limit: int = MAX_CARD_GENERATIONS_PER_RUN) -> dict[str, int]:
+    from ..storage import flashcards as card_store
+
+    connection = connect(database_path)
+    try:
+        entries = card_store.entries_needing_cards(connection, minimum=MIN_CARDS_PER_ENTRY)[:limit]
+    finally:
+        connection.close()
+    tally = {"entries": 0, "written": 0, "held": 0, "failed": 0}
+    for entry_id in entries:
+        result = await generate_cards_for_entry(database_path, entry_id, turn_factory)
+        if result["status"] == "generated":
+            tally["entries"] += 1
+            tally["written"] += result["written"]
+            tally["held"] += result["held"]
+        else:
+            tally["failed"] += 1
+    return tally
+
+
 async def refresh(
     database_path: Path, turn_factory: Any, *, reason: str = "requested", provider: Any = None
 ) -> dict[str, Any]:
-    """Compile what is stale, then write questions where a page has too few. Recorded for Today."""
+    """Compile what is stale, then write questions and cards where a page has too few. Recorded for Today."""
     compiled = await compile_pending(database_path, turn_factory, provider=provider)
     generated = await generate_pending(database_path, turn_factory)
-    report = {"at": utc_now(), "reason": reason, "pages": compiled, "questions": generated}
+    cards = await generate_cards_pending(database_path, turn_factory)
+    report = {"at": utc_now(), "reason": reason, "pages": compiled, "questions": generated, "cards": cards}
     connection = connect(database_path)
     try:
         store.record_refresh(connection, report)

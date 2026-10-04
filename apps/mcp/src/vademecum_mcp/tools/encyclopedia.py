@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.server import MCPServer
 from pydantic import Field
@@ -59,6 +59,25 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     async def board_advance(question_id: BoardId) -> dict[str, Any]:
         """Mark the current board question served and move to the next one."""
         return await call(api.post("/api/tutor/board/advance", {"question_id": question_id}))
+
+    @mcp.tool(annotations=READ)
+    async def flashcard_next(
+        not_id: Annotated[str, Field(max_length=64, description="The card just shown, so another is drawn.")] = "",
+    ) -> dict[str, Any]:
+        """Draw a flashcard: a front to put to the owner, the back to reveal once
+        they have answered, the points and sources it rests on, and why this
+        card came up (a flagged topic, an exam area below the mark, a missed
+        board question, a card they asked to see again). A weighted draw, not a
+        queue: nothing is due. Then flashcard_review with how it went."""
+        return await call(api.get("/api/flashcards/next", params={"not_id": not_id} if not_id else None))
+
+    @mcp.tool(annotations=WRITE)
+    async def flashcard_review(
+        card_id: Annotated[str, Field(max_length=64, description="The card's id from flashcard_next.")],
+        rating: Annotated[Literal["again", "good"], Field(description="'again' to see it more often, 'good' when it was known.")],
+    ) -> dict[str, Any]:
+        """Record how the owner did on a card and draw the next one. Local."""
+        return await call(api.post("/api/flashcards/review", {"card_id": card_id, "rating": rating}))
 
     @mcp.tool(annotations=READ)
     async def dissect_status() -> dict[str, Any]:

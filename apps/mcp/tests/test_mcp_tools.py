@@ -69,6 +69,8 @@ EXPECTED_TOOLS = {
     "board_next_question",
     "board_answer",
     "board_advance",
+    "flashcard_next",
+    "flashcard_review",
     "dissect_status",
     "dissect_start",
     "dissect_stop",

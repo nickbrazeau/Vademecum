@@ -89,6 +89,8 @@ describe('the shell', () => {
     expect(nav).toHaveTextContent('Improvement Map')
     expect(nav).toHaveTextContent('Case Series')
     expect(nav).toHaveTextContent('Encyclopedia')
+    expect(nav).toHaveTextContent('Flashcards')
+    expect(nav).toHaveTextContent('Settings')
   })
 
   it('navigates without a page load', async () => {

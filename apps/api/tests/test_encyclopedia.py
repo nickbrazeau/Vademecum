@@ -16,7 +16,7 @@ from test_end_to_end import ABSTRACT, ASSESSMENT, EVIDENCE, LECTURE, SYNTHESIS, 
 from vademecum.app import create_app
 from vademecum.config import Settings
 from vademecum.model.encyclopedia import check_board, check_entry
-from vademecum.model.schemas import BOARD_SCHEMA, ENTRY_SCHEMA
+from vademecum.model.schemas import BOARD_SCHEMA, ENTRY_SCHEMA, FLASHCARD_SCHEMA
 from vademecum.storage import encyclopedia as store
 from vademecum.storage.maintenance import EXPORTED_TABLES
 from vademecum.storage.sync import DOMI_OWNED, SYNCED_TABLES
@@ -122,6 +122,14 @@ class CompileTurns(ScriptedTurns):
                 if output_schema is BOARD_SCHEMA:
                     outer.prompts.append(prompt)
                     return TurnResult(payload=outer.boards.pop(0) if len(outer.boards) > 1 else outer.boards[0], raw_chars=10, turn_id="t", duration_ms=1.0)
+                if output_schema is FLASHCARD_SCHEMA:
+                    outer.prompts.append(prompt)
+                    return TurnResult(
+                        payload={"cards": [{"front": "Lactate above ___ mmol/L marks hypoperfusion in sepsis.", "back": "2 mmol/L.", "points": ["p1"]}]},
+                        raw_chars=10,
+                        turn_id="t",
+                        duration_ms=1.0,
+                    )
                 return await base.run(
                     instructions=instructions, developer_instructions=developer_instructions, prompt=prompt, output_schema=output_schema, max_output_chars=max_output_chars
                 )

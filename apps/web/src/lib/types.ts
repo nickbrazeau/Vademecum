@@ -599,6 +599,45 @@ export interface EncyclopediaEntry {
   literature: PageRecord[]
 }
 
+/** Flashcards and preferences (ADR 0024). */
+export interface Flashcard {
+  id: string
+  entry_id: string
+  topic: string
+  title: string
+  front: string
+  back: string
+  point_ids: string[]
+}
+
+export interface FlashcardDraw {
+  card: Flashcard | null
+  reasons: string[]
+  citations: PageCitation[]
+  deck: number
+  empty_reason: string
+}
+
+export interface FlashcardOverview {
+  eligible: number
+  held: number
+  total: number
+  reviews_total: number
+  reviews_again: number
+  improvement: { flagged_topics: number; areas_below: number; pages_missed: number }
+}
+
+export interface TabChoice {
+  name: string
+  label: string
+  fixed: boolean
+}
+
+export interface Preferences {
+  visible_tabs: string[]
+  tabs: TabChoice[]
+}
+
 export interface Dissection {
   status: string
   phase: string

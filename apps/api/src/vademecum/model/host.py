@@ -114,6 +114,8 @@ def kind_of(schema: Any) -> str:
         return "entry"
     if schema is schemas.BOARD_SCHEMA:
         return "board"
+    if schema is schemas.FLASHCARD_SCHEMA:
+        return "flashcards"
     raise ValueError("unknown output schema")
 
 

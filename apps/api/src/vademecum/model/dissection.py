@@ -245,6 +245,7 @@ class Dissector:
                     report = await self._refresh(reason="dissection")  # type: ignore[misc]
                     pages = report.get("pages", {}) if isinstance(report, dict) else {}
                     questions = report.get("questions", {}) if isinstance(report, dict) else {}
+                    cards = report.get("cards", {}) if isinstance(report, dict) else {}
                     self._update(
                         pages_compiled=int(self._state_value("pages_compiled")) + int(pages.get("compiled", 0) or 0),
                         questions_written=int(self._state_value("questions_written")) + int(questions.get("written", 0) or 0),
@@ -255,7 +256,9 @@ class Dissector:
                         continue
                     failures = 0
                     if built["outcome"] == "nothing":
-                        produced = int(pages.get("compiled", 0) or 0) + int(questions.get("written", 0) or 0)
+                        produced = (
+                            int(pages.get("compiled", 0) or 0) + int(questions.get("written", 0) or 0) + int(cards.get("written", 0) or 0)
+                        )
                         if int(pages.get("remaining", 0) or 0) == 0 and produced == 0:
                             # Nothing left to build, nothing left to compile, and the last
                             # pass wrote nothing new: done, and watching. A page whose

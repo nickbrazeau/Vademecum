@@ -6,17 +6,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import { inChat } from './host'
 
-export type RouteName = 'today' | 'tutor' | 'encyclopedia' | 'sources' | 'map' | 'cases' | 'model'
+export type RouteName = 'today' | 'tutor' | 'flashcards' | 'encyclopedia' | 'sources' | 'map' | 'cases' | 'model' | 'settings'
 
 export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'today', path: '/', label: 'Today' },
   { name: 'tutor', path: '/tutor', label: 'Tutor' },
+  { name: 'flashcards', path: '/flashcards', label: 'Flashcards' },
   { name: 'encyclopedia', path: '/encyclopedia', label: 'Encyclopedia' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
   { name: 'cases', path: '/cases', label: 'Case Series' },
   { name: 'model', path: '/model', label: 'Model' },
-  { name: 'sources', path: '/sources', label: 'Sources' }
+  { name: 'sources', path: '/sources', label: 'Sources' },
+  { name: 'settings', path: '/settings', label: 'Settings' }
 ]
+
+/** Tabs the owner cannot hide: the cover sheet, and the way back to this choice. */
+export const FIXED_ROUTES: RouteName[] = ['today', 'settings']
 
 /**
  * Piles were renamed to Sources. A bookmark or a pinned tab from before the

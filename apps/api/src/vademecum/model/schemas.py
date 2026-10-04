@@ -361,6 +361,33 @@ BOARD_SCHEMA = {
 }
 
 
+# --- flashcards (ADR 0024) ----------------------------------------------------------
+
+MAX_FLASHCARDS = 8
+
+FLASHCARD_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["cards"],
+    "properties": {
+        "cards": {
+            "type": "array",
+            "maxItems": MAX_FLASHCARDS,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["front", "back", "points"],
+                "properties": {
+                    "front": _string(240),
+                    "back": _string(600),
+                    "points": {"type": "array", "maxItems": 6, "items": _string(16)},
+                },
+            },
+        },
+    },
+}
+
+
 CASE_SCHEMA = {
     "type": "object",
     "additionalProperties": False,

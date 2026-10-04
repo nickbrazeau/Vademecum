@@ -293,6 +293,22 @@ def board_prompt(page: str, other_context: str, specialties_note: str = "") -> s
     return f"{specialties_note}{_fence(body)}"
 
 
+FLASHCARD_DEVELOPER = (
+    "The supplied material is one encyclopedia page, compiled from a learner's own sources, "
+    "with the id of each point it rests on in brackets. Write up to eight flashcards from it. "
+    "'front' is a cue the learner answers from memory: a direct question, a cloze with one "
+    "blank marked ___, or a 'what / why / when / how much' prompt; one fact per card, the "
+    "high-yield fact -- the threshold, the first-line choice, the exception, the mechanism. "
+    "'back' is the answer in one to three sentences, saying only what the page says, and "
+    "'points' names the ids of the points the back rests on. A front must stand on its own: "
+    "never say 'the page', 'the text' or 'according to the material'. No patient identifiers."
+)
+
+
+def flashcard_prompt(page: str) -> str:
+    return f"THE PAGE:\n{_fence(page)}"
+
+
 CASE_DEVELOPER = (
     "The supplied material is the public summary of one teaching case from a named "
     "series: its title, and the publisher's show notes or abstract where there is one. "

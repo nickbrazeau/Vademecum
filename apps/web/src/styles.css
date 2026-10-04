@@ -1154,6 +1154,28 @@ details.card-details[open] > summary {
   min-width: 1.25rem;
 }
 
+/* Flashcards and settings (ADR 0024). */
+.flashcard-front {
+  font-size: 1.15rem;
+  white-space: pre-wrap;
+}
+.flashcard-back {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+}
+.flashcard-why {
+  font-style: italic;
+}
+.tab-picker {
+  border: 0;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+.tab-option {
+  display: block;
+  margin: 0.375rem 0;
+}
+
 /* The Case Series hub (ADR 0022). */
 .case-entry h4 {
   margin: 0.75rem 0 0.25rem;

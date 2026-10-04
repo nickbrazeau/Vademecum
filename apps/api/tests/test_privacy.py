@@ -374,6 +374,11 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/tutor/board/answer",
         "/api/tutor/board/advance",
         "/api/tutor/board/history",
+        # Flashcards and preferences (ADR 0024): local, no model turn.
+        "/api/flashcards",
+        "/api/flashcards/next",
+        "/api/flashcards/review",
+        "/api/preferences",
         # Two Vademecums that sync (ADR 0015): served only with a peer token.
         "/api/sync/status",
         "/api/sync/changes",

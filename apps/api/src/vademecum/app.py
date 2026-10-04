@@ -24,6 +24,7 @@ from .api import errors, origin
 from .api import (
     routes_cases,
     routes_encyclopedia,
+    routes_flashcards,
     routes_flags,
     routes_health,
     routes_literature,
@@ -616,6 +617,8 @@ def create_app(
         routes_cases.router,
         routes_encyclopedia.router,
         routes_encyclopedia.board_router,
+        routes_flashcards.router,
+        routes_flashcards.preferences_router,
         routes_piles.router,
         routes_reports.router,
         routes_schedule.router,

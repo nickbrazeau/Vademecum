@@ -8,11 +8,13 @@ import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
-import { ROUTES, isRouteName, useRoute } from './lib/router'
+import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
 import { CaseSeries } from './pages/CaseSeries'
 import { Encyclopedia } from './pages/Encyclopedia'
+import { Flashcards } from './pages/Flashcards'
 import { ImprovementMap } from './pages/ImprovementMap'
 import { Model } from './pages/Model'
+import { Settings } from './pages/Settings'
 import { Sources } from './pages/Sources'
 import { Today } from './pages/Today'
 import { Tutor } from './pages/Tutor'
@@ -20,11 +22,13 @@ import { Tutor } from './pages/Tutor'
 const TITLES = {
   today: 'Today',
   tutor: 'Tutor',
+  flashcards: 'Flashcards',
   encyclopedia: 'Encyclopedia',
   sources: 'Sources',
   map: 'Improvement Map',
   cases: 'Case Series',
-  model: 'Model'
+  model: 'Model',
+  settings: 'Settings'
 } as const
 
 /** ⌘K on macOS, Ctrl-K everywhere else. One keystroke, from anywhere. */
@@ -50,6 +54,24 @@ export function App() {
   // In host mode the assistant in the conversation is the model: there is
   // no connection of this machine's own to show (ADR 0009).
   const [hostMode, setHostMode] = useState(false)
+  // The tabs the owner chose to see (ADR 0024). Until preferences answer,
+  // every tab shows; a tab hidden here is still reachable by its address.
+  const [visibleTabs, setVisibleTabs] = useState<string[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .preferences()
+      .then((preferences) => {
+        if (!cancelled) setVisibleTabs(preferences.visible_tabs)
+      })
+      .catch(() => {
+        /* no preference is every tab */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   // Inside a conversation (ADR 0014) there is no Model page either: the
   // assistant on the other side of the frame is the model, and a sign-in code
   // must never pass through a chat host.
@@ -133,7 +155,12 @@ export function App() {
         <Nav
           route={route}
           onNavigate={navigate}
-          routes={behindGateway || compact || hostMode ? ROUTES.filter((entry) => entry.name !== 'model') : ROUTES}
+          routes={ROUTES.filter(
+            (entry) =>
+              !((behindGateway || compact || hostMode) && entry.name === 'model') &&
+              // No preference, or a malformed one, is every tab: the server never answers fewer than the fixed two.
+              (visibleTabs === null || visibleTabs.length === 0 || FIXED_ROUTES.includes(entry.name) || visibleTabs.includes(entry.name))
+          )}
         />
         {online || compact ? null : (
           <p className="offline" role="status">
@@ -151,6 +178,8 @@ export function App() {
         {route === 'map' ? <ImprovementMap reloadToken={reloadToken} /> : null}
         {route === 'cases' ? <CaseSeries /> : null}
         {route === 'encyclopedia' ? <Encyclopedia /> : null}
+        {route === 'flashcards' ? <Flashcards onNavigate={navigate} /> : null}
+        {route === 'settings' ? <Settings onSaved={setVisibleTabs} /> : null}
         {route === 'model' && !compact && !hostMode ? <Model /> : null}
       </main>
 

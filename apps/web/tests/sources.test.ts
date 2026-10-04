@@ -32,8 +32,9 @@ describe('the vocabulary this product refuses to use', () => {
     'daily review',
     'items due',
     'missed question',
-    'review session',
-    'flashcard'
+    'review session'
+    // 'flashcard' left this list with ADR 0024: the owner asked for flashcards by
+    // name. What stays refused is the queue: nothing due, nothing counted.
   ]
 
   it('appears nowhere in the interface', () => {
