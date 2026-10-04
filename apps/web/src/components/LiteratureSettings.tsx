@@ -77,6 +77,61 @@ function TopicRow({ topic, onChanged }: { topic: Topic; onChanged: () => void })
   )
 }
 
+interface WatchRow {
+  key: string
+  label: string
+  query: string
+  detail: string
+}
+
+/** A table of topics with an on/off switch each (ADR 0026). */
+function WatchTable({
+  rows,
+  isOn,
+  busy,
+  onToggle,
+  caption
+}: {
+  rows: WatchRow[]
+  isOn: (label: string) => boolean
+  busy: boolean
+  onToggle: (row: WatchRow, on: boolean) => void
+  caption: string
+}) {
+  return (
+    <table className="watch-table">
+      <caption className="visually-hidden">{caption}</caption>
+      <tbody>
+        {rows.map((row) => {
+          const on = isOn(row.label)
+          return (
+            <tr key={row.key} className={on ? 'on' : ''}>
+              <th scope="row">
+                <span className="title">{row.label}</span>
+                {row.detail ? <span className="muted small"> · {row.detail}</span> : null}
+              </th>
+              <td>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label={`Watch ${row.label}`}
+                    checked={on}
+                    disabled={busy}
+                    onChange={(event) => onToggle(row, event.target.checked)}
+                  />
+                  <span className="switch-track" aria-hidden="true" />
+                  <span className="switch-text">{on ? 'On' : 'Off'}</span>
+                </label>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
   const [token, setToken] = useState(0)
   const topics = useLoad(() => api.literatureTopics(), [token])
@@ -136,21 +191,10 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
     } finally { setBusy(false) }
   }
 
-  const watch = async (topic: string, query: string) => {
-    setBusy(true)
-    setAction('watch')
-    setFailure(null)
-    try {
-      await api.createLiteratureTopic({ label: topic, query })
-      refresh()
-    } catch (error) { setFailure(asApiError(error)) }
-    finally { setBusy(false) }
-  }
 
   const current: Settings | null = settings.result.state === 'ready' ? settings.result.value : null
   const map = useLoad(() => api.improvementMap(), [token])
   const specialties = map.result.state === 'ready' ? map.result.value.specialties : []
-  const [chosenSpecialty, setChosenSpecialty] = useState('')
   const [newJournal, setNewJournal] = useState('')
 
   const savePreferences = async (input: { preferred_journals?: string[]; guidelines_first?: boolean }) => {
@@ -172,11 +216,26 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
     }
   }
 
-  const watchSpecialty = async () => {
-    const specialty = specialties.find((entry) => entry.id === chosenSpecialty)
-    if (specialty === undefined) return
-    await watch(specialty.name, specialty.name.toLowerCase())
-    setChosenSpecialty('')
+  const topicList: Topic[] = topics.result.state === 'ready' ? topics.result.value : []
+  const findTopic = (label: string) => topicList.find((topic) => topic.label.trim().toLowerCase() === label.trim().toLowerCase())
+  const isWatched = (label: string) => findTopic(label)?.enabled === true
+  const watchedCount = (labels: string[]) => labels.filter((label) => isWatched(label)).length
+
+  /** On adds the topic, or turns it back on; off turns it off and keeps it. */
+  const toggleWatch = async (label: string, query: string, on: boolean) => {
+    const existing = findTopic(label)
+    setBusy(true)
+    setAction('watch')
+    setFailure(null)
+    try {
+      if (existing) await api.updateLiteratureTopic(existing.id, { enabled: on })
+      else if (on) await api.createLiteratureTopic({ label, query })
+      refresh()
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -261,28 +320,20 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
       ) : null}
 
       {specialties.length > 0 ? (
-        <div className="field">
-          <label htmlFor="watch-specialty">Watch a subspecialty</label>
-          <div className="actions">
-            <select
-              id="watch-specialty"
-              value={chosenSpecialty}
-              disabled={busy}
-              onChange={(event) => setChosenSpecialty(event.target.value)}
-            >
-              <option value="">Choose a subspecialty…</option>
-              {specialties.map((specialty) => (
-                <option key={specialty.id} value={specialty.id}>
-                  {specialty.name}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="button small" disabled={busy || chosenSpecialty === ''} onClick={() => void watchSpecialty()}>
-              Watch it
-            </button>
-          </div>
-          <p className="muted small">Adds a topic whose search words are the subspecialty's name. You can edit it afterwards.</p>
-        </div>
+        <details className="watch-group" open>
+          <summary>
+            <h3>Subspecialties to watch</h3>
+            <span className="muted small">{watchedCount(specialties.map((s) => s.name))} on</span>
+          </summary>
+          <p className="muted small">Each one on is a watched topic whose search words are its name. Turn on as many as you like.</p>
+          <WatchTable
+            rows={specialties.map((specialty) => ({ key: specialty.id, label: specialty.name, query: specialty.name.toLowerCase(), detail: '' }))}
+            isOn={isWatched}
+            busy={busy}
+            onToggle={(row, on) => void toggleWatch(row.label, row.query, on)}
+            caption="Subspecialties"
+          />
+        </details>
       ) : null}
 
       {settings.result.state === 'failed' ? <Unavailable error={settings.result.error} onRetry={refresh} /> : null}
@@ -345,20 +396,27 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
       </form>
 
       {suggestions.result.state === 'ready' && suggestions.result.value.length > 0 ? (
-        <section aria-label="Suggested watch topics">
-          <h3>Suggested watch topics</h3>
-          <p className="muted small">From topics in your learning material. Review the public search words before choosing Watch. Adding a topic does not enable weekly checks.</p>
-          <ul className="list">{suggestions.result.value.map((suggestion) => (
-            <li key={suggestion.topic}>
-              <span className="title">{suggestion.topic}</span>
-              <p className="muted small">Search words: {suggestion.query} · {suggestion.point_count} learning points</p>
-              <button type="button" className="button small" disabled={busy || suggestion.already_watched}
-                onClick={() => void watch(suggestion.topic, suggestion.query)}>
-                {suggestion.already_watched ? `Watching ${suggestion.topic}` : `Watch ${suggestion.topic}`}
-              </button>
-            </li>
-          ))}</ul>
-        </section>
+        <details className="watch-group">
+          <summary>
+            <h3>Suggested watch topics</h3>
+            <span className="muted small">
+              {watchedCount(suggestions.result.value.map((s) => s.topic))} of {suggestions.result.value.length} on
+            </span>
+          </summary>
+          <p className="muted small">From topics in your learning material. Turning one on adds it as a watched topic with the public search words shown; it does not turn on weekly checks.</p>
+          <WatchTable
+            rows={suggestions.result.value.map((suggestion) => ({
+              key: suggestion.topic,
+              label: suggestion.topic,
+              query: suggestion.query,
+              detail: `${suggestion.query} · ${suggestion.point_count} point${suggestion.point_count === 1 ? '' : 's'}`
+            }))}
+            isOn={isWatched}
+            busy={busy}
+            onToggle={(row, on) => void toggleWatch(row.label, row.query, on)}
+            caption="Suggested topics"
+          />
+        </details>
       ) : null}
       {suggestions.result.state === 'failed' ? <Unavailable error={suggestions.result.error} onRetry={refresh} /> : null}
 
