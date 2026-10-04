@@ -77,8 +77,20 @@ _ABOUT_THE_MATERIAL = re.compile(
 )
 
 
-def about_the_case(sentence: str) -> bool:
-    return bool(sentence.strip()) and _ABOUT_THE_MATERIAL.search(sentence) is None
+# For a case the publisher offers only a title for, any sentence that talks about
+# the title, a summary or what was supplied is about the material, not the case.
+_TITLE_ONLY_TELLS = re.compile(
+    r"\b(title|titled|summary|supplied|provided|context|material|notes|abstract|teaching case|only clinical)\b", re.IGNORECASE
+)
+
+
+def about_the_case(sentence: str, *, title_only: bool = False) -> bool:
+    text = sentence.strip()
+    if not text or _ABOUT_THE_MATERIAL.search(text) is not None:
+        return False
+    if title_only and _TITLE_ONLY_TELLS.search(text) is not None:
+        return False
+    return True
 
 
 def check_synthesis(payload: dict[str, Any], *, text: str, specialty_ids: set[str]) -> dict[str, Any]:
@@ -96,15 +108,16 @@ def check_synthesis(payload: dict[str, Any], *, text: str, specialty_ids: set[st
     if offered:
         # Counts only: how many points the model offered and how many quoted the text.
         logger.info("case_points offered=%d kept=%d text_chars=%d", offered, len(points), len(text))
+    title_only = not text.strip()
     prompts_kept = [
         " ".join(str(item).split())
         for item in (payload.get("think_first") or [])
-        if isinstance(item, str) and about_the_case(str(item))
+        if isinstance(item, str) and about_the_case(str(item), title_only=title_only)
     ]
     specialty = str(payload.get("specialty") or "").strip()
     one_liner = " ".join(str(payload.get("one_liner") or "").split())
     return {
-        "one_liner": one_liner if about_the_case(one_liner) else "",
+        "one_liner": one_liner if about_the_case(one_liner, title_only=title_only) else "",
         "points": points[: store.MAX_POINTS],
         "think_first": prompts_kept[: store.MAX_THINK_FIRST],
         "specialty_id": specialty if specialty in specialty_ids else None,

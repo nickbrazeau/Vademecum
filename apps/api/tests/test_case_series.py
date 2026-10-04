@@ -205,6 +205,11 @@ def test_a_note_about_the_material_is_not_a_note_about_the_case() -> None:
     assert kept["one_liner"] == "" and kept["points"] == [] and kept["think_first"] == ["What widens an osmolar gap?"]
     fine = check_synthesis({**noisy, "one_liner": "A 4-year-old boy with fatigue, imbalance and frequent falls."}, text="", specialty_ids=set())
     assert fine["one_liner"] == "A 4-year-old boy with fatigue, imbalance and frequent falls."
+    for sentence in (
+        "The case is titled “Break a Leg”; no clinical summary is supplied.",
+        "“Consumed with Inflammation” is a teaching case whose title is the only supplied clinical context.",
+    ):
+        assert check_synthesis({**noisy, "one_liner": sentence}, text="", specialty_ids=set())["one_liner"] == ""
 
 
 class CaseTurns:
