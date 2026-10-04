@@ -165,8 +165,11 @@ function PageToReview({
   }
 
   return (
-    <section className="card" aria-labelledby="page-heading">
-      <h2 id="page-heading">A page to review</h2>
+    <details className="card toggle-card" open aria-labelledby="page-heading">
+      <summary>
+        <h2 id="page-heading">A page to review</h2>
+        <span className="muted small">{page ? page.title : 'none today'}</span>
+      </summary>
       {page === null ? (
         <p className="muted">
           {sheet.encyclopedia.message || 'No page today.'}{' '}
@@ -201,7 +204,7 @@ function PageToReview({
           </div>
         </>
       )}
-    </section>
+    </details>
   )
 }
 
