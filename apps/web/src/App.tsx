@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { Mark } from './components/Mark'
 import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
@@ -133,7 +134,10 @@ export function App() {
     <div className="app">
       <header className="header">
         <div className="header-row">
-          <h1>Vademecum</h1>
+          <h1 className="brand">
+            <Mark />
+            <span>Vademecum</span>
+          </h1>
           <button
             type="button"
             className="button primary flag-button"

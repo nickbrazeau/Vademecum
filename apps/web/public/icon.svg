@@ -1,4 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vademecum">
+  <!-- Vademecum: "go with me". A pocket handbook, open, with its ribbon. -->
   <rect width="512" height="512" rx="112" fill="#2f5d50"/>
-  <path d="M136 128h88l32 172 32-172h88v256h-56V206l-38 178h-52l-38-178v178h-56z" fill="#f7f5f0"/>
+  <path d="M92 150 C150 126 212 136 256 170 L256 400 C212 366 150 356 92 380 Z" fill="#f7f5f0"/>
+  <path d="M420 150 C362 126 300 136 256 170 L256 400 C300 366 362 356 420 380 Z" fill="#f7f5f0"/>
+  <path d="M136 226 C176 212 208 216 232 232 M136 276 C176 262 208 266 232 282 M136 326 C176 312 208 316 232 332" fill="none" stroke="#2f5d50" stroke-opacity="0.45" stroke-width="14" stroke-linecap="round"/>
+  <path d="M376 226 C336 212 304 216 280 232 M376 276 C336 262 304 266 280 282 M376 326 C336 312 304 316 280 332" fill="none" stroke="#2f5d50" stroke-opacity="0.45" stroke-width="14" stroke-linecap="round"/>
+  <path d="M256 170 L256 400" stroke="#2f5d50" stroke-width="16" stroke-linecap="round"/>
+  <path d="M236 96 H276 V262 L256 244 L236 262 Z" fill="#e0b877"/>
 </svg>

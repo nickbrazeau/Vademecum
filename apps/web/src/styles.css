@@ -124,6 +124,16 @@ h4 {
   min-height: var(--tap);
 }
 
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.brand .mark {
+  flex: none;
+  border-radius: 22%;
+}
+
 .nav {
   display: flex;
   gap: 0.25rem;
