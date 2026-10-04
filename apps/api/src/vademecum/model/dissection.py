@@ -33,6 +33,11 @@ from ..storage.common import utc_now
 
 logger = logging.getLogger("vademecum.dissection")
 
+# The pile id that means every pile: the agent then takes the piles in turn,
+# one batch each, so a file dropped into any pile is built within a round.
+ALL_PILES = "all"
+EVERY_PILE_TITLE = "every pile"
+
 NEEDS_MODEL = (
     "Dissecting a pile needs the Mac's own model connection -- Codex or Claude -- which does the "
     "model turns while nobody is in a conversation. This Vademecum is in host mode."
@@ -68,6 +73,7 @@ class Dissector:
         self._poll_seconds = poll_seconds
         self._task: asyncio.Task[None] | None = None
         self._wake: asyncio.Event | None = None
+        self._last_pile: str | None = None
 
     # --- what the routes read ----------------------------------------------------
 
@@ -84,7 +90,10 @@ class Dissector:
         pile_title = ""
         pile_coverage: dict[str, Any] | None = None
         pile_id = state.get("pile_id")
-        if pile_id:
+        if pile_id == ALL_PILES:
+            pile_title = EVERY_PILE_TITLE
+            pile_coverage = _combined_coverage(pile.as_dict().get("coverage") for pile in pile_store.list_piles(connection))
+        elif pile_id:
             try:
                 pile = pile_store.get_pile(connection, pile_id)
                 pile_title = pile.title
@@ -107,7 +116,8 @@ class Dissector:
         """Begin, or resume, on one pile. The state is the consent record."""
         connection = connect(self._database_path)
         try:
-            pile_store.get_pile(connection, pile_id)
+            if pile_id != ALL_PILES:
+                pile_store.get_pile(connection, pile_id)
             current = store.get_dissection(connection) or {}
             fresh = current.get("pile_id") != pile_id
             state = {
@@ -131,9 +141,15 @@ class Dissector:
             connection.close()
         if not self.is_running:
             self._task = asyncio.create_task(self._loop(pile_id))
-        else:
-            self._kick()
+        elif fresh:
+            # A different pile: the loop re-reads its target on the next step.
+            self.kick()
         return state
+
+    def kick(self) -> None:
+        """Something new may have arrived: end any idle pause now. Safe to call from anywhere."""
+        if self._wake is not None:
+            self._wake.set()
 
     def resume(self) -> bool:
         """At startup: carry on with a dissection that was running when the process stopped."""
@@ -170,10 +186,6 @@ class Dissector:
                 connection.close()
         return None
 
-    def _kick(self) -> None:
-        if self._wake is not None:
-            self._wake.set()
-
     # --- the loop --------------------------------------------------------------------
 
     def _update(self, **changes: Any) -> dict[str, Any]:
@@ -195,13 +207,18 @@ class Dissector:
         except asyncio.TimeoutError:
             pass
 
+    def _target(self, fallback: str) -> str:
+        """The pile the owner last asked for, re-read each step so a switch takes effect at once."""
+        value = self._state_value("pile_id")
+        return str(value) if value else fallback
+
     async def _loop(self, pile_id: str) -> None:
         self._wake = asyncio.Event()
         failures = 0
         since_compile = 0
         while True:
             try:
-                built = await self._build_one(pile_id)
+                built = await self._build_one(self._target(pile_id))
                 if built["outcome"] == "built":
                     failures = 0
                     since_compile += 1
@@ -271,15 +288,35 @@ class Dissector:
         logger.info("dissection_backoff failures=%d seconds=%d", failures, int(seconds))
         await self._pause(seconds)
 
-    async def _build_one(self, pile_id: str) -> dict[str, Any]:
+    def _candidates(self, connection, target: str) -> list[str]:
+        """The piles to try, in order: one pile, or every pile starting after the one built last."""
+        if target != ALL_PILES:
+            return [target]
+        ids = [pile.id for pile in pile_store.list_piles(connection)]
+        if self._last_pile in ids:
+            start = ids.index(self._last_pile) + 1
+            ids = ids[start:] + ids[:start]
+        return ids
+
+    async def _build_one(self, target: str) -> dict[str, Any]:
         """One batch, as the Build button would do it; the outcome says what happened."""
         connection = connect(self._database_path)
         try:
-            if self._service.is_running(pile_id):
-                return {"outcome": "busy", "points": 0, "detail": ""}
-            batch = source_store.next_batch(connection, pile_id)
-            if not batch.excerpts:
-                return {"outcome": "nothing", "points": 0, "detail": ""}
+            busy = False
+            chosen: str | None = None
+            batch = None
+            for pile_id in self._candidates(connection, target):
+                if self._service.is_running(pile_id):
+                    busy = True
+                    continue
+                candidate = source_store.next_batch(connection, pile_id)
+                if candidate.excerpts:
+                    chosen, batch = pile_id, candidate
+                    break
+            if chosen is None or batch is None:
+                return {"outcome": "busy" if busy else "nothing", "points": 0, "detail": ""}
+            pile_id = chosen
+            self._last_pile = pile_id
             batch_id = source_store.record_batch(connection, pile_id, batch)
             run = jobs.start_run(
                 connection,
@@ -307,3 +344,18 @@ class Dissector:
         if finished.status != "succeeded":
             return {"outcome": "failed", "points": 0, "detail": finished.as_dict().get("failure_detail", "") or "The build failed."}
         return {"outcome": "built", "points": int(getattr(finished, "point_count", 0) or 0), "detail": ""}
+
+
+def _combined_coverage(coverages) -> dict[str, Any]:
+    total = covered = 0
+    for coverage in coverages:
+        if not isinstance(coverage, dict):
+            continue
+        total += int(coverage.get("chars_total") or 0)
+        covered += int(coverage.get("chars_covered") or 0)
+    return {
+        "chars_total": total,
+        "chars_covered": covered,
+        "percent": int(round(100 * covered / total)) if total else 100,
+        "complete": covered >= total,
+    }

@@ -182,7 +182,13 @@ async def _watch_folder(app: FastAPI, database_path: Path, source_dir: Path, int
         try:
             folder = current_sources_dir(app.state.settings)
             app.state.sources_folder = folder
-            await asyncio.to_thread(scan_sources_folder, database_path, source_dir, folder)
+            report = await asyncio.to_thread(scan_sources_folder, database_path, source_dir, folder)
+            if report.get("stored") or report.get("piles_created"):
+                # Something new in a pile: the dissection agent, if it is
+                # watching, builds it now rather than at its next look.
+                dissector = getattr(app.state, "dissector", None)
+                if dissector is not None:
+                    dissector.kick()
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the watch reports and continues

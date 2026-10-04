@@ -35,6 +35,7 @@ def list_sources(
 @router.post("/piles/{pile_id}/sources", status_code=status.HTTP_201_CREATED)
 async def upload_sources(
     pile_id: str,
+    request: Request,
     files: list[UploadFile] = File(...),
     confidence: schemas.Confidence = Form(...),
     connection: sqlite3.Connection = Depends(get_connection),
@@ -118,7 +119,16 @@ async def upload_sources(
             }
         )
 
+    if accepted:
+        _wake_agent(request)
     return {"accepted": accepted, "rejected": rejected, "results": results}
+
+
+def _wake_agent(request: Request) -> None:
+    """New material: the dissection agent, if it is watching, takes it up now (ADR 0023)."""
+    dissector = getattr(request.app.state, "dissector", None)
+    if dissector is not None:
+        dissector.kick()
 
 
 def _result(filename: str, outcome: str, message: str) -> dict:
@@ -170,7 +180,10 @@ async def scan_folder_now(
     request.app.state.sources_folder = folder
     database_path = request.state.workspace.database_path
     del connection  # the scan opens its own connection, on a worker thread
-    return await asyncio.to_thread(scan_sources_folder, database_path, source_dir, folder)
+    report = await asyncio.to_thread(scan_sources_folder, database_path, source_dir, folder)
+    if report.get("stored") or report.get("piles_created"):
+        _wake_agent(request)
+    return report
 
 
 @router.get("/sources/{source_id}")

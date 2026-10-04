@@ -264,9 +264,10 @@ def test_the_dissection_agent_works_a_pile_through_to_complete_and_survives_a_fa
 
         pile = c.post("/api/piles", json={"title": "The book", "tier": "high"}).json()
         assert upload(c, pile["id"], "chapter.txt", LECTURE.encode()).status_code == 201
-        started = c.post("/api/encyclopedia/dissection", json={"pile_id": pile["id"]})
+        started = c.post("/api/encyclopedia/dissection", json={"pile_id": "all"})
         assert started.status_code == 202, started.text
         assert started.json()["status"] == "running" and started.json()["consent_at"]
+        assert started.json()["pile_title"] == "every pile"
 
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
@@ -303,6 +304,17 @@ def test_the_page_of_the_day_is_stable_within_a_day(connection) -> None:
     assert first is not None and first.id == store.page_of_the_day(connection, on_day=date(2026, 10, 3)).id
     other = store.random_page(connection, not_id=first.id)
     assert other is not None and other.id != first.id
+
+
+def test_the_page_of_the_day_is_a_fuller_page_when_there_is_one(connection) -> None:
+    for index in range(6):
+        store.upsert_entry(connection, topic=f"stub {index}", title=f"Stub {index}", specialty_id=None, summary="s", sections=[], point_ids=["lp_a"], points_hash_value="h")
+    full = store.upsert_entry(connection, topic="sepsis", title="Sepsis", specialty_id=None, summary="s", sections=[], point_ids=["lp_a", "lp_b"], points_hash_value="h")
+    for day in range(1, 8):
+        assert store.page_of_the_day(connection, on_day=date(2026, 10, day)).id == full.id
+    # "Another page" has no other fuller page to offer, so it offers a different page rather than the same one.
+    assert store.random_page(connection, not_id=full.id).id != full.id
+    assert store.random_page(connection).id == full.id
 
 
 def test_a_page_never_says_it_is_not_an_endorsement() -> None:

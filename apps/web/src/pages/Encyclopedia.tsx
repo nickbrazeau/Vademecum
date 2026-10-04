@@ -93,7 +93,7 @@ function DissectionCard({ onChanged }: { onChanged: () => void }) {
 
   if (result.state !== 'ready') return null
   const state = result.value
-  const chosen = pileId || state.pile_id || (piles.result.state === 'ready' ? (piles.result.value[0]?.id ?? '') : '')
+  const chosen = pileId || state.pile_id || 'all'
 
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true)
@@ -113,10 +113,10 @@ function DissectionCard({ onChanged }: { onChanged: () => void }) {
     <section className="card" aria-labelledby="dissection-heading">
       <h2 id="dissection-heading">Dissect a pile</h2>
       <p className="muted small">
-        An agent that works through one pile to the end: builds batch after batch, and every few
-        batches compiles a page per topic with a PubMed review and board questions. It does not stop
-        on a failure, resumes after a restart, and keeps watching the pile for new files once it is
-        done.
+        An agent that works through a pile, or every pile, to the end: builds batch after batch,
+        and every few batches compiles a page per topic with a PubMed review and board questions.
+        It does not stop on a failure, resumes after a restart, and once it is done keeps watching:
+        a file dropped into a pile is built and compiled as soon as the folder scan sees it.
       </p>
       {!state.can_run ? (
         <p className="muted">{state.blocked_reason}</p>
@@ -156,6 +156,7 @@ function DissectionCard({ onChanged }: { onChanged: () => void }) {
               ) : null}
               <label htmlFor="dissect-pile">Pile</label>
               <select id="dissect-pile" value={chosen} disabled={busy} onChange={(event) => setPileId(event.target.value)}>
+                <option value="all">Every pile, whatever is dropped in</option>
                 {piles.result.state === 'ready'
                   ? piles.result.value.map((pile) => (
                       <option key={pile.id} value={pile.id}>

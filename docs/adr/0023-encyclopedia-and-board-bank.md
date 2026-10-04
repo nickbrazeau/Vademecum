@@ -88,6 +88,11 @@ endorsement" into pages, points and explanations. The citation already says whos
 is, so the instructions now forbid the disclaimer, the server drops such a clause from any
 prose it accepts, and prose kept earlier is tidied once when a workspace opens.
 
+Today's page to review is chosen from the fuller pages: those resting on two or more points, or
+that drew on the literature. A page that restates a single point is still in the Encyclopedia,
+and is the day's page only while no fuller one exists. Today opens with what is new in the
+literature, then the page.
+
 ## Consequences
 
 - Two more model turns, both on the Mac's own connection, both with a disclosure; the privacy

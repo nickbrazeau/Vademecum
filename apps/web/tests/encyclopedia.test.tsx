@@ -90,7 +90,7 @@ describe('the dissection agent card', () => {
     await userEvent.click(start)
     expect(await screen.findByText(/Working through/)).toBeInTheDocument()
     expect(screen.getByText(/3 batches built · 31 points · 4 pages compiled · 9 questions written/)).toBeInTheDocument()
-    expect(calls.find((call) => call.method === 'POST' && call.url === '/api/encyclopedia/dissection')?.body).toEqual({ pile_id: 'p1' })
+    expect(calls.find((call) => call.method === 'POST' && call.url === '/api/encyclopedia/dissection')?.body).toEqual({ pile_id: 'all' })
     expect(screen.getByRole('button', { name: 'Stop the agent' })).toBeInTheDocument()
   })
 })

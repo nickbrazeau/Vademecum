@@ -1,7 +1,7 @@
 /**
  * The cover sheet, and the first thing the owner sees.
  *
- * Three things and nothing else: what is new in the literature, what the
+ * What is new in the literature first, then a page to review, what the
  * model made of your own material, and what is being held back. It counts
  * nothing down, asks for nothing back, and the same day gives the same page
  * however often you open it.

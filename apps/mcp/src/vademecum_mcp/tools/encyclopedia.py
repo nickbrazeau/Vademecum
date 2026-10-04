@@ -70,12 +70,13 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
 
     @mcp.tool(annotations=TRANSMITS)
     async def dissect_start(
-        pile_id: Annotated[str, Field(max_length=64, description="The pile to work through, from list_piles.")],
+        pile_id: Annotated[str, Field(max_length=64, description="The pile to work through, from list_piles, or 'all' for every pile.")] = "all",
     ) -> dict[str, Any]:
-        """Start, or resume, the agent that works through one pile until it is
-        fully built and every topic has a page with its literature review and
-        board questions, backing off and retrying on failure, resuming after a
-        restart, and watching the pile for new files afterwards. A standing
+        """Start, or resume, the agent that works through one pile, or every
+        pile, until all is built and every topic has a page with its literature
+        review and board questions, backing off and retrying on failure,
+        resuming after a restart, and afterwards building whatever is dropped
+        into a pile as soon as the folder scan sees it. A standing
         consent: show the owner dissect_status's disclosure and wait for an
         explicit yes before calling this. Stop it with dissect_stop."""
         return await call(api.post("/api/encyclopedia/dissection", {"pile_id": pile_id}))

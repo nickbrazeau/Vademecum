@@ -184,22 +184,40 @@ def entry_for_topic(connection: sqlite3.Connection, topic: str) -> Entry | None:
     return None if row is None else _entry(connection, row)
 
 
+def _current_ids(connection: sqlite3.Connection, *, fuller: bool) -> list[str]:
+    """Current pages by topic. A fuller page rests on several points or drew on the literature."""
+    where = (
+        " AND (json_array_length(e.point_ids) >= 2"
+        " OR EXISTS (SELECT 1 FROM encyclopedia_records r WHERE r.entry_id = e.id AND r.cited = 1))"
+        if fuller
+        else ""
+    )
+    rows = connection.execute(f"SELECT e.id FROM encyclopedia_entries e WHERE e.status = 'current'{where} ORDER BY e.topic").fetchall()
+    return [row["id"] for row in rows]
+
+
 def page_of_the_day(connection: sqlite3.Connection, *, on_day: date | None = None) -> Entry | None:
-    """The same page all day, a different one tomorrow; nothing is owed on it."""
-    rows = connection.execute("SELECT id FROM encyclopedia_entries WHERE status = 'current' ORDER BY topic").fetchall()
-    if not rows:
+    """The same page all day, a different one tomorrow; nothing is owed on it.
+
+    Chosen from the fuller pages, so the day's page reads as a page and not as one point
+    restated; from any current page while there are none.
+    """
+    ids = _current_ids(connection, fuller=True) or _current_ids(connection, fuller=False)
+    if not ids:
         return None
     day = (on_day or date.today()).isoformat()
-    index = int(hashlib.sha256(day.encode()).hexdigest(), 16) % len(rows)
-    return get_entry(connection, rows[index]["id"])
+    index = int(hashlib.sha256(day.encode()).hexdigest(), 16) % len(ids)
+    return get_entry(connection, ids[index])
 
 
 def random_page(connection: sqlite3.Connection, *, rng: random.Random | None = None, not_id: str | None = None) -> Entry | None:
-    rows = connection.execute("SELECT id FROM encyclopedia_entries WHERE status = 'current' ORDER BY topic").fetchall()
-    ids = [row["id"] for row in rows if row["id"] != not_id] or [row["id"] for row in rows]
-    if not ids:
-        return None
-    return get_entry(connection, (rng or random.SystemRandom()).choice(ids))
+    """Another page: a fuller one other than `not_id` if there is one, else any other, else any."""
+    everything = _current_ids(connection, fuller=False)
+    for pool in (_current_ids(connection, fuller=True), everything):
+        ids = [entry_id for entry_id in pool if entry_id != not_id]
+        if ids:
+            return get_entry(connection, (rng or random.SystemRandom()).choice(ids))
+    return get_entry(connection, everything[0]) if everything else None
 
 
 def upsert_entry(
