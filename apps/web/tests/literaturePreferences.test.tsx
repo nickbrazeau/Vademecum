@@ -20,7 +20,7 @@ function stubApi() {
       const method = init?.method ?? 'GET'
       const body = typeof init?.body === 'string' ? JSON.parse(init.body) : null
       calls.push({ url: String(url), method, body })
-      const path = String(url).split('?')[0]
+      const path = String(url).split('?')[0] ?? ''
       let reply: unknown = {}
       if (path === '/api/literature/settings') reply = method === 'PUT' ? { ...SETTINGS, ...body } : SETTINGS
       else if (path === '/api/improvement-map') reply = MAP
