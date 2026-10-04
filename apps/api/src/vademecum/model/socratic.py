@@ -129,10 +129,12 @@ async def answer(database_path: Path, session_id: str, learner_text: str, turn_f
             return {"session": store.get_session(connection, session_id).as_dict(), "note": f"The model connection failed ({exc.category}). Your answer is kept; try again."}
         finally:
             connection.close()
+    from .podcasts import spoken
+
     payload = reply.payload
     done = bool(payload.get("done")) or exchanges >= store.MAX_EXCHANGES
-    acknowledgement = " ".join(str(payload.get("acknowledgement") or "").split())
-    question = " ".join(str(payload.get("question") or "").split())
+    acknowledgement = spoken(payload.get("acknowledgement") or "")
+    question = spoken(payload.get("question") or "")
     probe = str(payload.get("probe") or "")
     connection = connect(database_path)
     try:

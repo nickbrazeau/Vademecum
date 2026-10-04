@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import shutil
 import subprocess
 import tempfile
@@ -50,16 +51,24 @@ def _runner(turn_factory: Any, episode_id: str):
 # --- the script ----------------------------------------------------------------------
 
 
+_HANDLES = re.compile(r"\s*\[(?:p|r)\d+(?:\s*,\s*(?:p|r)\d+)*\]")
+
+
+def spoken(text: str) -> str:
+    """Words to be spoken: the page's citation handles are for the page, not the ear."""
+    return " ".join(_HANDLES.sub("", str(text)).split())
+
+
 def check_script(payload: dict[str, Any]) -> dict[str, Any]:
     lines = [
-        {"speaker": str(line.get("speaker") or "A"), "text": " ".join(str(line.get("text") or "").split())}
+        {"speaker": str(line.get("speaker") or "A"), "text": spoken(line.get("text") or "")}
         for line in (payload.get("lines") or [])[: schemas.MAX_PODCAST_LINES]
-        if isinstance(line, dict) and str(line.get("text") or "").strip()
+        if isinstance(line, dict) and spoken(line.get("text") or "")
     ]
     return {
-        "title": " ".join(str(payload.get("title") or "").split())[:120],
+        "title": spoken(payload.get("title") or "")[:120],
         "lines": lines,
-        "takeaways": [" ".join(str(t).split())[:200] for t in (payload.get("takeaways") or []) if isinstance(t, str) and str(t).strip()][:5],
+        "takeaways": [spoken(t)[:200] for t in (payload.get("takeaways") or []) if isinstance(t, str) and spoken(t)][:5],
     }
 
 

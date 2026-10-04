@@ -136,7 +136,7 @@ def test_a_chat_host_records_the_dialogue_and_the_assessment(tmp_path: Path) -> 
 
 
 def test_a_script_is_checked_and_rendered_line_by_line() -> None:
-    checked = check_script({"title": " Lactate,  two ways ", "lines": [{"speaker": "A", "text": " Welcome. "}, {"speaker": "C", "text": "Hm"}, {"speaker": "B", "text": ""}], "takeaways": ["One.", 2]})
+    checked = check_script({"title": " Lactate,  two ways ", "lines": [{"speaker": "A", "text": " Welcome. [p1] "}, {"speaker": "C", "text": "Hm [p2, r1]"}, {"speaker": "B", "text": "[p3]"}], "takeaways": ["One. [p1]", 2]})
     assert checked["title"] == "Lactate, two ways" and [l["text"] for l in checked["lines"]] == ["Welcome.", "Hm"] and checked["takeaways"] == ["One."]
 
     spoken: list[tuple[str, str]] = []
