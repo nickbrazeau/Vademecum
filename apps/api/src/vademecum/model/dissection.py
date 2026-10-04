@@ -291,6 +291,7 @@ class Dissector:
             run_id = run.id
         finally:
             connection.close()
+        self._update(phase="building")
         await self._service.start(pile_id=pile_id, run_id=run_id, batch_id=batch_id)
         deadline = asyncio.get_running_loop().time() + self._run_timeout
         while self._service.is_running(pile_id):
