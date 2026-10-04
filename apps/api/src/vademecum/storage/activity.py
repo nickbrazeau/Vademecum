@@ -85,7 +85,15 @@ def dashboard(connection: sqlite3.Connection, *, today: date | None = None) -> d
     def count(since: date, kind: str | None = None) -> int:
         return sum(1 for k, day in events if day >= since and day <= today and (kind is None or k == kind))
 
+    from .preferences import daily_goal
+
+    goal = daily_goal(connection)
+    done_today = count(today)
     return {
+        # The owner's own goal for a day (ADR 0026): enough when today's reviews reach it.
+        "daily_goal": goal,
+        "goal_met": done_today >= goal,
+        "remaining_today": max(0, goal - done_today),
         "days_in_a_row": current,
         "longest_run": longest,
         "reviewed_today_already": today in days,

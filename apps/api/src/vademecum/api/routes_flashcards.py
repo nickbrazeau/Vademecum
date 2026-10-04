@@ -27,9 +27,10 @@ class ReviewIn(Strict):
 
 
 class PreferencesIn(Strict):
-    visible_tabs: list[str]
+    visible_tabs: list[str] | None = None
     # The owner's order of the tabs between Today and Settings (ADR 0026).
     order: list[str] | None = None
+    daily_goal: int | None = None
 
 
 @router.get("")
@@ -61,8 +62,13 @@ def read_preferences(connection: sqlite3.Connection = Depends(get_connection)) -
 
 @preferences_router.put("")
 def write_preferences(payload: PreferencesIn, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    if payload.daily_goal is not None:
+        preferences.set_daily_goal(connection, payload.daily_goal)
+    if payload.visible_tabs is None and payload.order is None:
+        return preferences.get_preferences(connection)
     order = None if payload.order is None else [name[:40] for name in payload.order[:40]]
-    return preferences.set_visible_tabs(connection, [name[:40] for name in payload.visible_tabs[:40]], order)
+    visible = payload.visible_tabs if payload.visible_tabs is not None else preferences.get_preferences(connection)["visible_tabs"]
+    return preferences.set_visible_tabs(connection, [name[:40] for name in visible[:40]], order)
 
 
 @activity_router.get("")

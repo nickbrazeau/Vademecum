@@ -23,6 +23,22 @@ export function ReviewDashboard({ dashboard }: { dashboard: Dashboard }) {
       <h2 id="dashboard-heading" className="visually-hidden">
         Your review
       </h2>
+      <div className={`daily-goal${dashboard.goal_met ? ' met' : ''}`} role="status">
+        <p className="daily-goal-line">
+          {dashboard.goal_met ? (
+            <>
+              <strong>Done for today.</strong> {dashboard.today_total} of {dashboard.daily_goal} reviewed.
+            </>
+          ) : (
+            <>
+              <strong>{dashboard.remaining_today} more</strong> to reach today’s {dashboard.daily_goal}. {dashboard.today_total} so far.
+            </>
+          )}
+        </p>
+        <span className="daily-goal-bar" aria-hidden="true">
+          <span className="daily-goal-fill" style={{ width: `${Math.min(100, (100 * dashboard.today_total) / Math.max(1, dashboard.daily_goal))}%` }} />
+        </span>
+      </div>
       <div className="dashboard-figures">
         <div className="figure">
           <span className="figure-number">{dashboard.days_in_a_row}</span>

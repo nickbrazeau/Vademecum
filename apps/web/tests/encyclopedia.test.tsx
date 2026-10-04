@@ -185,3 +185,16 @@ describe('the board Tutor', () => {
     expect(await screen.findByText('Explain retrieval practice.')).toBeInTheDocument()
   })
 })
+
+
+describe('the daily goal on Today', () => {
+  it('says how many more, and says done once the goal is met', async () => {
+    const { ReviewDashboard } = await import('../src/components/ReviewDashboard')
+    const base = { days_in_a_row: 2, longest_run: 4, reviewed_today_already: true, today: { question: 5, card: 2, socratic: 0, page: 1 }, week_total: 30, all_time_total: 90, history: [] }
+    const { unmount } = render(<ReviewDashboard dashboard={{ ...base, daily_goal: 20, goal_met: false, remaining_today: 12, today_total: 8 }} />)
+    expect(screen.getByRole('status')).toHaveTextContent('12 more to reach today’s 20. 8 so far.')
+    unmount()
+    render(<ReviewDashboard dashboard={{ ...base, daily_goal: 8, goal_met: true, remaining_today: 0, today_total: 8 }} />)
+    expect(screen.getByRole('status')).toHaveTextContent('Done for today. 8 of 8 reviewed.')
+  })
+})

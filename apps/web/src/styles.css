@@ -1454,3 +1454,28 @@ details.card-details[open] > summary {
   display: inline-flex;
   gap: 0.25rem;
 }
+
+.daily-goal {
+  margin-bottom: 0.75rem;
+}
+.daily-goal-line {
+  margin: 0 0 0.375rem;
+}
+.daily-goal-bar {
+  display: block;
+  height: 0.6rem;
+  border-radius: 0.3rem;
+  background: var(--line);
+  overflow: hidden;
+}
+.daily-goal-fill {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+}
+.daily-goal.met .daily-goal-fill {
+  background: #3f8f5f;
+}
+.daily-goal.met .daily-goal-line strong {
+  color: #3f8f5f;
+}

@@ -42,6 +42,30 @@ def _read(connection: sqlite3.Connection) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+DEFAULT_DAILY_GOAL = 20
+MAX_DAILY_GOAL = 200
+
+
+def daily_goal(connection: sqlite3.Connection) -> int:
+    """How many reviews make a day's review enough: the owner's number (ADR 0026)."""
+    value = _read(connection).get("daily_goal", DEFAULT_DAILY_GOAL)
+    try:
+        return max(1, min(int(value), MAX_DAILY_GOAL))
+    except (TypeError, ValueError):
+        return DEFAULT_DAILY_GOAL
+
+
+def set_daily_goal(connection: sqlite3.Connection, goal: int) -> dict[str, Any]:
+    stored = _read(connection)
+    with transaction(connection) as tx:
+        tx.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (KEY, json.dumps({**stored, "daily_goal": max(1, min(int(goal), MAX_DAILY_GOAL))}, separators=(",", ":")), utc_now()),
+        )
+    return get_preferences(connection)
+
+
 def ordered(names: list[str] | None) -> list[str]:
     """The owner's order of the tabs: Today first and Settings last always; any tab
     not in their order (a new one) goes where the catalogue puts it, before Settings."""
@@ -63,7 +87,7 @@ def get_preferences(connection: sqlite3.Connection) -> dict[str, Any]:
         known = set(stored.get("known_tabs") or [name for name in TAB_NAMES if name != "construction"])
         visible = [name for name in order if name in wanted or name in FIXED or name not in known]
     by_name = {tab["name"]: tab for tab in TABS}
-    return {"visible_tabs": visible, "order": order, "tabs": [dict(by_name[name]) for name in order]}
+    return {"visible_tabs": visible, "order": order, "tabs": [dict(by_name[name]) for name in order], "daily_goal": daily_goal(connection)}
 
 
 def set_visible_tabs(connection: sqlite3.Connection, names: list[str], order: list[str] | None = None) -> dict[str, Any]:

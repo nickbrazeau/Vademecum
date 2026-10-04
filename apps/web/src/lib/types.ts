@@ -735,6 +735,7 @@ export interface Preferences {
   /** Every tab in the owner's order: Today first, Settings last (ADR 0026). */
   order: string[]
   tabs: TabChoice[]
+  daily_goal: number
 }
 
 export interface Dissection {
@@ -850,6 +851,10 @@ export interface BoardOverview {
 
 /** The feedback of 4 October (ADR 0026). */
 export interface Dashboard {
+  /** The owner's own number of reviews that makes a day enough (ADR 0026). */
+  daily_goal: number
+  goal_met: boolean
+  remaining_today: number
   days_in_a_row: number
   longest_run: number
   reviewed_today_already: boolean

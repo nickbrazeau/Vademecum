@@ -14,6 +14,44 @@ import { useLoad } from '../lib/useLoad'
 import { CaseSeries, HubSettings } from './CaseSeries'
 import { Model } from './Model'
 
+/** How many reviews make a day enough, shown on Today (ADR 0026). */
+function DailyGoal({ initial }: { initial: number }) {
+  const [goal, setGoal] = useState(String(initial))
+  const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [failure, setFailure] = useState<ApiError | null>(null)
+  const save = async () => {
+    setState('saving')
+    setFailure(null)
+    try {
+      const next = await api.saveDailyGoal(Math.max(1, Math.min(200, Number(goal) || initial)))
+      setGoal(String(next.daily_goal))
+      setState('saved')
+    } catch (error) {
+      setFailure(asApiError(error))
+      setState('idle')
+    }
+  }
+  return (
+    <section className="card" aria-labelledby="goal-heading">
+      <h2 id="goal-heading">Review goal for the day</h2>
+      <p className="muted small">Today shows how close you are. Questions, flashcards, pages and Socratic sessions each count as one.</p>
+      <label htmlFor="daily-goal">Reviews a day</label>
+      <input id="daily-goal" type="number" min={1} max={200} value={goal} onChange={(event) => { setGoal(event.target.value); setState('idle') }} />
+      <div className="actions">
+        <button type="button" className="button" disabled={state === 'saving'} onClick={() => void save()}>
+          {state === 'saving' ? 'Saving…' : 'Save goal'}
+        </button>
+        {state === 'saved' ? <span className="muted small">Saved.</span> : null}
+      </div>
+      {failure ? (
+        <p className="failure" role="alert">
+          {failure.message}
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
 /**
  * Everything that is set rather than used (ADR 0026): the tabs, the model
  * connection and its allowance, the literature watch, the Case Series hub, and
@@ -132,6 +170,8 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
           </p>
         ) : null}
       </section>
+
+      <DailyGoal initial={preferences.daily_goal} />
 
       <section className="card" aria-labelledby="model-settings-heading">
         <h2 id="model-settings-heading">Model and allowance</h2>

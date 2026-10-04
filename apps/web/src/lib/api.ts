@@ -423,6 +423,8 @@ export const api = {
     request<unknown>('/preferences', { method: 'PUT', ...body(order ? { visible_tabs: visibleTabs, order } : { visible_tabs: visibleTabs }) }).then(
       normalize.preferencesPayload
     ),
+  saveDailyGoal: (goal: number) =>
+    request<unknown>('/preferences', { method: 'PUT', ...body({ daily_goal: goal }) }).then(normalize.preferencesPayload),
   dissection: () => request<unknown>('/encyclopedia/dissection').then(normalize.dissection),
   startDissection: (pileId: string) =>
     request<unknown>('/encyclopedia/dissection', { method: 'POST', ...body({ pile_id: pileId }) }).then(normalize.dissection),

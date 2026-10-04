@@ -181,3 +181,18 @@ def test_figures_from_the_owners_sources_are_placed_by_page_and_never_drawn(conn
     text = next((tmp_path / "Vademecum" / "encyclopedia").rglob("T.md")).read_text()
     assert "![White Book.pdf, page 4](../_figures/img_big.png)" in text
     assert (tmp_path / "Vademecum" / "encyclopedia" / "_figures" / "img_big.png").read_bytes() == b"\x89PNG"
+
+
+def test_the_owners_daily_goal_says_when_today_is_enough(connection) -> None:
+    from vademecum.storage import preferences
+
+    today = datetime.now().astimezone().date()
+    for _ in range(3):
+        connection.execute("INSERT INTO review_events (id, kind, ref_id, created_at) VALUES (?, 'page', 'p', ?)", (new_id("rev"), _at(today)))
+    connection.commit()
+    board = activity.dashboard(connection, today=today)
+    assert board["daily_goal"] == 20 and board["goal_met"] is False and board["remaining_today"] == 17
+    preferences.set_daily_goal(connection, 3)
+    board = activity.dashboard(connection, today=today)
+    assert board["goal_met"] is True and board["remaining_today"] == 0
+    assert preferences.set_daily_goal(connection, 0)["daily_goal"] == 1, "bounded"

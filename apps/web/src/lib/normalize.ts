@@ -1168,6 +1168,7 @@ export function preferencesPayload(raw: unknown): Preferences {
   return {
     visible_tabs: strings(data.visible_tabs),
     order: strings(data.order),
+    daily_goal: num(data.daily_goal, 20),
     tabs: arr(data.tabs).map((item) => {
       const tab = obj(item)
       return { name: str(tab.name), label: str(tab.label), fixed: tab.fixed === true }
@@ -1409,6 +1410,9 @@ export function dashboard(raw: unknown): Dashboard {
   const data = obj(raw)
   const today = obj(data.today)
   return {
+    daily_goal: num(data.daily_goal, 20),
+    goal_met: data.goal_met === true,
+    remaining_today: num(data.remaining_today),
     days_in_a_row: num(data.days_in_a_row),
     longest_run: num(data.longest_run),
     reviewed_today_already: data.reviewed_today_already === true,
