@@ -141,8 +141,9 @@ class Dissector:
             connection.close()
         if not self.is_running:
             self._task = asyncio.create_task(self._loop(pile_id))
-        elif fresh:
-            # A different pile: the loop re-reads its target on the next step.
+        else:
+            # Already running: a different pile is re-read on the next step, and a
+            # pause after a failure ends now, so "start" is also "try again now".
             self.kick()
         return state
 
