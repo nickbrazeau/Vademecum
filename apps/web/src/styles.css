@@ -1442,3 +1442,15 @@ details.card-details[open] > summary {
 .markdown h5 {
   margin: 0.75rem 0 0.25rem;
 }
+
+.tab-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.tab-move {
+  display: inline-flex;
+  gap: 0.25rem;
+}

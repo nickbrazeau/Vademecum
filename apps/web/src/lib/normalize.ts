@@ -1167,6 +1167,7 @@ export function preferencesPayload(raw: unknown): Preferences {
   const data = obj(raw)
   return {
     visible_tabs: strings(data.visible_tabs),
+    order: strings(data.order),
     tabs: arr(data.tabs).map((item) => {
       const tab = obj(item)
       return { name: str(tab.name), label: str(tab.label), fixed: tab.fixed === true }

@@ -148,3 +148,13 @@ def test_preferences_over_the_api(tmp_path: Path) -> None:
 def test_the_new_tables_sync_and_export() -> None:
     assert "flashcards" in SYNCED_TABLES and "flashcards" in DOMI_OWNED and "flashcards" in EXPORTED_TABLES
     assert "flashcard_reviews" in SYNCED_TABLES and "flashcard_reviews" not in DOMI_OWNED and "flashcard_reviews" in EXPORTED_TABLES
+
+
+def test_the_owner_orders_the_tabs_between_today_and_settings(connection) -> None:
+    moved = preferences.set_visible_tabs(connection, ["tutor", "map", "sources"], ["settings", "map", "today", "tutor", "bogus"])
+    assert moved["order"][0] == "today" and moved["order"][-1] == "settings"
+    assert moved["order"][1:3] == ["map", "tutor"], "the owner's order first, then the rest in catalogue order"
+    assert moved["visible_tabs"] == ["today", "map", "tutor", "sources", "settings"]
+    assert [tab["name"] for tab in moved["tabs"]] == moved["order"]
+    again = preferences.set_visible_tabs(connection, ["tutor"])
+    assert again["order"] == moved["order"], "choosing tabs again keeps the order"

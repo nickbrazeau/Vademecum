@@ -732,6 +732,8 @@ export interface TabChoice {
 
 export interface Preferences {
   visible_tabs: string[]
+  /** Every tab in the owner's order: Today first, Settings last (ADR 0026). */
+  order: string[]
   tabs: TabChoice[]
 }
 

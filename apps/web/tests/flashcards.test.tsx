@@ -68,7 +68,7 @@ describe('settings', () => {
       '/api/preferences': { visible_tabs: TABS.map((tab) => tab.name), tabs: TABS },
       'PUT /api/preferences': { visible_tabs: ['today', 'tutor', 'settings'], tabs: TABS }
     })
-    const saved: string[][] = []
+    const saved: { visible_tabs: string[] }[] = []
     render(<Settings onSaved={(visible) => saved.push(visible)} />)
     const today = await screen.findByLabelText(/Today/)
     expect(today).toBeChecked()
@@ -79,7 +79,7 @@ describe('settings', () => {
     const put = calls.find((call) => call.method === 'PUT')?.body as { visible_tabs: string[] }
     expect(put.visible_tabs).not.toContain('podcasts')
     expect(put.visible_tabs).toContain('today')
-    expect(saved[0]).toEqual(['today', 'tutor', 'settings'])
+    expect(saved[0]?.visible_tabs).toEqual(['today', 'tutor', 'settings'])
     expect(await screen.findByText(/^Saved\. The tabs you chose/)).toBeInTheDocument()
   })
 
@@ -92,5 +92,32 @@ describe('settings', () => {
     expect(nav).toHaveTextContent('Tutor')
     expect(nav).toHaveTextContent('Settings')
     expect(nav).not.toHaveTextContent('Encyclopedia')
+  })
+})
+
+
+describe('tab order', () => {
+  it('moves a tab up, keeps Today first and Settings last, and saves the order', async () => {
+    const calls = stub({
+      '/api/preferences': { visible_tabs: TABS.map((tab) => tab.name), order: TABS.map((tab) => tab.name), tabs: TABS },
+      'PUT /api/preferences': { visible_tabs: TABS.map((tab) => tab.name), order: TABS.map((tab) => tab.name), tabs: TABS }
+    })
+    render(<Settings />)
+    await screen.findByLabelText(/Today/)
+    expect(screen.queryByRole('button', { name: 'Move Today up' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Move Tutor up' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Move Flashcards up' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true))
+    const put = calls.find((call) => call.method === 'PUT')?.body as { order: string[] }
+    expect(put.order.slice(0, 3)).toEqual(['today', 'flashcards', 'tutor'])
+    expect(put.order.at(-1)).toBe('settings')
+  })
+
+  it('orders the shell navigation the owner’s way', async () => {
+    const { inOrder } = await import('../src/App')
+    const routes = [{ name: 'today' }, { name: 'tutor' }, { name: 'map' }, { name: 'settings' }]
+    expect(inOrder(routes, ['today', 'map', 'tutor', 'settings']).map((r) => r.name)).toEqual(['today', 'map', 'tutor', 'settings'])
+    expect(inOrder(routes, []).map((r) => r.name)).toEqual(['today', 'tutor', 'map', 'settings'])
   })
 })

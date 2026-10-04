@@ -419,8 +419,10 @@ export const api = {
       normalize.flashcardDraw(data.next)
     ),
   preferences: () => request<unknown>('/preferences').then(normalize.preferencesPayload),
-  savePreferences: (visibleTabs: string[]) =>
-    request<unknown>('/preferences', { method: 'PUT', ...body({ visible_tabs: visibleTabs }) }).then(normalize.preferencesPayload),
+  savePreferences: (visibleTabs: string[], order?: string[]) =>
+    request<unknown>('/preferences', { method: 'PUT', ...body(order ? { visible_tabs: visibleTabs, order } : { visible_tabs: visibleTabs }) }).then(
+      normalize.preferencesPayload
+    ),
   dissection: () => request<unknown>('/encyclopedia/dissection').then(normalize.dissection),
   startDissection: (pileId: string) =>
     request<unknown>('/encyclopedia/dissection', { method: 'POST', ...body({ pile_id: pileId }) }).then(normalize.dissection),

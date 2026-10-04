@@ -9,6 +9,7 @@ import { LiteratureSettings } from '../components/LiteratureSettings'
 import { PrivacyNote } from '../components/PrivacyNote'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
+import type { Preferences, TabChoice } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { CaseSeries, HubSettings } from './CaseSeries'
 import { Model } from './Model'
@@ -18,21 +19,37 @@ import { Model } from './Model'
  * connection and its allowance, the literature watch, the Case Series hub, and
  * where your data lives.
  */
-export function Settings({ onSaved, showModel = true }: { onSaved?: (visible: string[]) => void; showModel?: boolean }) {
+export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences: Preferences) => void; showModel?: boolean }) {
   const { result, reload } = useLoad(() => api.preferences(), [])
   const [chosen, setChosen] = useState<string[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [saved, setSaved] = useState(false)
+  const [order, setOrder] = useState<TabChoice[] | null>(null)
 
   useEffect(() => {
-    if (result.state === 'ready') setChosen(result.value.visible_tabs)
+    if (result.state === 'ready') {
+      setChosen(result.value.visible_tabs)
+      setOrder(result.value.tabs)
+    }
   }, [result])
 
   if (result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
   if (result.state === 'failed') return <Unavailable error={result.error} onRetry={reload} />
   const preferences = result.value
   const visible = chosen ?? preferences.visible_tabs
+  const tabs = order ?? preferences.tabs
+
+  /** Move a tab up or down among the movable ones; Today and Settings stay put. */
+  const move = (index: number, step: -1 | 1) => {
+    const target = index + step
+    if (target < 0 || target >= tabs.length || tabs[index]?.fixed || tabs[target]?.fixed) return
+    const next = [...tabs]
+    const [moved] = next.splice(index, 1)
+    if (moved) next.splice(target, 0, moved)
+    setSaved(false)
+    setOrder(next)
+  }
 
   const toggle = (name: string, on: boolean) => {
     setSaved(false)
@@ -43,10 +60,11 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (visible: st
     setBusy(true)
     setFailure(null)
     try {
-      const next = await api.savePreferences(visible)
+      const next = await api.savePreferences(visible, tabs.map((tab) => tab.name))
       setChosen(next.visible_tabs)
+      setOrder(next.tabs)
       setSaved(true)
-      onSaved?.(next.visible_tabs)
+      onSaved?.(next)
     } catch (error) {
       setFailure(asApiError(error))
     } finally {
@@ -58,20 +76,44 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (visible: st
     <div className="stack">
       <section className="card" aria-labelledby="tabs-heading">
         <h2 id="tabs-heading">Tabs</h2>
-        <p className="muted">Choose which sections the app shows. Today and Settings are always there.</p>
+        <p className="muted">Choose which sections the app shows, and their order. Today is always first and Settings always last.</p>
         <fieldset className="tab-picker">
           <legend className="visually-hidden">Sections to show</legend>
-          {preferences.tabs.map((tab) => (
-            <label key={tab.name} className="tab-option">
-              <input
-                type="checkbox"
-                checked={tab.fixed || visible.includes(tab.name)}
-                disabled={tab.fixed || busy}
-                onChange={(event) => toggle(tab.name, event.target.checked)}
-              />{' '}
-              {tab.label}
-              {tab.fixed ? <span className="muted small"> (always shown)</span> : null}
-            </label>
+          {tabs.map((tab, index) => (
+            <div key={tab.name} className="tab-row">
+              <label className="tab-option">
+                <input
+                  type="checkbox"
+                  checked={tab.fixed || visible.includes(tab.name)}
+                  disabled={tab.fixed || busy}
+                  onChange={(event) => toggle(tab.name, event.target.checked)}
+                />{' '}
+                {tab.label}
+                {tab.fixed ? <span className="muted small"> (always shown, {tab.name === 'today' ? 'first' : 'last'})</span> : null}
+              </label>
+              {tab.fixed ? null : (
+                <span className="tab-move">
+                  <button
+                    type="button"
+                    className="button ghost small"
+                    aria-label={`Move ${tab.label} up`}
+                    disabled={busy || tabs[index - 1]?.fixed !== false}
+                    onClick={() => move(index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="button ghost small"
+                    aria-label={`Move ${tab.label} down`}
+                    disabled={busy || tabs[index + 1]?.fixed !== false}
+                    onClick={() => move(index, 1)}
+                  >
+                    ↓
+                  </button>
+                </span>
+              )}
+            </div>
           ))}
         </fieldset>
         <div className="actions">

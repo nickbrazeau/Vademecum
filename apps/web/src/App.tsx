@@ -32,6 +32,16 @@ const TITLES = {
   settings: 'Settings'
 } as const
 
+/** The tabs in the owner's order; a tab the order does not name keeps its catalogue place. */
+export function inOrder<T extends { name: string }>(routes: T[], order: string[]): T[] {
+  if (order.length === 0) return routes
+  const rank = (name: string) => {
+    const at = order.indexOf(name)
+    return at === -1 ? order.length + routes.findIndex((route) => route.name === name) : at
+  }
+  return [...routes].sort((a, b) => rank(a.name) - rank(b.name))
+}
+
 /** ⌘K on macOS, Ctrl-K everywhere else. One keystroke, from anywhere. */
 export function isQuickFlagShortcut(event: {
   key: string
@@ -58,13 +68,18 @@ export function App() {
   // The tabs the owner chose to see (ADR 0024). Until preferences answer,
   // every tab shows; a tab hidden here is still reachable by its address.
   const [visibleTabs, setVisibleTabs] = useState<string[] | null>(null)
+  const [tabOrder, setTabOrder] = useState<string[]>([])
+  const applyPreferences = useCallback((preferences: { visible_tabs: string[]; order: string[] }) => {
+    setVisibleTabs(preferences.visible_tabs)
+    setTabOrder(preferences.order)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     api
       .preferences()
       .then((preferences) => {
-        if (!cancelled) setVisibleTabs(preferences.visible_tabs)
+        if (!cancelled) applyPreferences(preferences)
       })
       .catch(() => {
         /* no preference is every tab */
@@ -159,7 +174,7 @@ export function App() {
         <Nav
           route={route}
           onNavigate={navigate}
-          routes={ROUTES.filter(
+          routes={inOrder(ROUTES, tabOrder).filter(
             (entry) =>
               // No preference, or a malformed one, is every tab: the server never answers fewer than the fixed two.
               (visibleTabs === null || visibleTabs.length === 0 || FIXED_ROUTES.includes(entry.name) || visibleTabs.includes(entry.name))
@@ -183,7 +198,7 @@ export function App() {
         {route === 'flashcards' ? <Flashcards onNavigate={navigate} /> : null}
         {route === 'podcasts' ? <Podcasts onNavigate={navigate} /> : null}
         {route === 'construction' ? <Construction onNavigate={navigate} /> : null}
-        {route === 'settings' ? <Settings onSaved={setVisibleTabs} showModel={!behindGateway && !compact && !hostMode} /> : null}
+        {route === 'settings' ? <Settings onSaved={applyPreferences} showModel={!behindGateway && !compact && !hostMode} /> : null}
       </main>
 
       <footer className="footer">
