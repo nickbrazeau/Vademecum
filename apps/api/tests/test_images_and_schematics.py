@@ -295,7 +295,12 @@ def test_the_folder_keeps_pictures_too(tmp_path: Path, folder: Path) -> None:
     touch(folder / "piles" / "highconfidence" / "Rounds" / "deck.pptx", deck_with_picture(slide_text="A slide with words on it"))
     app = create_app(settings, transport_factory=refusing_factory())
     with TestClient(app, base_url=LOCAL_ORIGIN) as client:
-        # The startup scan already took the deck; an on-request scan finds it present.
+        # The background scan takes the deck from the start; an on-request scan then finds it present.
+        import time
+
+        deadline = time.time() + 60
+        while time.time() < deadline and not any(p["title"] == "Rounds" and p.get("source_count") for p in client.get("/api/piles").json()):
+            time.sleep(0.25)
         report = client.post("/api/sources/scan").json()
         assert report["already_present"] == 1 and report["rejected"] == []
         pile_id = next(p["id"] for p in client.get("/api/piles").json() if p["title"] == "Rounds")
