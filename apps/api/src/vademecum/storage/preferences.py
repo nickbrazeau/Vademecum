@@ -22,7 +22,7 @@ TABS: tuple[dict[str, Any], ...] = (
     {"name": "flashcards", "label": "Flashcards", "fixed": False},
     {"name": "encyclopedia", "label": "Encyclopedia", "fixed": False},
     {"name": "map", "label": "Improvement Map", "fixed": False},
-    {"name": "podcasts", "label": "Podcast Generator", "fixed": False},
+    {"name": "podcasts", "label": "Podcast", "fixed": False},
     {"name": "construction", "label": "Construction", "fixed": False},
     {"name": "sources", "label": "Sources", "fixed": False},
     {"name": "settings", "label": "Settings", "fixed": True},

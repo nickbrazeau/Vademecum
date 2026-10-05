@@ -28,7 +28,7 @@ export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'flashcards', path: '/flashcards', label: 'Flashcards' },
   { name: 'encyclopedia', path: '/encyclopedia', label: 'Encyclopedia' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
-  { name: 'podcasts', path: '/podcasts', label: 'Podcast Generator' },
+  { name: 'podcasts', path: '/podcasts', label: 'Podcast' },
   { name: 'construction', path: '/construction', label: 'Construction' },
   { name: 'sources', path: '/sources', label: 'Sources' },
   { name: 'settings', path: '/settings', label: 'Settings' }

@@ -230,11 +230,10 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
   return (
     <div className="stack">
       <section className="card" aria-labelledby="podcasts-heading">
-        <h2 id="podcasts-heading">Podcast Generator</h2>
+        <h2 id="podcasts-heading">Podcast</h2>
         <p className="muted">
           A two-host episode grounded in your encyclopedia, expanding from there with the literature reviewed for each page and the
-          hosts’ own knowledge, with sources cited as they go and take-homes at the end. The audio is made on this Mac with its own
-          voices: no service, no key. On the phone the browser reads the script aloud instead.
+          hosts’ own knowledge, with sources cited as they go and take-homes at the end.
         </p>
         {list.can_write ? (
           <>

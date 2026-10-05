@@ -27,7 +27,7 @@ const TITLES = {
   encyclopedia: 'Encyclopedia',
   sources: 'Sources',
   map: 'Improvement Map',
-  podcasts: 'Podcast Generator',
+  podcasts: 'Podcast',
   construction: 'Construction',
   settings: 'Settings'
 } as const
