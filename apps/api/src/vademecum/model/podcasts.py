@@ -216,6 +216,24 @@ def render_lines(lines: list[dict[str, str]], voices: dict[str, str], target: Pa
     return target.stat().st_size, int(round(frames / SAMPLE_RATE))
 
 
+def _render_in_process(lines: list[dict[str, str]], voices: dict[str, str], target: str, voices_dir: str | None) -> tuple[int, int]:
+    """render_lines in a process of its own (spawned, so it imports cleanly)."""
+    directory = Path(voices_dir) if voices_dir else None
+    return render_lines(lines, voices, Path(target), synth=synth_for(directory))
+
+
+async def _render_elsewhere(lines: list[dict[str, str]], voices: dict[str, str], target: Path, voices_dir: Path | None) -> tuple[int, int]:
+    """Speech synthesis is heavy numeric work: in the server's own process it holds
+    the interpreter lock long enough to stall every request for the length of an
+    episode. A process of its own keeps the web app answering."""
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+
+    loop = asyncio.get_running_loop()
+    with ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn")) as pool:
+        return await loop.run_in_executor(pool, _render_in_process, lines, voices, str(target), str(voices_dir) if voices_dir else None)
+
+
 async def render(
     database_path: Path,
     episode_id: str,
@@ -235,12 +253,15 @@ async def render(
         return {"error": "This episode has no script yet."}
     fallback = default_voices(voices_dir)
     chosen = {"A": voices.get("A") or fallback["A"], "B": voices.get("B") or fallback["B"]}
-    if synth is None:
-        synth = synth_for(voices_dir)
+    elsewhere = synth is None and encode is afconvert_encode
     audio_name = f"{episode.id}.m4a"
     target = podcasts_dir / audio_name
     try:
-        size, seconds = await asyncio.to_thread(render_lines, [dict(line) for line in episode.script], chosen, target, synth=synth, encode=encode)
+        lines = [dict(line) for line in episode.script]
+        if elsewhere:
+            size, seconds = await _render_elsewhere(lines, chosen, target, voices_dir)
+        else:
+            size, seconds = await asyncio.to_thread(render_lines, lines, chosen, target, synth=synth or synth_for(voices_dir), encode=encode)
     except Exception as exc:  # noqa: BLE001 - recorded on the episode
         logger.error("podcast_render_failed error=%s", type(exc).__name__)
         connection = connect(database_path)

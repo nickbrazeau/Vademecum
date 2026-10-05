@@ -161,7 +161,8 @@ async def render(
     known = {voice["name"] for voice in service.available_voices(directory)}
     chosen = {"A": payload.voice_a if payload.voice_a in known else "", "B": payload.voice_b if payload.voice_b in known else ""}
     workspace = request.state.workspace
-    synth = getattr(request.app.state, "podcast_synth", None) or service.synth_for(directory)
+    # None: the real voices, rendered in a process of their own. Tests substitute both.
+    synth = getattr(request.app.state, "podcast_synth", None)
     encode = getattr(request.app.state, "podcast_encode", None) or service.afconvert_encode
     result = await service.render(
         workspace.database_path, episode_id, _podcasts_dir(source_dir), chosen, synth=synth, encode=encode, voices_dir=directory

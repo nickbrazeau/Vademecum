@@ -305,3 +305,21 @@ def test_text_is_made_speakable_and_kokoro_waits_for_its_files(tmp_path) -> None
     finally:
         service.say_synth = original  # type: ignore[assignment]
     assert spoken == [("Hello.", service.DEFAULT_VOICES["A"])], "a Kokoro voice without Kokoro falls back to the Mac's"
+
+
+def test_rendering_runs_in_a_process_of_its_own(tmp_path) -> None:
+    """ADR 0027: synthesis in the server's process stalled every request; it runs apart."""
+    import asyncio
+    import shutil
+
+    import pytest
+
+    from vademecum.model import podcasts as service
+
+    if shutil.which("say") is None or shutil.which("afconvert") is None:
+        pytest.skip("needs the Mac's say and afconvert")
+    target = tmp_path / "episode.m4a"
+    size, seconds = asyncio.run(
+        service._render_elsewhere([{"speaker": "A", "text": "Two to four milligrams."}], {"A": "Samantha", "B": "Daniel"}, target, None)
+    )
+    assert target.is_file() and size == target.stat().st_size and size > 0 and seconds >= 1
