@@ -308,7 +308,7 @@ def test_the_same_paper_under_two_ids_is_skipped_not_fatal(pair) -> None:
 
 
 def test_podcast_audio_goes_to_the_cloud_copy_and_is_retired_once_heard(pair) -> None:
-    """ADR 0027: the Mac sends the newest five unheard episodes' audio; the cloud copy
+    """ADR 0027: the Mac sends the newest ten unheard episodes' audio; the cloud copy
     plays it; listening on the phone deletes it there and, at the next sync, on the Mac,
     where the episode goes back to its script."""
     from vademecum.storage import podcasts
@@ -320,9 +320,9 @@ def test_podcast_audio_goes_to_the_cloud_copy_and_is_retired_once_heard(pair) ->
     connection = db(home_app)
     try:
         ids = []
-        for index in range(7):
+        for index in range(12):
             episode = podcasts.create_episode(connection, title=f"Episode {index}", entry_ids=[])
-            connection.execute("UPDATE podcast_episodes SET created_at = ? WHERE id = ?", (f"2026-10-0{index + 1}T00:00:00Z", episode.id))
+            connection.execute("UPDATE podcast_episodes SET created_at = ? WHERE id = ?", (f"2026-10-{index + 1:02d}T00:00:00Z", episode.id))
             connection.commit()
             (home_dir / f"{episode.id}.m4a").write_bytes(f"audio {index}".encode() * 100)
             podcasts.set_rendered(connection, episode.id, audio_name=f"{episode.id}.m4a", audio_bytes=900, duration_seconds=60, voices={})
@@ -334,14 +334,14 @@ def test_podcast_audio_goes_to_the_cloud_copy_and_is_retired_once_heard(pair) ->
     run_sync(home_app, away, scope="lean")
     connection = db(home_app)
     try:
-        assert push_podcast_audio(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 5
+        assert push_podcast_audio(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 10
         assert push_podcast_audio(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 0, "only what is missing"
     finally:
         connection.close()
     listed = {e["id"]: e for e in away.get("/api/podcasts").json()["episodes"]}
-    assert [listed[i]["has_audio"] for i in newest_first] == [True] * 5 + [False] * 2
+    assert [listed[i]["has_audio"] for i in newest_first] == [True] * 10 + [False] * 2
     played = away.get(f"/api/podcasts/{newest_first[0]}/audio")
-    assert played.status_code == 200 and played.content == b"audio 6" * 100
+    assert played.status_code == 200 and played.content == b"audio 11" * 100
 
     # Heard on the phone: deleted there at once, and on the Mac at the next sync.
     heard = away.post(f"/api/podcasts/{newest_first[0]}/listened", json={"listened": True}).json()
@@ -358,7 +358,7 @@ def test_podcast_audio_goes_to_the_cloud_copy_and_is_retired_once_heard(pair) ->
     finally:
         connection.close()
     held = {item["episode_id"] for item in away.get("/api/sync/podcast-audio", headers={"X-Vademecum-Sync": TOKEN}).json()["held"]}
-    assert held == set(newest_first[1:6])
+    assert held == set(newest_first[1:11])
     # Rendered again in other voices: the same name, a new file, sent again.
     (home_dir / f"{newest_first[1]}.m4a").write_bytes(b"new voices" * 500)
     connection = db(home_app)

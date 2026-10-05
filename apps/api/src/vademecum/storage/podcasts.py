@@ -45,6 +45,9 @@ class Episode:
     sources: tuple[dict[str, str], ...] = ()
     # When the owner finished it; an episode listened to sits in the archive (ADR 0026).
     listened_at: str | None = None
+    # Asked for in the owner's words, and voiced as soon as written (ADR 0027).
+    request: str = ""
+    auto_render: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -92,17 +95,21 @@ def _episode(row: sqlite3.Row) -> Episode:
             if isinstance(item, dict)
         ),
         listened_at=row["listened_at"] if "listened_at" in row.keys() else None,
+        request=str(row["request"] or "") if "request" in row.keys() else "",
+        auto_render=bool(row["auto_render"]) if "auto_render" in row.keys() else False,
     )
 
 
-def create_episode(connection: sqlite3.Connection, *, title: str, entry_ids: list[str]) -> Episode:
+def create_episode(
+    connection: sqlite3.Connection, *, title: str, entry_ids: list[str], request: str = "", auto_render: bool = False
+) -> Episode:
     episode_id = new_id("pod")
     now = utc_now()
     with transaction(connection) as tx:
         tx.execute(
-            "INSERT INTO podcast_episodes (id, title, status, status_detail, entry_ids, script, takeaways, voices, audio_name, audio_bytes, duration_seconds, created_at, updated_at)"
-            " VALUES (?, ?, 'draft', '', ?, '[]', '[]', '{}', '', 0, 0, ?, ?)",
-            (episode_id, title[:120], json.dumps(list(dict.fromkeys(entry_ids))[:12]), now, now),
+            "INSERT INTO podcast_episodes (id, title, status, status_detail, entry_ids, script, takeaways, voices, audio_name, audio_bytes, duration_seconds, created_at, updated_at, request, auto_render)"
+            " VALUES (?, ?, 'draft', '', ?, '[]', '[]', '{}', '', 0, 0, ?, ?, ?, ?)",
+            (episode_id, title[:120], json.dumps(list(dict.fromkeys(entry_ids))[:12]), now, now, " ".join(request.split())[:300], int(auto_render)),
         )
     return get_episode(connection, episode_id)
 
@@ -181,14 +188,79 @@ def set_listened(connection: sqlite3.Connection, episode_id: str, listened: bool
     return get_episode(connection, episode_id)
 
 
-# How many unheard episodes the cloud copy holds audio for (ADR 0027): the
-# newest ones; an episode listened to gives its audio up everywhere.
-CLOUD_KEEP = 5
+# At most this many episodes waiting to be heard (ADR 0027), on the Mac and in
+# the cloud copy alike; an episode listened to gives its audio up everywhere.
+MAX_HOSTED = 10
+CLOUD_KEEP = MAX_HOSTED
 AUDIO_NAME = re.compile(r"\Apod_[A-Za-z0-9]{1,60}\.m4a\Z")
 
 
 def podcasts_dir(source_dir: Path) -> Path:
     return source_dir.parent / "podcasts"
+
+
+def waiting(connection: sqlite3.Connection) -> list[Episode]:
+    """Episodes not yet heard and not failed: what counts against the ten."""
+    return [e for e in list_episodes(connection, limit=500) if e.listened_at is None and e.status != "failed"]
+
+
+# --- progress, as a small file beside the audio, so a render in another process can report it
+
+
+def _progress_path(directory: Path, episode_id: str) -> Path:
+    return directory / f".progress-{episode_id}.json"
+
+
+def set_progress(directory: Path, episode_id: str, stage: str, done: int = 0, total: int = 0) -> None:
+    import time
+
+    directory.mkdir(parents=True, exist_ok=True)
+    path = _progress_path(directory, episode_id)
+    started = time.time()
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+        if previous.get("stage") == stage:
+            started = float(previous.get("started", started))
+    except (OSError, ValueError):
+        pass
+    partial = path.with_suffix(".partial")
+    partial.write_text(json.dumps({"stage": stage, "done": done, "total": total, "started": started}), encoding="utf-8")
+    partial.replace(path)
+
+
+def clear_progress(directory: Path, episode_id: str) -> None:
+    _progress_path(directory, episode_id).unlink(missing_ok=True)
+
+
+WRITING_SHARE = 30  # percent of the bar for writing the script; voicing has the rest
+WRITING_TYPICAL_SECONDS = 120.0
+
+
+def progress(directory: Path, episode_id: str) -> dict[str, Any] | None:
+    """Where an episode in the works has got to: a stage, a percent and a label."""
+    import time
+
+    try:
+        data = json.loads(_progress_path(directory, episode_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    stage = str(data.get("stage") or "")
+    done, total = int(data.get("done") or 0), int(data.get("total") or 0)
+    if stage == "writing":
+        elapsed = max(0.0, time.time() - float(data.get("started") or time.time()))
+        # The model gives no progress of its own: an estimate that slows as it nears its share.
+        percent = WRITING_SHARE * (1 - 0.5 ** (elapsed / (WRITING_TYPICAL_SECONDS / 2)))
+        return {"stage": stage, "percent": round(percent), "label": "Writing the script"}
+    if stage == "queued":
+        return {"stage": stage, "percent": WRITING_SHARE, "label": "Waiting for the episode before it to finish voicing"}
+    if stage == "rendering":
+        share = (done / total) if total else 0.0
+        return {
+            "stage": stage,
+            "percent": round(WRITING_SHARE + (100 - WRITING_SHARE) * share),
+            "label": f"Voicing line {min(done + 1, total)} of {total}" if total and done < total else "Encoding the audio",
+        }
+    return None
 
 
 def unheard_with_audio(connection: sqlite3.Connection) -> list[Episode]:

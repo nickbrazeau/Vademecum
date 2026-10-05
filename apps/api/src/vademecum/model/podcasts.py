@@ -97,7 +97,7 @@ async def write_script(database_path: Path, episode_id: str, turn_factory: Any) 
         store.set_sources(connection, episode_id, sources)
     finally:
         connection.close()
-    if not texts:
+    if not texts and not episode.request:
         connection = connect(database_path)
         try:
             return store.set_failed(connection, episode_id, "None of the chosen pages exists any more.", keep_script=False).as_dict()
@@ -108,7 +108,7 @@ async def write_script(database_path: Path, episode_id: str, turn_factory: Any) 
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.PODCAST_DEVELOPER,
-            prompt=prompts.podcast_prompt(texts),
+            prompt=prompts.podcast_prompt(texts, episode.request),
             output_schema=schemas.PODCAST_SCHEMA,
         )
     except BridgeError as exc:
@@ -208,7 +208,15 @@ def afconvert_encode(source: Path, target: Path) -> None:
     subprocess.run(["afconvert", str(source), str(target), "-f", "m4af", "-d", "aac", "-b", "64000"], check=True, timeout=RENDER_TIMEOUT_SECONDS, capture_output=True)
 
 
-def render_lines(lines: list[dict[str, str]], voices: dict[str, str], target: Path, *, synth: Synth = say_synth, encode: Encode = afconvert_encode) -> tuple[int, int]:
+def render_lines(
+    lines: list[dict[str, str]],
+    voices: dict[str, str],
+    target: Path,
+    *,
+    synth: Synth = say_synth,
+    encode: Encode = afconvert_encode,
+    on_line: Callable[[int, int], None] | None = None,
+) -> tuple[int, int]:
     """Speak each line in its host's voice, join them with a breath between, encode. Returns bytes and seconds."""
     with tempfile.TemporaryDirectory(prefix="vademecum-podcast-") as scratch:
         folder = Path(scratch)
@@ -229,18 +237,27 @@ def render_lines(lines: list[dict[str, str]], voices: dict[str, str], target: Pa
                     frames += part.getnframes()
                 out.writeframes(pause)
                 frames += len(pause) // 2
+                if on_line is not None:
+                    on_line(index + 1, len(lines))
         target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         encode(joined, target)
     return target.stat().st_size, int(round(frames / SAMPLE_RATE))
 
 
-def _render_in_process(lines: list[dict[str, str]], voices: dict[str, str], target: str, voices_dir: str | None) -> tuple[int, int]:
-    """render_lines in a process of its own (spawned, so it imports cleanly)."""
+def _render_in_process(
+    lines: list[dict[str, str]], voices: dict[str, str], target: str, voices_dir: str | None, episode_id: str = ""
+) -> tuple[int, int]:
+    """render_lines in a process of its own (spawned, so it imports cleanly),
+    reporting each line voiced through the progress file beside the audio."""
     directory = Path(voices_dir) if voices_dir else None
-    return render_lines(lines, voices, Path(target), synth=synth_for(directory))
+    audio_dir = Path(target).parent
+    report = (lambda done, total: store.set_progress(audio_dir, episode_id, "rendering", done, total)) if episode_id else None
+    return render_lines(lines, voices, Path(target), synth=synth_for(directory), on_line=report)
 
 
-async def _render_elsewhere(lines: list[dict[str, str]], voices: dict[str, str], target: Path, voices_dir: Path | None) -> tuple[int, int]:
+async def _render_elsewhere(
+    lines: list[dict[str, str]], voices: dict[str, str], target: Path, voices_dir: Path | None, episode_id: str = ""
+) -> tuple[int, int]:
     """Speech synthesis is heavy numeric work: in the server's own process it holds
     the interpreter lock long enough to stall every request for the length of an
     episode. A process of its own keeps the web app answering."""
@@ -249,7 +266,9 @@ async def _render_elsewhere(lines: list[dict[str, str]], voices: dict[str, str],
 
     loop = asyncio.get_running_loop()
     with ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn")) as pool:
-        return await loop.run_in_executor(pool, _render_in_process, lines, voices, str(target), str(voices_dir) if voices_dir else None)
+        return await loop.run_in_executor(
+            pool, _render_in_process, lines, voices, str(target), str(voices_dir) if voices_dir else None, episode_id
+        )
 
 
 async def render(
@@ -276,17 +295,23 @@ async def render(
     target = podcasts_dir / audio_name
     try:
         lines = [dict(line) for line in episode.script]
+        store.set_progress(podcasts_dir, episode_id, "rendering", 0, len(lines))
         if elsewhere:
-            size, seconds = await _render_elsewhere(lines, chosen, target, voices_dir)
+            size, seconds = await _render_elsewhere(lines, chosen, target, voices_dir, episode_id)
         else:
-            size, seconds = await asyncio.to_thread(render_lines, lines, chosen, target, synth=synth or synth_for(voices_dir), encode=encode)
+            report = lambda done, total: store.set_progress(podcasts_dir, episode_id, "rendering", done, total)  # noqa: E731
+            size, seconds = await asyncio.to_thread(
+                render_lines, lines, chosen, target, synth=synth or synth_for(voices_dir), encode=encode, on_line=report
+            )
     except Exception as exc:  # noqa: BLE001 - recorded on the episode
         logger.error("podcast_render_failed error=%s", type(exc).__name__)
+        store.clear_progress(podcasts_dir, episode_id)
         connection = connect(database_path)
         try:
             return store.set_failed(connection, episode_id, "Rendering the audio failed on this Mac. The script is unchanged.").as_dict()
         finally:
             connection.close()
+    store.clear_progress(podcasts_dir, episode_id)
     connection = connect(database_path)
     try:
         rendered = store.set_rendered(connection, episode_id, audio_name=audio_name, audio_bytes=size, duration_seconds=seconds, voices=chosen)

@@ -216,6 +216,37 @@ def test_an_episode_is_written_from_pages_and_rendered_on_the_mac(tmp_path: Path
         assert c.delete(f"/api/podcasts/{episode_id}").status_code == 204
         assert c.get("/api/podcasts").json()["episodes"] == []
 
+        # Asked for in the owner's words: written and voiced at once (ADR 0027).
+        assert c.post("/api/podcasts", json={"pick": "request", "request": "  "}).status_code == 409
+        asked = c.post("/api/podcasts", json={"pick": "request", "request": "Lactate targets in septic shock"})
+        assert asked.status_code == 202, asked.text
+        asked_id = asked.json()["id"]
+        assert "voiced as soon as" in asked.json()["note"]
+        for _ in range(200):
+            episode = c.get(f"/api/podcasts/{asked_id}").json()
+            if episode["status"] in ("rendered", "failed"):
+                break
+            time.sleep(0.05)
+        assert episode["status"] == "rendered" and episode["has_audio"], episode.get("status_detail")
+        assert episode["request"] == "Lactate targets in septic shock" and episode["progress"] is None
+        assert "THE OWNER ASKED FOR AN EPISODE ON" in turns.prompts[-1]
+
+        # Ten waiting is the most: an eleventh is refused until one is heard or removed.
+        from vademecum.storage import podcasts as store
+
+        connection = connect(app.state.database_path)
+        try:
+            for index in range(9):
+                store.create_episode(connection, title=f"Waiting {index}", entry_ids=[])
+        finally:
+            connection.close()
+        listed = c.get("/api/podcasts").json()
+        assert listed["waiting"] == 10 and listed["max_hosted"] == 10
+        full = c.post("/api/podcasts", json={"pick": "request", "request": "Sepsis"})
+        assert full.status_code == 409 and "10 episodes waiting" in full.text
+        c.post(f"/api/podcasts/{asked_id}/listened", json={"listened": True})
+        assert c.get("/api/podcasts").json()["waiting"] == 9
+
 
 def test_the_new_tables_sync_and_export() -> None:
     assert "socratic_sessions" in SYNCED_TABLES and "socratic_sessions" not in DOMI_OWNED and "socratic_sessions" in EXPORTED_TABLES
@@ -323,3 +354,19 @@ def test_rendering_runs_in_a_process_of_its_own(tmp_path) -> None:
         service._render_elsewhere([{"speaker": "A", "text": "Two to four milligrams."}], {"A": "Samantha", "B": "Daniel"}, target, None)
     )
     assert target.is_file() and size == target.stat().st_size and size > 0 and seconds >= 1
+
+
+
+def test_progress_runs_from_writing_through_voicing(tmp_path) -> None:
+    from vademecum.storage import podcasts as store
+
+    assert store.progress(tmp_path, "pod_x") is None
+    store.set_progress(tmp_path, "pod_x", "writing")
+    writing = store.progress(tmp_path, "pod_x")
+    assert writing["stage"] == "writing" and 0 <= writing["percent"] < store.WRITING_SHARE
+    store.set_progress(tmp_path, "pod_x", "rendering", 5, 10)
+    assert store.progress(tmp_path, "pod_x") == {"stage": "rendering", "percent": 65, "label": "Voicing line 6 of 10"}
+    store.set_progress(tmp_path, "pod_x", "rendering", 10, 10)
+    assert store.progress(tmp_path, "pod_x")["percent"] == 100
+    store.clear_progress(tmp_path, "pod_x")
+    assert store.progress(tmp_path, "pod_x") is None

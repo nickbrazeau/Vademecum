@@ -14,16 +14,16 @@ deleted for space once listened to.
 
 ## Decision
 
-- After each sync round the Mac sends the audio of the **five newest unheard** episodes
+- After each sync round the Mac sends the audio of the **ten newest unheard** episodes
   that the cloud copy lacks, over the existing sync token, checked against its SHA-256.
 - The cloud copy keeps the file under `attachments/podcasts/`, which the seat already
-  mirrors to R2 and restores at boot. Five episodes are about 28 MB; R2's free tier is
+  mirrors to R2 and restores at boot. Ten episodes are about 60 MB; R2's free tier is
   10 GB and downloads are free.
 - **Listening retires the audio everywhere.** An episode marked listened, by playing or
   reading it to the end or by hand, has its audio deleted on the copy where that happened.
   The listen syncs, and the other copy deletes its file too. On the Mac the episode goes
   back to its script and can be rendered again. The script, take-homes and sources stay.
-- The cloud copy deletes any audio beyond the five newest unheard. The seat deletes from
+- The cloud copy deletes any audio beyond the ten newest unheard. The seat deletes from
   R2 what left the disk under `attachments/podcasts/` only, and only after its boot restore
   has finished. The Worker refuses deletion anywhere else.
 - A copy without the file never shows a player. It says the audio arrives with the
@@ -45,8 +45,21 @@ deleted for space once listened to.
 - **The script prompt writes for the ear:** acronyms spelled out unless said as letters
   by everyone, no references to figures, short turns with brief reactions.
 
+### Asking for an episode
+
+- On the Podcast tab, or through `podcast_create` with `pick=request`, the owner says in
+  their own words what an episode should be about. The pages sharing the most words with
+  the request ground it; when none does, the hosts work from their own knowledge and say
+  so once. The script is voiced as soon as it is written, in the default voices.
+- **At most ten episodes wait to be heard** at once, on the Mac and in the cloud copy alike.
+  An eleventh is refused until one is heard or removed.
+- **Progress** is kept in a small file beside the audio, so a render in its own process can
+  report it: writing the script fills the first 30% on an estimate (the model reports
+  none), voicing fills the rest line by line. One episode is voiced at a time; the next
+  waits its turn and says so.
+
 ## Consequences
 
 The phone plays the Mac's rendered audio while the Mac is asleep. The cloud copy holds
-at most five episodes' audio. A listened episode cannot be replayed without rendering it
+at most ten episodes' audio. A listened episode cannot be replayed without rendering it
 again on the Mac. Nothing goes anywhere but the owner's own cloud copy.

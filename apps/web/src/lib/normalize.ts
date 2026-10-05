@@ -1091,6 +1091,12 @@ export function podcastEpisode(raw: unknown): PodcastEpisode {
     audio_elsewhere: data.audio_elsewhere === true,
     archived: data.archived === true,
     listened_at: typeof data.listened_at === 'string' ? data.listened_at : null,
+    request: str(data.request),
+    progress: (() => {
+      if (!data.progress || typeof data.progress !== 'object') return null
+      const p = obj(data.progress)
+      return { stage: str(p.stage), percent: Math.max(0, Math.min(100, num(p.percent))), label: str(p.label) }
+    })(),
     sources: arr(data.sources).map((item) => {
       const source = obj(item)
       return {
@@ -1117,7 +1123,9 @@ export function podcastList(raw: unknown): PodcastList {
     can_write: data.can_write === true,
     can_render: data.can_render === true,
     note: str(data.note),
-    disclosure: str(data.disclosure)
+    disclosure: str(data.disclosure),
+    waiting: num(data.waiting),
+    max_hosted: num(data.max_hosted) || 10
   }
 }
 

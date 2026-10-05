@@ -168,4 +168,45 @@ describe('the Podcast tab', () => {
     await waitFor(() => expect(screen.queryByText('Archive (1)')).toBeNull())
     expect(screen.getByRole('button', { name: 'Mark listened' })).toBeInTheDocument()
   })
+
+  it('makes an episode asked for in words, shows its progress, and stops at ten waiting', async () => {
+    let made = false
+    const calls = stub({
+      '/api/podcasts': () => ({
+        episodes: made
+          ? [{ ...EPISODE, status: 'draft', script: [], request: 'Staph aureus bacteremia', progress: { stage: 'rendering', percent: 65, label: 'Voicing line 6 of 10' } }]
+          : [],
+        can_write: true, can_render: true, note: '', disclosure: 'Writing an episode sends the chosen pages once.', waiting: made ? 1 : 0, max_hosted: 10
+      }),
+      '/api/podcasts/voices': { voices: [{ name: 'kokoro:af_heart', label: 'Heart (Kokoro, US)', locale: 'en_US' }], default: { A: 'kokoro:af_heart', B: 'kokoro:am_michael' } },
+      '/api/encyclopedia': { entries: [], counts: {}, can_compile: true, running: false, last_refresh: null, note: '', disclosure: '' },
+      'POST /api/podcasts': () => {
+        made = true
+        return { ...EPISODE, status: 'draft', script: [], note: 'Writing the script now; it is voiced as soon as it is written.' }
+      }
+    })
+    const user = userEvent.setup()
+    render(<Podcasts />)
+    expect(await screen.findByText(/0 of 10 episodes waiting/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Ask for an episode'), 'Staph aureus bacteremia')
+    await user.click(screen.getByRole('button', { name: 'Make this episode' }))
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ pick: 'request', request: 'Staph aureus bacteremia' }))
+    expect(await screen.findByText(/voiced as soon as it is written/)).toBeInTheDocument()
+    expect(await screen.findByText(/Voicing line 6 of 10 · 65%/)).toBeInTheDocument()
+    expect(document.querySelector('progress')?.getAttribute('value')).toBe('65')
+    expect(screen.getByText(/Asked for: “Staph aureus bacteremia”/)).toBeInTheDocument()
+  })
+
+  it('refuses a new episode at ten waiting', async () => {
+    stub({
+      '/api/podcasts': { episodes: [], can_write: true, can_render: true, note: '', disclosure: '', waiting: 10, max_hosted: 10 },
+      '/api/podcasts/voices': { voices: [], default: {} },
+      '/api/encyclopedia': { entries: [], counts: {}, can_compile: true, running: false, last_refresh: null, note: '', disclosure: '' }
+    })
+    const user = userEvent.setup()
+    render(<Podcasts />)
+    expect(await screen.findByText(/10 of 10 episodes waiting to be heard. Listen to one, or remove one/)).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Ask for an episode'), 'Anything')
+    expect(screen.getByRole('button', { name: 'Make this episode' })).toBeDisabled()
+  })
 })

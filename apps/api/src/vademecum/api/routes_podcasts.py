@@ -13,9 +13,11 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from pydantic import Field
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import FileResponse
 
+from ..db import connect
 from ..model import podcasts as service
 from ..storage import encyclopedia as pages
 from ..storage import podcasts as store
@@ -37,8 +39,10 @@ MAX_PAGES = 6
 
 class EpisodeIn(Strict):
     entry_ids: list[RecordId] = []
-    pick: str = "chosen"  # chosen | today | improvement
+    pick: str = "chosen"  # chosen | today | improvement | request
     title: str = ""
+    # In the owner's own words (ADR 0027): written and voiced at once.
+    request: str = Field(default="", max_length=300)
 
 
 class ListenedIn(Strict):
@@ -67,10 +71,31 @@ def _here(data: dict[str, Any], source_dir: Path, episode: store.Episode) -> dic
     cannot load."""
     present = bool(episode.audio_name) and (_podcasts_dir(source_dir) / episode.audio_name).is_file()
     elsewhere = bool(episode.audio_name) and not present and episode.listened_at is None
-    return {**data, "has_audio": present, "audio_elsewhere": elsewhere}
+    return {**data, "has_audio": present, "audio_elsewhere": elsewhere, "progress": store.progress(_podcasts_dir(source_dir), episode.id)}
+
+
+def _pages_for_request(connection: sqlite3.Connection, request: str, limit: int = 3) -> list[str]:
+    """The encyclopedia pages whose title or topic share the most words with the request."""
+    import re
+
+    stop = {"the", "and", "for", "with", "about", "episode", "podcast", "on", "of", "in", "a", "an", "to", "how", "what", "approach"}
+    wanted = {w for w in re.findall(r"[a-z0-9]+", request.lower()) if len(w) > 2 and w not in stop}
+    if not wanted:
+        return []
+    scored = []
+    for entry in pages.list_entries(connection):
+        if entry.status != "current":
+            continue
+        words = set(re.findall(r"[a-z0-9]+", f"{entry.title} {entry.topic}".lower()))
+        overlap = len(wanted & words)
+        if overlap:
+            scored.append((overlap / len(words | wanted), entry.id))
+    return [entry_id for _score, entry_id in sorted(scored, reverse=True)[:limit]]
 
 
 def _choose(connection: sqlite3.Connection, payload: EpisodeIn) -> list[str]:
+    if payload.pick == "request":
+        return _pages_for_request(connection, payload.request)
     if payload.pick == "today":
         page = pages.page_of_the_day(connection)
         return [page.id] if page else []
@@ -86,9 +111,46 @@ def _choose(connection: sqlite3.Connection, payload: EpisodeIn) -> list[str]:
     return [entry_id for entry_id in payload.entry_ids if entry_id][:MAX_PAGES]
 
 
-def _start_script(request: Request, episode_id: str) -> None:
+def _render_lock(request: Request) -> asyncio.Lock:
+    lock = getattr(request.app.state, "podcast_render_lock", None)
+    if lock is None:
+        lock = asyncio.Lock()
+        request.app.state.podcast_render_lock = lock
+    return lock
+
+
+async def _produce(request: Request, episode_id: str, source_dir: Path) -> None:
+    """Write the script and, for an episode asked for, voice it straight away (ADR 0027),
+    reporting progress through the file beside the audio. One episode is voiced at a
+    time; the next waits its turn."""
     workspace = request.state.workspace
-    task = asyncio.create_task(service.write_script(workspace.database_path, episode_id, workspace.turn_factory))
+    directory = _podcasts_dir(source_dir)
+    store.set_progress(directory, episode_id, "writing")
+    try:
+        written = await service.write_script(workspace.database_path, episode_id, workspace.turn_factory)
+        connection = connect(workspace.database_path)
+        try:
+            episode = store.get_episode(connection, episode_id)
+        finally:
+            connection.close()
+        if not (episode.auto_render and episode.status == "scripted" and written.get("status") != "failed"):
+            return
+        store.set_progress(directory, episode_id, "queued")
+        lock = _render_lock(request)
+        async with lock:
+            voices = _voices_dir(source_dir)
+            await service.render(
+                workspace.database_path, episode_id, directory, service.default_voices(voices),
+                synth=getattr(request.app.state, "podcast_synth", None),
+                encode=getattr(request.app.state, "podcast_encode", None) or service.afconvert_encode,
+                voices_dir=voices,
+            )
+    finally:
+        store.clear_progress(directory, episode_id)
+
+
+def _start_script(request: Request, episode_id: str, source_dir: Path) -> None:
+    task = asyncio.create_task(_produce(request, episode_id, source_dir))
     request.app.state.podcast_tasks = [t for t in getattr(request.app.state, "podcast_tasks", []) if not t.done()] + [task]
 
 
@@ -98,8 +160,11 @@ def list_episodes(
     mode: str = Depends(get_model_mode),
     source_dir: Path = Depends(get_source_dir),
 ) -> dict[str, Any]:
+    waiting = len(store.waiting(connection))
     return {
         "episodes": [_here(e.as_dict(), source_dir, e) for e in store.list_episodes(connection)],
+        "waiting": waiting,
+        "max_hosted": store.MAX_HOSTED,
         "can_write": mode in ("codex", "claude"),
         "can_render": mode in ("codex", "claude") and bool(service.available_voices(_voices_dir(source_dir))),
         "note": "" if mode in ("codex", "claude") else service.NEEDS_MAC,
@@ -114,18 +179,34 @@ def voices(source_dir: Path = Depends(get_source_dir)) -> dict[str, Any]:
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
-async def create(payload: EpisodeIn, request: Request, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
+async def create(
+    payload: EpisodeIn,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    mode: str = Depends(get_model_mode),
+    source_dir: Path = Depends(get_source_dir),
+) -> dict[str, Any]:
     if mode not in ("codex", "claude"):
         raise ConflictError("needs_model", service.NEEDS_MODEL)
+    if len(store.waiting(connection)) >= store.MAX_HOSTED:
+        raise ConflictError(
+            "full",
+            f"There are already {store.MAX_HOSTED} episodes waiting to be heard. Listen to one, or remove one, to make room.",
+        )
+    asked = " ".join(payload.request.split())
+    if payload.pick == "request" and not asked:
+        raise ConflictError("no_request", "Say what the episode should be about.")
     entry_ids = _choose(connection, payload)
-    if not entry_ids:
+    if not entry_ids and payload.pick != "request":
         raise ConflictError("no_pages", "Choose at least one encyclopedia page, or compile the encyclopedia first.")
-    titles = []
-    for entry_id in entry_ids:
-        titles.append(pages.get_entry(connection, entry_id).title)
-    episode = store.create_episode(connection, title=payload.title.strip() or ", ".join(titles)[:120], entry_ids=entry_ids)
-    _start_script(request, episode.id)
-    return {**episode.as_dict(), "note": "Writing the script now.", "disclosure": DISCLOSURE}
+    titles = [pages.get_entry(connection, entry_id).title for entry_id in entry_ids]
+    title = payload.title.strip() or (asked[:120] if payload.pick == "request" else ", ".join(titles)[:120])
+    episode = store.create_episode(
+        connection, title=title, entry_ids=entry_ids, request=asked if payload.pick == "request" else "", auto_render=payload.pick == "request"
+    )
+    _start_script(request, episode.id, source_dir)
+    note = "Writing the script now; it is voiced as soon as it is written." if episode.auto_render else "Writing the script now."
+    return {**episode.as_dict(), "note": note, "disclosure": DISCLOSURE}
 
 
 @router.get("/{episode_id}")
@@ -135,11 +216,17 @@ def read(episode_id: str, connection: sqlite3.Connection = Depends(get_connectio
 
 
 @router.post("/{episode_id}/script", status_code=status.HTTP_202_ACCEPTED)
-async def rewrite(episode_id: str, request: Request, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
+async def rewrite(
+    episode_id: str,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    mode: str = Depends(get_model_mode),
+    source_dir: Path = Depends(get_source_dir),
+) -> dict[str, Any]:
     store.get_episode(connection, episode_id)
     if mode not in ("codex", "claude"):
         raise ConflictError("needs_model", service.NEEDS_MODEL)
-    _start_script(request, episode_id)
+    _start_script(request, episode_id, source_dir)
     return {"started": True}
 
 
@@ -164,9 +251,12 @@ async def render(
     # None: the real voices, rendered in a process of their own. Tests substitute both.
     synth = getattr(request.app.state, "podcast_synth", None)
     encode = getattr(request.app.state, "podcast_encode", None) or service.afconvert_encode
-    result = await service.render(
-        workspace.database_path, episode_id, _podcasts_dir(source_dir), chosen, synth=synth, encode=encode, voices_dir=directory
-    )
+    # One episode voiced at a time: a second waits rather than halving both.
+    lock = _render_lock(request)
+    async with lock:
+        result = await service.render(
+            workspace.database_path, episode_id, _podcasts_dir(source_dir), chosen, synth=synth, encode=encode, voices_dir=directory
+        )
     if "error" in result:
         raise ConflictError("no_script", result["error"])
     return result

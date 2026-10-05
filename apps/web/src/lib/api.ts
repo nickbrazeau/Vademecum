@@ -396,7 +396,7 @@ export const api = {
   socraticAbandon: (sessionId: string) => request<unknown>(`/socratic/${sessionId}/abandon`, { method: 'POST' }).then(normalize.socraticReply),
   podcasts: () => request<unknown>('/podcasts').then(normalize.podcastList),
   podcastVoices: () => request<unknown>('/podcasts/voices').then(normalize.podcastVoices),
-  createPodcast: (input: { entry_ids?: string[]; pick: 'chosen' | 'today' | 'improvement'; title?: string }) =>
+  createPodcast: (input: { entry_ids?: string[]; pick: 'chosen' | 'today' | 'improvement' | 'request'; title?: string; request?: string }) =>
     request<unknown>('/podcasts', { method: 'POST', ...body(input) }).then(normalize.podcastEpisode),
   podcast: (episodeId: string) => request<unknown>(`/podcasts/${episodeId}`).then(normalize.podcastEpisode),
   rewritePodcast: (episodeId: string) => request<{ started: boolean }>(`/podcasts/${episodeId}/script`, { method: 'POST' }),

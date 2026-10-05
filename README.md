@@ -62,7 +62,8 @@ in Safari; those device checks remain a human acceptance step.
   a flag ([ADR 0025](docs/adr/0025-socratic-tutor-and-podcasts.md)).
 - **Podcast.** A two-host script grounded in encyclopedia pages, rendered to audio on the Mac
   with no service and no key: natural Kokoro voices once `./scripts/voices.sh` has run, the Mac's
-  own voices otherwise. The five newest unheard episodes play on the phone through the cloud copy;
+  own voices otherwise. Ask for an episode in your own words and it is written and voiced at once, with a
+  progress bar. Up to ten unheard episodes are kept, and they play on the phone through the cloud copy;
   an episode listened to is archived and its audio deleted
   ([ADR 0027](docs/adr/0027-podcast-audio-in-the-cloud-copy.md)).
 - **Flashcards.** A front and a back written from an encyclopedia page, citing its points. The
@@ -116,7 +117,7 @@ also contact OpenAI through Codex; they do not send your study material.
 | **Dissect this pile** on the Encyclopedia, until you stop it ([ADR 0023](docs/adr/0023-encyclopedia-and-board-bank.md)) | A standing consent: batch after batch of the pile's excerpts as Build sends them, then per topic the points built to write the page, one public PubMed search of the topic's words for its literature review, then the page and its points to write board questions. | The Mac's own model connection, Codex or Claude, on your sign-in; the topic words to PubMed (NCBI E-utilities) |
 | **Case Series**, while the hub is on, and **Refresh now** ([ADR 0022](docs/adr/0022-case-series-hub.md)) | Fixed public requests with nothing of yours in them: one PubMed query naming the journal and article type, and one request each to the two podcast sites for their latest episodes. Then each case's public title and show notes, once, for its teaching points. | PubMed (NCBI E-utilities), `clinicalproblemsolving.com`, `thecurbsiders.com`; the teaching points go to the Mac's own model connection, Codex or Claude, on your sign-in |
 | **Builds on a timer** ([ADR 0018](docs/adr/0018-builds-on-a-timer.md)), only while you have the schedule on, and **Build now** | For every pile with unbuilt passages, the same as Build above, without a per-batch preview: a standing consent you gave once, shown on Today with the moment you gave it, and withdrawn by turning the schedule off. | OpenAI, through the Codex process on this Mac, on your ChatGPT sign-in; needs the Mac in `codex` mode (`mcp.sh setup login --model codex`) |
-| **Sync**, only if you configured a second Vademecum ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)) | Your own workspace: the rows of every record and the stored files, both ways; and the audio of the five newest unheard podcast episodes, deleted there once listened to ([ADR 0027](docs/adr/0027-podcast-audio-in-the-cloud-copy.md)). | Your own second Vademecum, at the address you set, over HTTPS, with the token you set. Nowhere else, and nothing at all unless configured. |
+| **Sync**, only if you configured a second Vademecum ([ADR 0015](docs/adr/0015-two-vademecums-that-sync.md)) | Your own workspace: the rows of every record and the stored files, both ways; and the audio of the ten newest unheard podcast episodes, deleted there once listened to ([ADR 0027](docs/adr/0027-podcast-audio-in-the-cloud-copy.md)). | Your own second Vademecum, at the address you set, over HTTPS, with the token you set. Nowhere else, and nothing at all unless configured. |
 
 No API key is used, ever. Consent is to *specific characters*: if a source is excluded, renamed,
 re-rated or re-read between the preview and the send, the send is refused and you get a fresh

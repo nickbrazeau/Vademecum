@@ -1572,3 +1572,18 @@ details.card-details[open] > summary {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+.podcast-ask textarea {
+  width: 100%;
+}
+.podcast-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+}
+.podcast-progress progress {
+  width: 100%;
+  height: 0.6rem;
+  accent-color: var(--accent);
+}

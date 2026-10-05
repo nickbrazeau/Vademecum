@@ -365,9 +365,20 @@ PODCAST_DEVELOPER = (
 )
 
 
-def podcast_prompt(pages: list[str]) -> str:
+def podcast_prompt(pages: list[str], request: str = "") -> str:
+    asked = (
+        f"THE OWNER ASKED FOR AN EPISODE ON: {_fence(request)}\nMake the episode about exactly that. "
+        if request
+        else ""
+    )
+    if not pages:
+        return (
+            asked + "None of the owner's encyclopedia pages covers it. Build the episode from your own clinical "
+            "knowledge and current guidelines, and have the hosts say plainly, once, near the start, that this "
+            "one goes beyond the owner's pages."
+        )
     body = "\n\n====\n\n".join(pages)
-    return f"THE PAGES ({len(pages)}):\n{_fence(body)}"
+    return asked + f"THE PAGES ({len(pages)}):\n{_fence(body)}"
 
 
 CASE_DEVELOPER = (

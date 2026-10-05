@@ -683,6 +683,8 @@ export interface PodcastEpisode {
   audio_elsewhere: boolean
   archived: boolean
   listened_at: string | null
+  request: string
+  progress: PodcastProgress | null
   sources: PodcastSource[]
   audio_bytes: number
   duration_seconds: number
@@ -697,6 +699,15 @@ export interface PodcastList {
   can_render: boolean
   note: string
   disclosure: string
+  /** Episodes not yet heard, against the most that can be held at once (ADR 0027). */
+  waiting: number
+  max_hosted: number
+}
+
+export interface PodcastProgress {
+  stage: string
+  percent: number
+  label: string
 }
 
 export interface PodcastVoice {

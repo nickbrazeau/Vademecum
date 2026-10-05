@@ -136,6 +136,15 @@ function EpisodeCard({
         {episode.has_audio ? ` · ${durationLabel(episode.duration_seconds)} · ${byteLabel(episode.audio_bytes)}` : null}
       </p>
       {episode.status_detail ? <p className="warn small">{episode.status_detail}</p> : null}
+      {episode.request ? <p className="muted small">Asked for: “{episode.request}”</p> : null}
+      {episode.progress ? (
+        <div className="podcast-progress" role="group" aria-label="Progress">
+          <progress max={100} value={episode.progress.percent} aria-label={`${episode.progress.label}, ${episode.progress.percent} percent`} />
+          <span className="muted small">
+            {episode.progress.label} · {episode.progress.percent}%
+          </span>
+        </div>
+      ) : null}
       {episode.audio_elsewhere ? (
         <p className="muted small">The audio comes over from the Mac with its next sync. The five newest unheard episodes are kept here.</p>
       ) : null}
@@ -219,13 +228,14 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
   const [pick, setPick] = useState<'today' | 'improvement' | 'chosen'>('improvement')
   const [chosen, setChosen] = useState<string[]>([])
   const [title, setTitle] = useState('')
+  const [asked, setAsked] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [note, setNote] = useState('')
 
   useEffect(() => {
-    if (result.state !== 'ready' || !result.value.episodes.some((episode) => episode.status === 'draft')) return undefined
-    const timer = window.setInterval(reload, 10000)
+    if (result.state !== 'ready' || !result.value.episodes.some((episode) => episode.status === 'draft' || episode.progress !== null)) return undefined
+    const timer = window.setInterval(reload, 3000)
     return () => window.clearInterval(timer)
   }, [result, reload])
 
@@ -233,6 +243,22 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
     if (onNavigate === undefined) return
     event.preventDefault()
     onNavigate(name)
+  }
+
+  const ask = async () => {
+    setBusy(true)
+    setFailure(null)
+    setNote('')
+    try {
+      const episode = await api.createPodcast({ pick: 'request', request: asked.trim() })
+      setNote(episode.note ?? 'Writing the script now.')
+      setAsked('')
+      reload()
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
   }
 
   const create = async () => {
@@ -270,9 +296,39 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
           A two-host episode grounded in your encyclopedia, expanding from there with the literature reviewed for each page and the
           hosts’ own knowledge, with sources cited as they go and take-homes at the end.
         </p>
+        <p className="muted small" aria-live="polite">
+          {list.waiting} of {list.max_hosted} episodes waiting to be heard.
+          {list.waiting >= list.max_hosted ? ' Listen to one, or remove one, to make room for another.' : ''}
+        </p>
         {list.can_write ? (
           <>
             <p className="muted small">{list.disclosure}</p>
+            <form
+              className="podcast-ask"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void ask()
+              }}
+            >
+              <label htmlFor="podcast-ask">Ask for an episode</label>
+              <textarea
+                id="podcast-ask"
+                rows={2}
+                maxLength={300}
+                value={asked}
+                disabled={busy}
+                placeholder="For example: the approach to a positive blood culture with Staphylococcus aureus"
+                onChange={(event) => setAsked(event.target.value)}
+              />
+              <p className="muted small">Written from your matching encyclopedia pages, or beyond them if none matches, and voiced straight away.</p>
+              <div className="actions">
+                <button type="submit" className="button primary" disabled={busy || asked.trim() === '' || list.waiting >= list.max_hosted}>
+                  {busy ? 'Working…' : 'Make this episode'}
+                </button>
+              </div>
+            </form>
+            <details className="support-details">
+              <summary>Or write one from chosen pages</summary>
             <fieldset className="podcast-pick">
               <legend>Pages for this episode</legend>
               <label className="tab-option">
@@ -313,10 +369,16 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
             <label htmlFor="podcast-title">Title (optional)</label>
             <input id="podcast-title" type="text" value={title} maxLength={120} disabled={busy} onChange={(event) => setTitle(event.target.value)} />
             <div className="actions">
-              <button type="button" className="button primary" disabled={busy || (pick === 'chosen' && chosen.length === 0)} onClick={() => void create()}>
+              <button
+                type="button"
+                className="button"
+                disabled={busy || (pick === 'chosen' && chosen.length === 0) || list.waiting >= list.max_hosted}
+                onClick={() => void create()}
+              >
                 {busy ? 'Working…' : 'Write an episode'}
               </button>
             </div>
+            </details>
           </>
         ) : (
           <p className="muted small">{list.note}</p>

@@ -127,11 +127,17 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     @mcp.tool(annotations=TRANSMITS)
     async def podcast_create(
         entry_ids: Annotated[list[str], Field(max_length=6, description="Encyclopedia page ids to write from; empty with pick=today or pick=improvement.")] = [],
-        pick: Annotated[str, Field(max_length=12, description="chosen, today, or improvement.")] = "chosen",
+        pick: Annotated[str, Field(max_length=12, description="chosen, today, improvement, or request.")] = "chosen",
         title: Annotated[str, Field(max_length=120)] = "",
+        request: Annotated[str, Field(max_length=300, description="With pick=request: what the episode should be about, in the owner's words.")] = "",
     ) -> dict[str, Any]:
-        """Write a podcast episode's script from encyclopedia pages, on the Mac's
-        own model connection. Show the owner the disclosure from podcast_list and
-        wait for a yes before calling this. The audio is rendered on the Mac from
-        the dashboard."""
-        return await call(api.post("/api/podcasts", {"entry_ids": entry_ids, "pick": pick, "title": title}))
+        """Write a podcast episode on the Mac's own model connection. With
+        pick=request and the owner's words in `request`, it is grounded in the
+        matching encyclopedia pages (or beyond them when none matches) and voiced
+        straight away; podcast_list shows its progress. At most ten episodes wait
+        to be heard at once. Show the owner the disclosure from podcast_list and
+        wait for a yes before calling this."""
+        body: dict[str, Any] = {"entry_ids": entry_ids, "pick": pick, "title": title}
+        if request:
+            body["request"] = request
+        return await call(api.post("/api/podcasts", body))
