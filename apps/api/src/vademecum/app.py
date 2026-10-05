@@ -272,10 +272,18 @@ def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) ->
     """One sync round with the configured peer, on its own connection (ADR 0015)."""
     from .sync import HttpTransport, Peer, sync_once
 
+    from .storage import podcasts
+    from .sync import push_podcast_audio
+
     peer = Peer(HttpTransport(settings.sync_peer_url), settings.sync_token)
     connection = connect(database_path)
     try:
-        return sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role_name, scope=settings.sync_scope)
+        result = sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role_name, scope=settings.sync_scope)
+        # Listened to on the phone: retired here too. Then the newest unheard
+        # episodes' audio goes to the cloud copy, so the phone plays them (ADR 0027).
+        podcasts.retire_audio(connection, podcasts.podcasts_dir(source_dir), role=settings.sync_role_name)
+        result["podcast_audio_sent"] = push_podcast_audio(connection, peer, source_dir)
+        return result
     finally:
         connection.close()
 

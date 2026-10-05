@@ -124,7 +124,10 @@ function EpisodeCard({ episode, voices, canRender, onChanged }: { episode: Podca
       </p>
       {episode.status_detail ? <p className="warn small">{episode.status_detail}</p> : null}
       {episode.audio_elsewhere ? (
-        <p className="muted small">The audio is on the Mac that rendered it. Open Vademecum there to play it.</p>
+        <p className="muted small">The audio comes over from the Mac with its next sync. The five newest unheard episodes are kept here.</p>
+      ) : null}
+      {episode.archived && !episode.has_audio ? (
+        <p className="muted small">Listened to. The audio was deleted to save space; the script, take-homes and sources stay.</p>
       ) : null}
       {episode.has_audio ? (
         <audio controls preload="none" src={`${API_ROOT}/podcasts/${episode.id}/audio`} className="podcast-audio" onEnded={finished}>

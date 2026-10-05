@@ -10,7 +10,9 @@ browser's own speech can read the script aloud.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+from pathlib import Path
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -177,6 +179,51 @@ def set_listened(connection: sqlite3.Connection, episode_id: str, listened: bool
         else:
             tx.execute("DELETE FROM podcast_listens WHERE episode_id = ?", (episode_id,))
     return get_episode(connection, episode_id)
+
+
+# How many unheard episodes the cloud copy holds audio for (ADR 0027): the
+# newest ones; an episode listened to gives its audio up everywhere.
+CLOUD_KEEP = 5
+AUDIO_NAME = re.compile(r"\Apod_[A-Za-z0-9]{1,60}\.m4a\Z")
+
+
+def podcasts_dir(source_dir: Path) -> Path:
+    return source_dir.parent / "podcasts"
+
+
+def unheard_with_audio(connection: sqlite3.Connection) -> list[Episode]:
+    """Rendered and not yet listened to, newest first."""
+    return [e for e in list_episodes(connection, limit=500) if e.audio_name and e.listened_at is None]
+
+
+def retire_audio(connection: sqlite3.Connection, directory: Path, *, role: str, keep: int = CLOUD_KEEP) -> list[str]:
+    """Delete the audio of every episode listened to (ADR 0027). The cloud copy
+    also keeps only the `keep` newest unheard ones. On the Mac, which owns the
+    episodes, a retired episode goes back to its script; it can be rendered again.
+    The script, take-homes and sources stay. Returns the names removed."""
+    removed: list[str] = []
+    episodes = list_episodes(connection, limit=500)
+    kept_unheard = 0
+    for episode in episodes:  # newest first
+        if not episode.audio_name:
+            continue
+        retire = episode.listened_at is not None
+        if not retire and role == "foris":
+            kept_unheard += 1
+            retire = kept_unheard > keep
+        if not retire:
+            continue
+        path = directory / episode.audio_name
+        if path.is_file():
+            path.unlink(missing_ok=True)
+            removed.append(episode.audio_name)
+        if role != "foris" and episode.listened_at is not None:
+            with transaction(connection) as tx:
+                tx.execute(
+                    "UPDATE podcast_episodes SET status = 'scripted', audio_name = '', audio_bytes = 0, duration_seconds = 0, updated_at = ? WHERE id = ?",
+                    (utc_now(), episode.id),
+                )
+    return removed
 
 
 def delete_episode(connection: sqlite3.Connection, episode_id: str) -> str:

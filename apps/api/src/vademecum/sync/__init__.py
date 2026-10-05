@@ -87,6 +87,40 @@ class Peer:
             return False
 
 
+def push_podcast_audio(connection: sqlite3.Connection, peer: "Peer", source_dir: Path) -> int:
+    """The newest unheard episodes' audio, to a peer that lacks it (ADR 0027).
+    A peer that does not know the episode yet is skipped until the next round."""
+    import hashlib
+
+    from ..storage import podcasts
+
+    try:
+        offer = peer._json("GET", "/api/sync/podcast-audio")
+    except SyncError:
+        return 0  # an older peer, without the route
+    held = {str(item.get("episode_id")) for item in offer.get("held", []) if isinstance(item, dict)}
+    keep = int(offer.get("keep") or podcasts.CLOUD_KEEP)
+    directory = podcasts.podcasts_dir(source_dir)
+    sent = 0
+    for episode in podcasts.unheard_with_audio(connection)[:keep]:
+        path = directory / episode.audio_name
+        if episode.id in held or not path.is_file():
+            continue
+        data = path.read_bytes()
+        headers = dict(peer._headers)
+        headers["Content-Type"] = "application/octet-stream"
+        headers["X-Content-SHA256"] = hashlib.sha256(data).hexdigest()
+        status, raw = peer._transport.request("PUT", f"/api/sync/podcast-audio/{episode.id}", headers=headers, body=data)
+        try:
+            stored = status == 200 and bool(json.loads(raw.decode("utf-8")).get("stored"))
+        except (ValueError, AttributeError):
+            stored = False
+        if stored:
+            sent += 1
+            logger.info("podcast_audio_sent bytes=%d", len(data))
+    return sent
+
+
 def sync_once(
     connection: sqlite3.Connection,
     *,

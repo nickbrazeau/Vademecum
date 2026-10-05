@@ -38,6 +38,11 @@ WEB_DIST = os.environ.get("VADEMECUM_MCP_DESK_DIST", "/app/web")
 
 DATABASES = (("vademecum.sqlite3", "db"), ("mcp/access.sqlite3", "mcp"))
 FILES = ("attachments",)
+# Stored files that are retired, not kept forever: podcast audio is deleted
+# once listened to (ADR 0027), so the copy in the store follows the disk.
+PRUNED = ("attachments/podcasts/",)
+# Pruning waits for the boot restore: until then the disk is not the truth.
+_files_restored = threading.Event()
 # The Worker in front carries about 100 MB in one request; anything larger
 # goes up in parts, with a manifest naming them.
 PART_BYTES = 64 * 1024 * 1024
@@ -53,6 +58,7 @@ class Store(Protocol):
     def list(self, prefix: str) -> list[tuple[str, int]]: ...
     def get(self, key: str) -> bytes | None: ...
     def put(self, key: str, data: bytes) -> bool: ...
+    def delete(self, key: str) -> bool: ...
 
 
 class WorkerStore:
@@ -100,6 +106,10 @@ class WorkerStore:
 
     def put(self, key: str, data: bytes) -> bool:
         status, _ = self._request("PUT", f"/object/{quote(key, safe='/')}", data)
+        return status == 200
+
+    def delete(self, key: str) -> bool:
+        status, _ = self._request("DELETE", f"/object/{quote(key, safe='/')}")
         return status == 200
 
 
@@ -240,7 +250,22 @@ def snapshot(data: Path, store: Store) -> dict[str, int]:
                 continue
             if put_object(store, key, path):
                 results["files"] += 1
+    results["pruned"] = prune(data, store) if _files_restored.is_set() else 0
     return results
+
+
+def prune(data: Path, store: Store) -> int:
+    """Delete from the store what was retired from the disk, under PRUNED only."""
+    removed = 0
+    for prefix in PRUNED:
+        for key, _size in store.list(prefix):
+            base = key.split(".part-")[0]
+            base = base[: -len(".manifest")] if base.endswith(".manifest") else base
+            if (data / base).is_file():
+                continue
+            if store.delete(key):
+                removed += 1
+    return removed
 
 
 # --- the two processes ------------------------------------------------------------
@@ -315,7 +340,11 @@ def run() -> int:
         api.terminate()
         return 1
     say(f"up: gateway on {MCP_PORT}, snapshots every {INTERVAL}s")
-    threading.Thread(target=lambda: say(f"files restored: {restore_files(DATA, store)}"), daemon=True).start()
+    def restore_then_allow_pruning() -> None:
+        say(f"files restored: {restore_files(DATA, store)}")
+        _files_restored.set()
+
+    threading.Thread(target=restore_then_allow_pruning, daemon=True).start()
 
     stopping = False
 

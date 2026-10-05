@@ -104,7 +104,54 @@ def sync_apply(
     sync_store.record_sync(connection, peer_node_id=payload.node_id, note="applied from peer")
     if result.deferred == 0:
         sync_store.record_received(connection, payload.node_id, result.through)
+    # An episode listened to on the Mac gives its audio up here too (ADR 0027).
+    from ..storage import podcasts
+
+    podcasts.retire_audio(connection, podcasts.podcasts_dir(source_dir), role=settings.sync_role_name)
     return {"node_id": sync_store.node_id(connection), **result.as_dict()}
+
+
+@router.get("/podcast-audio", dependencies=[Depends(require_peer)])
+def podcast_audio_held(connection: sqlite3.Connection = Depends(get_connection), source_dir: Path = Depends(get_source_dir)) -> dict:
+    """Which episodes' audio this copy holds (ADR 0027), so the Mac sends only what is missing."""
+    from ..storage import podcasts
+
+    directory = podcasts.podcasts_dir(source_dir)
+    held = [
+        {"episode_id": e.id, "audio_name": e.audio_name, "bytes": (directory / e.audio_name).stat().st_size}
+        for e in podcasts.unheard_with_audio(connection)
+        if (directory / e.audio_name).is_file()
+    ]
+    return {"held": held, "keep": podcasts.CLOUD_KEEP}
+
+
+@router.put("/podcast-audio/{episode_id}", dependencies=[Depends(require_peer)])
+async def podcast_audio_put(
+    episode_id: str,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    source_dir: Path = Depends(get_source_dir),
+) -> dict:
+    """An unheard episode's audio from the Mac, checked against its digest. Kept
+    while it is among the newest unheard; retired when listened to."""
+    from ..storage import podcasts
+
+    episode = podcasts.get_episode(connection, episode_id)
+    if not podcasts.AUDIO_NAME.match(episode.audio_name or "") or episode.listened_at is not None:
+        return {"stored": False, "reason": "not wanted"}
+    data = await request.body()
+    if not data or len(data) > 80 * 1024 * 1024:
+        return {"stored": False, "reason": "size"}
+    digest = request.headers.get("x-content-sha256", "")
+    if digest and not hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest):
+        return {"stored": False, "reason": "digest"}
+    directory = podcasts.podcasts_dir(source_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    partial = directory / f".{episode.audio_name}.partial"
+    partial.write_bytes(data)
+    partial.replace(directory / episode.audio_name)
+    podcasts.retire_audio(connection, directory, role=get_settings_dep(request).sync_role_name)
+    return {"stored": (directory / episode.audio_name).is_file()}
 
 
 @router.put("/file/{kind}/{name}", dependencies=[Depends(require_peer)])

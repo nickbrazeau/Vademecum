@@ -86,6 +86,12 @@ async function store(request: Request, env: Env, url: URL): Promise<Response> {
     await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: 'application/octet-stream' } })
     return Response.json({ stored: key })
   }
+  if (request.method === 'DELETE') {
+    // Only retired podcast audio is ever deleted (ADR 0027); the records are not.
+    if (!key.startsWith('attachments/podcasts/')) return new Response('not deletable', { status: 403 })
+    await env.BUCKET.delete(key)
+    return Response.json({ deleted: key })
+  }
   if (request.method === 'GET') {
     const object = await env.BUCKET.get(key)
     if (object === null) return new Response('not found', { status: 404 })

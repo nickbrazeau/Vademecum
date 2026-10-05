@@ -20,7 +20,7 @@ from ..model import podcasts as service
 from ..storage import encyclopedia as pages
 from ..storage import podcasts as store
 from ..storage.sources import ConflictError
-from .deps import get_connection, get_model_mode, get_source_dir
+from .deps import get_settings_dep, get_connection, get_model_mode, get_source_dir
 from .routes_sources import CLAUDE_DESTINATION, CODEX_DESTINATION
 from .schemas import RecordId, Strict
 
@@ -51,7 +51,7 @@ class RenderIn(Strict):
 
 
 def _podcasts_dir(source_dir: Path) -> Path:
-    return source_dir.parent / "podcasts"
+    return store.podcasts_dir(source_dir)
 
 
 def _here(data: dict[str, Any], source_dir: Path, episode: store.Episode) -> dict[str, Any]:
@@ -59,7 +59,8 @@ def _here(data: dict[str, Any], source_dir: Path, episode: store.Episode) -> dic
     rendered it, so a copy elsewhere says so instead of offering a player that
     cannot load."""
     present = bool(episode.audio_name) and (_podcasts_dir(source_dir) / episode.audio_name).is_file()
-    return {**data, "has_audio": present, "audio_elsewhere": bool(episode.audio_name) and not present}
+    elsewhere = bool(episode.audio_name) and not present and episode.listened_at is None
+    return {**data, "has_audio": present, "audio_elsewhere": elsewhere}
 
 
 def _choose(connection: sqlite3.Connection, payload: EpisodeIn) -> list[str]:
@@ -171,9 +172,20 @@ def audio(episode_id: str, connection: sqlite3.Connection = Depends(get_connecti
 
 
 @router.post("/{episode_id}/listened")
-def listened(episode_id: str, payload: ListenedIn, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
-    """Finished, on any device: the episode drops to the archive (ADR 0026). Local; sends nothing."""
-    return store.set_listened(connection, episode_id, payload.listened).as_dict()
+def listened(
+    episode_id: str,
+    payload: ListenedIn,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    source_dir: Path = Depends(get_source_dir),
+) -> dict[str, Any]:
+    """Finished, on any device: the episode drops to the archive (ADR 0026) and its
+    audio is deleted to save space (ADR 0027). Local; sends nothing."""
+    store.set_listened(connection, episode_id, payload.listened)
+    if payload.listened:
+        store.retire_audio(connection, _podcasts_dir(source_dir), role=get_settings_dep(request).sync_role_name)
+    episode = store.get_episode(connection, episode_id)
+    return _here(episode.as_dict(), source_dir, episode)
 
 
 @router.delete("/{episode_id}", status_code=status.HTTP_204_NO_CONTENT)

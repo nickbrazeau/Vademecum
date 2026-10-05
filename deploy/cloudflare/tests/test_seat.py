@@ -32,6 +32,10 @@ class MemoryStore:
         self.puts.append(key)
         return True
 
+    def delete(self, key: str) -> bool:
+        self.objects.pop(key, None)
+        return True
+
 
 def test_a_fresh_container_restores_the_databases_first_and_the_files_later(tmp_path: Path) -> None:
     store = MemoryStore()
@@ -67,7 +71,7 @@ def test_snapshot_copies_each_database_consistently_and_uploads_only_new_files(t
 
     seat._uploaded.clear()  # noqa: SLF001 - a fresh boot
     first = seat.snapshot(data, store)
-    assert first == {"db": 2, "unchanged": 0, "files": 1}
+    assert first == {"db": 2, "unchanged": 0, "files": 1, "pruned": 0}
     assert sorted(store.objects) == ["attachments/sources/abc.pdf", "db/vademecum.sqlite3", "mcp/access.sqlite3"]
     copy = tmp_path / "copy.sqlite3"
     copy.write_bytes(store.objects["db/vademecum.sqlite3"])
@@ -75,11 +79,11 @@ def test_snapshot_copies_each_database_consistently_and_uploads_only_new_files(t
         assert backup.execute("SELECT x FROM t").fetchone() == (1,)
 
     second = seat.snapshot(data, store)
-    assert second == {"db": 0, "unchanged": 2, "files": 0}, "nothing changed, nothing sent"
+    assert second == {"db": 0, "unchanged": 2, "files": 0, "pruned": 0}, "nothing changed, nothing sent"
     with sqlite3.connect(data / "vademecum.sqlite3") as live:
         live.execute("INSERT INTO t VALUES (2)")
     third = seat.snapshot(data, store)
-    assert third == {"db": 1, "unchanged": 1, "files": 0}, "only the database that changed"
+    assert third == {"db": 1, "unchanged": 1, "files": 0, "pruned": 0}, "only the database that changed"
 
 
 def test_a_large_object_goes_up_in_parts_and_comes_back_whole(tmp_path: Path, monkeypatch) -> None:
@@ -123,3 +127,31 @@ def test_the_api_on_the_seat_is_away_single_tenancy_host_mode(monkeypatch) -> No
     assert gateway["VADEMECUM_MCP_PORT"] == str(seat.MCP_PORT)
     assert gateway["VADEMECUM_MCP_LISTEN_ALL"] == "true", "the Worker reaches it on the private interface"
     assert "VADEMECUM_HOST" not in gateway, "the API behind it stays on loopback"
+
+
+
+def test_retired_podcast_audio_leaves_the_store_but_nothing_else_does(tmp_path: Path) -> None:
+    """ADR 0027: an episode listened to has its audio deleted on disk; the next
+    snapshot deletes it from the store too, but only once the boot restore is done,
+    and never anything outside the podcast folder."""
+    store = MemoryStore()
+    data = tmp_path / "data"
+    (data / "attachments" / "podcasts").mkdir(parents=True)
+    (data / "attachments" / "sources").mkdir(parents=True)
+    (data / "attachments" / "podcasts" / "pod_a.m4a").write_bytes(b"a" * 10)
+    (data / "attachments" / "podcasts" / "pod_b.m4a").write_bytes(b"b" * 10)
+    (data / "attachments" / "sources" / "x.pdf").write_bytes(b"x")
+    seat._files_restored.clear()
+    seat.snapshot(data, store)
+    assert "attachments/podcasts/pod_a.m4a" in store.objects
+    (data / "attachments" / "podcasts" / "pod_a.m4a").unlink()
+    (data / "attachments" / "sources" / "x.pdf").unlink()
+    assert seat.snapshot(data, store)["pruned"] == 0, "not before the restore has finished"
+    seat._files_restored.set()
+    try:
+        assert seat.snapshot(data, store)["pruned"] == 1
+    finally:
+        seat._files_restored.clear()
+    assert "attachments/podcasts/pod_a.m4a" not in store.objects
+    assert "attachments/podcasts/pod_b.m4a" in store.objects
+    assert "attachments/sources/x.pdf" in store.objects, "only podcast audio is ever pruned"

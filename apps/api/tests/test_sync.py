@@ -305,3 +305,57 @@ def test_the_same_paper_under_two_ids_is_skipped_not_fatal(pair) -> None:
     finally:
         connection.close()
     assert ids == ["rec_home"]
+
+
+def test_podcast_audio_goes_to_the_cloud_copy_and_is_retired_once_heard(pair) -> None:
+    """ADR 0027: the Mac sends the newest five unheard episodes' audio; the cloud copy
+    plays it; listening on the phone deletes it there and, at the next sync, on the Mac,
+    where the episode goes back to its script."""
+    from vademecum.storage import podcasts
+    from vademecum.sync import push_podcast_audio
+
+    home, home_app, away, away_app = pair
+    home_dir = podcasts.podcasts_dir(home_app.state.source_dir)
+    home_dir.mkdir(parents=True, exist_ok=True)
+    connection = db(home_app)
+    try:
+        ids = []
+        for index in range(7):
+            episode = podcasts.create_episode(connection, title=f"Episode {index}", entry_ids=[])
+            connection.execute("UPDATE podcast_episodes SET created_at = ? WHERE id = ?", (f"2026-10-0{index + 1}T00:00:00Z", episode.id))
+            connection.commit()
+            (home_dir / f"{episode.id}.m4a").write_bytes(f"audio {index}".encode() * 100)
+            podcasts.set_rendered(connection, episode.id, audio_name=f"{episode.id}.m4a", audio_bytes=900, duration_seconds=60, voices={})
+            ids.append(episode.id)
+    finally:
+        connection.close()
+    newest_first = list(reversed(ids))
+
+    run_sync(home_app, away, scope="lean")
+    connection = db(home_app)
+    try:
+        assert push_podcast_audio(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 5
+        assert push_podcast_audio(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 0, "only what is missing"
+    finally:
+        connection.close()
+    listed = {e["id"]: e for e in away.get("/api/podcasts").json()["episodes"]}
+    assert [listed[i]["has_audio"] for i in newest_first] == [True] * 5 + [False] * 2
+    played = away.get(f"/api/podcasts/{newest_first[0]}/audio")
+    assert played.status_code == 200 and played.content == b"audio 6" * 100
+
+    # Heard on the phone: deleted there at once, and on the Mac at the next sync.
+    heard = away.post(f"/api/podcasts/{newest_first[0]}/listened", json={"listened": True}).json()
+    assert heard["has_audio"] is False and heard["audio_elsewhere"] is False and heard["script"] == []
+    assert away.get(f"/api/podcasts/{newest_first[0]}/audio").status_code == 409
+    run_sync(home_app, away, scope="lean")
+    connection = db(home_app)
+    try:
+        podcasts.retire_audio(connection, home_dir, role="domi")
+        mac = podcasts.get_episode(connection, newest_first[0])
+        assert mac.audio_name == "" and mac.status == "scripted" and not (home_dir / f"{newest_first[0]}.m4a").exists()
+        # The next newest unheard one moves up into the five.
+        assert push_podcast_audio(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 1
+    finally:
+        connection.close()
+    held = {item["episode_id"] for item in away.get("/api/sync/podcast-audio", headers={"X-Vademecum-Sync": TOKEN}).json()["held"]}
+    assert held == set(newest_first[1:6])

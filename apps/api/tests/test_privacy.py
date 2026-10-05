@@ -405,6 +405,8 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/sync/status",
         "/api/sync/changes",
         "/api/sync/apply",
+        "/api/sync/podcast-audio",
+        "/api/sync/podcast-audio/{episode_id}",
         "/api/sync/file/{kind}/{name}",
     }
 
