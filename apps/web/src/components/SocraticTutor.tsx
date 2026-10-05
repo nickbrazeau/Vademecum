@@ -3,6 +3,9 @@
  * text, with the browser's dictation and speech where it offers them. Each
  * answer is one model turn on your own sign-in, and the disclosure says so.
  * In a chat host the assistant is the tutor instead, and this card says how.
+ * A session held elsewhere -- ChatGPT's voice mode keeps its conversation to
+ * itself -- is brought in by the assistant's socratic_save or by pasting the
+ * transcript here (ADR 0026); past sessions open to their whole dialogue.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -13,6 +16,8 @@ import { canDictate, canSpeak, dictate, speak } from '../lib/speech'
 import type { SocraticOverview, SocraticSession } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { PhiWarning } from './PhiWarning'
+
+const ORIGIN_LABEL: Record<string, string> = { chatgpt: 'from ChatGPT', claude: 'from Claude', pasted: 'pasted in' }
 
 const PROBE_LABEL: Record<string, string> = {
   differential: 'the differential',
@@ -68,6 +73,8 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
   const [note, setNote] = useState('')
   const [listening, setListening] = useState(false)
   const [voiceOn, setVoiceOn] = useState(false)
+  const [pasted, setPasted] = useState('')
+  const [pastedTitle, setPastedTitle] = useState('')
   const stopListening = useRef<() => void>(() => undefined)
   const stopSpeaking = useRef<() => void>(() => undefined)
 
@@ -174,8 +181,9 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
           what to revisit; each gap becomes a flag.
         </p>
         <p className="muted small">
-          In ChatGPT or Claude: open the app, start voice, and say “Start a Socratic session in Vademecum”. The assistant asks in its own
-          voice and the session lands here. On this Mac, Voice mode speaks each question and listens for your answer.
+          In ChatGPT or Claude, in a text chat with Vademecum selected, say “Start a Socratic session in Vademecum”, and each exchange lands
+          here as you go. Voice mode in those apps does not reach Vademecum: afterwards, in a text chat, say “Save that Socratic session to
+          Vademecum”, or paste the transcript below. On this Mac, Voice mode here speaks each question and listens for your answer.
         </p>
         {overview.can_answer_here ? (
           <>
@@ -189,22 +197,59 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
         ) : (
           <p className="muted small">{overview.note}</p>
         )}
+        <details className="support-details">
+          <summary>Bring in a session from ChatGPT or Claude</summary>
+          <p className="muted small">
+            Paste the whole conversation, as copied from the app. It is saved with its dialogue, named, assessed, and its gaps become
+            flags.{overview.can_answer_here ? '' : ' Assessing happens on the Mac, the next time you open the Tutor there.'}
+          </p>
+          {overview.can_answer_here && overview.import_disclosure ? <p className="muted small">{overview.import_disclosure}</p> : null}
+          <label className="field">
+            <span>Transcript</span>
+            <textarea name="socratic-import" rows={8} value={pasted} maxLength={60000} onChange={(event) => setPasted(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Title (optional)</span>
+            <input type="text" value={pastedTitle} maxLength={120} onChange={(event) => setPastedTitle(event.target.value)} />
+          </label>
+          <div className="actions">
+            <button
+              type="button"
+              className="button"
+              disabled={busy || pasted.trim() === ''}
+              onClick={() =>
+                void act(async () => {
+                  const reply = await api.socraticImport({ text: pasted, title: pastedTitle.trim() || undefined })
+                  setPasted('')
+                  setPastedTitle('')
+                  return reply
+                })
+              }
+            >
+              {busy ? 'Bringing it in…' : 'Bring it in'}
+            </button>
+          </div>
+        </details>
         {overview.recent.length > 0 ? (
-          <details className="support-details">
-            <summary>Past sessions</summary>
+          <section aria-labelledby="past-sessions-heading">
+            <h3 id="past-sessions-heading">Past sessions</h3>
             <ul className="list small">
               {overview.recent.map((past) => (
                 <li key={past.id}>
-                  <span className="title">{past.title || past.topic}</span>
+                  <button type="button" className="link-button title" onClick={() => setSession(past)}>
+                    {past.title || past.topic || 'Untitled session'}
+                  </button>
                   <span className="muted small">
                     {' '}
-                    · {past.exchanges} exchange{past.exchanges === 1 ? '' : 's'} · {past.status}
+                    · {past.exchanges} exchange{past.exchanges === 1 ? '' : 's'}
+                    {past.origin ? ` · ${ORIGIN_LABEL[past.origin] ?? past.origin}` : ''}
+                    {past.status === 'abandoned' ? ' · ended early' : past.assessed ? '' : ' · not yet assessed'}
                   </span>
                   {past.assessment.summary ? <p className="muted small">{past.assessment.summary}</p> : null}
                 </li>
               ))}
             </ul>
-          </details>
+          </section>
         ) : null}
         {failure ? (
           <p className="failure" role="alert">
@@ -289,9 +334,16 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
         ) : null}
         {done ? (
           <div className="actions">
-            <button type="button" className="button primary" disabled={busy} onClick={() => void start()}>
-              Start another
-            </button>
+            {!session.assessed && session.status === 'done' && overview.can_answer_here ? (
+              <button type="button" className="button primary" disabled={busy} onClick={() => void act(() => api.socraticAssess(session.id))}>
+                {busy ? 'Assessing…' : 'Assess'}
+              </button>
+            ) : null}
+            {overview.can_answer_here ? (
+              <button type="button" className="button" disabled={busy} onClick={() => void start()}>
+                Start another
+              </button>
+            ) : null}
             <button type="button" className="button ghost" onClick={() => { setSession(null); reload() }}>
               Back
             </button>
@@ -301,7 +353,7 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
           </div>
         ) : null}
       </section>
-      {done && session.status === 'done' ? <Assessment session={session} /> : null}
+      {done && session.assessed ? <Assessment session={session} /> : null}
     </div>
   )
 }

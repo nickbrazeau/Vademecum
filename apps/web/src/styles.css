@@ -1560,3 +1560,15 @@ details.card-details[open] > summary {
   font-size: 0.85rem;
   min-width: 1.75rem;
 }
+
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

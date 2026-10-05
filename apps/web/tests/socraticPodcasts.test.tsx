@@ -85,6 +85,36 @@ describe('the Socratic tutor on the Mac', () => {
   })
 })
 
+describe('a Socratic session held elsewhere', () => {
+  it('opens a past session to its whole dialogue, and brings in a pasted one', async () => {
+    const PAST = {
+      id: 'soc_9', entry_id: null, topic: 'Deep venous thrombosis', title: 'Swollen calf', mode: 'host', status: 'done', exchanges: 1,
+      transcript: [{ role: 'tutor', text: 'What is on your differential?', probe: '' }, { role: 'learner', text: 'DVT, cellulitis, a Baker cyst.', probe: '' }],
+      assessment: { differential: 'Broad and ordered.', treatment: '', knowledge_strengths: '', knowledge_gaps: ['Wells score'], summary: 'A good start.' },
+      origin: 'chatgpt', assessed: true, created_at: '2026-10-04T20:00:00Z', finished_at: '2026-10-04T20:10:00Z'
+    }
+    const calls = stub({
+      '/api/tutor/board/next': { question: null, cycle: { cycle_number: 0, position: 0, total: 0, remaining: 0, exhausted: false }, empty_reason: 'none' },
+      '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/socratic': { open: null, recent: [PAST], mode: 'codex', can_answer_here: true, note: '', disclosure: 'Each answer sends…', import_disclosure: 'Bringing in a session sends its transcript once.' },
+      'POST /api/socratic/import': { session: { ...PAST, id: 'soc_10', title: 'Chest pain', origin: 'pasted' }, gaps_filed: 1, note: '' }
+    })
+    const user = userEvent.setup()
+    render(<Tutor />)
+    await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
+    expect(await screen.findByText(/· from ChatGPT/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Swollen calf' }))
+    expect(await screen.findByText('DVT, cellulitis, a Baker cyst.')).toBeInTheDocument()
+    expect(screen.getByText('A good start.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Back' }))
+    await user.click(await screen.findByText('Bring in a session from ChatGPT or Claude'))
+    await user.type(screen.getByLabelText('Transcript'), 'ChatGPT: Differential?{enter}You: PE.')
+    await user.click(screen.getByRole('button', { name: 'Bring it in' }))
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/socratic/import')?.body).toMatchObject({ text: 'ChatGPT: Differential?\nYou: PE.', origin: 'pasted' }))
+    expect(await screen.findByText('1 gap flagged.')).toBeInTheDocument()
+  })
+})
+
 describe('the Podcast tab', () => {
   it('writes an episode from improvement areas, lists it with its script, and renders it with chosen voices', async () => {
     let rendered = false

@@ -643,6 +643,9 @@ export interface SocraticSession {
   exchanges: number
   created_at: string
   finished_at: string | null
+  /** chatgpt, claude or pasted when brought in from elsewhere (ADR 0026); empty when held here. */
+  origin: string
+  assessed: boolean
 }
 
 export interface SocraticOverview {
@@ -652,6 +655,7 @@ export interface SocraticOverview {
   can_answer_here: boolean
   note: string
   disclosure: string
+  import_disclosure: string
 }
 
 export interface SocraticReply {

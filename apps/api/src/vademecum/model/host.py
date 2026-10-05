@@ -118,6 +118,8 @@ def kind_of(schema: Any) -> str:
         return "flashcards"
     if schema is schemas.SOCRATIC_SCHEMA:
         return "socratic"
+    if schema is schemas.SOCRATIC_REVIEW_SCHEMA:
+        return "socratic_review"
     if schema is schemas.PODCAST_SCHEMA:
         return "podcast"
     raise ValueError("unknown output schema")

@@ -76,6 +76,7 @@ EXPECTED_TOOLS = {
     "socratic_start",
     "socratic_turn",
     "socratic_finish",
+    "socratic_save",
     "podcast_list",
     "podcast_read",
     "podcast_create",

@@ -121,6 +121,86 @@ def material(connection, session: store.Session) -> dict[str, Any]:
     }
 
 
+_TUTOR_TAGS = ("chatgpt", "assistant", "tutor", "claude", "ai", "gpt")
+_LEARNER_TAGS = ("you", "me", "user", "learner", "student", "resident", "i")
+
+
+def parse_transcript(text: str) -> list[dict[str, str]]:
+    """A pasted conversation, as turns. Lines that open with a speaker
+    ("ChatGPT:", "You said:", "Claude:", "Me:") mark the turns; without any,
+    paragraphs alternate, the tutor first."""
+    import re
+
+    marker = re.compile(r"^\s*(?:\*\*)?([A-Za-z ]{1,20}?)(?: said)?(?:\*\*)?\s*:\s*(.*)$")
+    turns: list[dict[str, str]] = []
+    tagged = False
+    for line in text.splitlines():
+        match = marker.match(line)
+        who = match.group(1).strip().lower() if match else ""
+        role = "tutor" if who in _TUTOR_TAGS else "learner" if who in _LEARNER_TAGS else ""
+        if role:
+            tagged = True
+            turns.append({"role": role, "text": match.group(2).strip()})
+        elif turns and tagged:
+            turns[-1]["text"] = f"{turns[-1]['text']} {line.strip()}".strip()
+    if tagged:
+        return [t for t in turns if t["text"]]
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    return [{"role": "tutor" if index % 2 == 0 else "learner", "text": p} for index, p in enumerate(paragraphs)]
+
+
+def match_page(connection, topic: str) -> pages.Entry | None:
+    """The encyclopedia page a session was about, when its topic names one."""
+    wanted = " ".join(topic.lower().split())
+    if not wanted:
+        return None
+    best = None
+    for row in connection.execute("SELECT id, topic, title FROM encyclopedia_entries").fetchall():
+        names = {" ".join(str(row["topic"]).lower().split()), " ".join(str(row["title"]).lower().split())}
+        if wanted in names:
+            return pages.get_entry(connection, row["id"])
+        if best is None and any(name and (name in wanted or wanted in name) for name in names):
+            best = row["id"]
+    return pages.get_entry(connection, best) if best else None
+
+
+async def review(database_path: Path, session_id: str, turn_factory: Any) -> dict[str, Any]:
+    """On the Mac's own connection: name and assess a session held elsewhere."""
+    connection = connect(database_path)
+    try:
+        session = store.get_session(connection, session_id)
+        transcript = [(turn["role"], turn["text"]) for turn in session.transcript]
+    finally:
+        connection.close()
+    try:
+        runner = _runner(turn_factory, session_id)
+        reply = await runner.run(
+            instructions=prompts.BASE_INSTRUCTIONS,
+            developer_instructions=prompts.SOCRATIC_REVIEW_DEVELOPER,
+            prompt=prompts.socratic_review_prompt(transcript),
+            output_schema=schemas.SOCRATIC_REVIEW_SCHEMA,
+        )
+    except BridgeError as exc:
+        logger.info("socratic_review_failed category=%s", exc.category)
+        connection = connect(database_path)
+        try:
+            return {"session": store.get_session(connection, session_id).as_dict(), "gaps_filed": 0, "note": f"The model connection failed ({exc.category}). The session is kept; assess it again later."}
+        finally:
+            connection.close()
+    payload = reply.payload
+    connection = connect(database_path)
+    try:
+        topic = str(payload.get("topic") or "")
+        entry = match_page(connection, topic)
+        session = store.set_assessment(
+            connection, session_id, assessment=payload.get("assessment") or {}, title=str(payload.get("title") or ""),
+            topic=entry.topic if entry else topic, entry_id=entry.id if entry else None,
+        )
+        return {"session": session.as_dict(), "gaps_filed": file_gaps(connection, session), "note": ""}
+    finally:
+        connection.close()
+
+
 def file_gaps(connection, session: store.Session) -> int:
     """Each named gap becomes a flag on the page's topic, once."""
     existing = {flag.text for flag in flag_store.list_flags(connection, status="open")}

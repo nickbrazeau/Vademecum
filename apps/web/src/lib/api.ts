@@ -390,6 +390,9 @@ export const api = {
     request<unknown>('/socratic', { method: 'POST', ...body(entryId ? { entry_id: entryId } : {}) }).then(normalize.socraticReply),
   socraticAnswer: (sessionId: string, answer: string) =>
     request<unknown>(`/socratic/${sessionId}/answer`, { method: 'POST', ...body({ answer }) }).then(normalize.socraticReply),
+  socraticImport: (input: { text: string; title?: string }) =>
+    request<unknown>('/socratic/import', { method: 'POST', ...body({ text: input.text, title: input.title ?? '', origin: 'pasted' }) }).then(normalize.socraticReply),
+  socraticAssess: (sessionId: string) => request<unknown>(`/socratic/${sessionId}/assess`, { method: 'POST' }).then(normalize.socraticReply),
   socraticAbandon: (sessionId: string) => request<unknown>(`/socratic/${sessionId}/abandon`, { method: 'POST' }).then(normalize.socraticReply),
   podcasts: () => request<unknown>('/podcasts').then(normalize.podcastList),
   podcastVoices: () => request<unknown>('/podcasts/voices').then(normalize.podcastVoices),

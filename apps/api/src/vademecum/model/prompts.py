@@ -396,3 +396,19 @@ def case_prompt(series: str, title: str, text: str, specialties: list[tuple[str,
         f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
         f"THE CASE:\n{_fence(body)}"
     )
+
+
+SOCRATIC_REVIEW_DEVELOPER = (
+    "You assess a Socratic tutoring session a resident had elsewhere, from its transcript. Name it: "
+    "a short title and the clinical topic it was about, as a resident would name it (\"Deep venous "
+    "thrombosis\", not a sentence). Then assess the resident's own answers -- not the tutor's -- on "
+    "how they reasoned through the differential, the treatment options and the underlying knowledge, "
+    "in plain words, judged against current practice. Name up to five gaps, each a short topic worth "
+    "revisiting. If a part was not discussed, say so in a few words rather than guessing. The summary "
+    "is two or three sentences addressed to the resident."
+)
+
+
+def socratic_review_prompt(transcript: list[tuple[str, str]]) -> str:
+    lines = "\n".join(f"{'Tutor' if role == 'tutor' else 'Resident'}: {text}" for role, text in transcript)
+    return f"The session's transcript:\n\n{lines}\n\nName and assess it."

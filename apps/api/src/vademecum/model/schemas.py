@@ -421,6 +421,18 @@ SOCRATIC_SCHEMA = {
 }
 
 
+SOCRATIC_REVIEW_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["title", "topic", "assessment"],
+    "properties": {
+        "title": _string(120),
+        "topic": _string(120),
+        "assessment": SOCRATIC_ASSESSMENT_SCHEMA,
+    },
+}
+
+
 # --- the podcast generator (ADR 0025) --------------------------------------------------
 
 MAX_PODCAST_LINES = 80

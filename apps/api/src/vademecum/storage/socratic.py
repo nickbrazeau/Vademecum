@@ -43,6 +43,9 @@ class Session:
         data = asdict(self)
         data["transcript"] = [dict(turn) for turn in self.transcript]
         data["assessment"] = dict(self.assessment)
+        # Brought in from ChatGPT, Claude or a paste (ADR 0026), and whether it has been assessed.
+        data["origin"] = str(self.assessment.get("origin") or "")
+        data["assessed"] = self.status == "done" and bool(self.assessment.get("summary") or self.assessment.get("differential"))
         return data
 
 
@@ -147,6 +150,60 @@ def finish(connection: sqlite3.Connection, session_id: str, assessment: dict[str
         tx.execute(
             "UPDATE socratic_sessions SET status = 'done', assessment = ?, updated_at = ?, finished_at = ? WHERE id = ?",
             (json.dumps(checked), now, now, session_id),
+        )
+    return get_session(connection, session_id)
+
+
+MAX_IMPORTED_TURNS = 2 * MAX_EXCHANGES + 40
+
+
+def import_session(
+    connection: sqlite3.Connection,
+    *,
+    title: str,
+    topic: str,
+    entry_id: str | None,
+    origin: str,
+    transcript: list[dict[str, str]],
+    assessment: dict[str, Any] | None,
+) -> Session:
+    """A session held elsewhere -- ChatGPT or Claude in voice, say -- brought in
+    whole: its dialogue, and its assessment when there is one (ADR 0026)."""
+    turns = []
+    for turn in transcript[:MAX_IMPORTED_TURNS]:
+        role = "tutor" if turn.get("role") == "tutor" else "learner"
+        text = " ".join(str(turn.get("text") or "").split())[: MAX_QUESTION_CHARS if role == "tutor" else MAX_ANSWER_CHARS]
+        if text:
+            turns.append({"role": role, "text": text, "probe": ""})
+    if not any(t["role"] == "learner" for t in turns):
+        raise ValueError("empty")
+    # The table allows only its first statuses and modes: an imported session is
+    # 'done' in mode 'host' (an assistant elsewhere was the tutor), its origin is
+    # kept with the assessment, and an empty assessment means not yet assessed.
+    checked = {**(check_assessment(assessment) if assessment else {}), "origin": origin}
+    session_id = new_id("soc")
+    now = utc_now()
+    status = "done"
+    with transaction(connection) as tx:
+        tx.execute(
+            "INSERT INTO socratic_sessions (id, entry_id, topic, title, mode, status, transcript, assessment, exchanges, created_at, updated_at, finished_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                session_id, entry_id, topic[:120], title[:120], "host", status, json.dumps(turns), json.dumps(checked),
+                sum(1 for t in turns if t["role"] == "learner"), now, now, now,
+            ),
+        )
+    return get_session(connection, session_id)
+
+
+def set_assessment(connection: sqlite3.Connection, session_id: str, *, assessment: dict[str, Any], title: str = "", topic: str = "", entry_id: str | None = None) -> Session:
+    """An imported session, assessed afterwards."""
+    session = get_session(connection, session_id)
+    checked = {**check_assessment(assessment), "origin": session.assessment.get("origin", "")}
+    with transaction(connection) as tx:
+        tx.execute(
+            "UPDATE socratic_sessions SET status = 'done', assessment = ?, title = ?, topic = ?, entry_id = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(checked), (title or session.title)[:120], (topic or session.topic)[:120], entry_id or session.entry_id, utc_now(), session_id),
         )
     return get_session(connection, session_id)
 

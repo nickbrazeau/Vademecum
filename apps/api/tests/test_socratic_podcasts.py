@@ -222,3 +222,39 @@ def test_the_new_tables_sync_and_export() -> None:
     assert "podcast_episodes" in SYNCED_TABLES and "podcast_episodes" in DOMI_OWNED and "podcast_episodes" in EXPORTED_TABLES
     assert "podcast_listens" in SYNCED_TABLES and "podcast_listens" not in DOMI_OWNED, "finished on the phone, archived on the Mac"
     assert sessions.MAX_EXCHANGES == 12
+
+
+
+def test_a_session_held_elsewhere_is_brought_in(tmp_path) -> None:
+    """ADR 0026: ChatGPT's voice mode keeps its conversation to itself. The assistant
+    saves it afterwards with its assessment, or the owner pastes the transcript and
+    the Mac's own connection names and assesses it."""
+    from fastapi.testclient import TestClient
+
+    from conftest import LOCAL_ORIGIN, refusing_factory
+    from vademecum.app import create_app
+    from vademecum.config import Settings
+    from vademecum.model.socratic import parse_transcript
+
+    pasted = "ChatGPT said: A 60-year-old has a swollen calf. What is on your differential?\nYou said: DVT, cellulitis,\na ruptured Baker cyst.\nChatGPT: Good. How would you test?\nYou: Wells score, then a D-dimer or ultrasound."
+    turns = parse_transcript(pasted)
+    assert [t["role"] for t in turns] == ["tutor", "learner", "tutor", "learner"]
+    assert turns[1]["text"] == "DVT, cellulitis, a ruptured Baker cyst."
+    assert [t["role"] for t in parse_transcript("Question one?\n\nMy answer.\n\nNext?")] == ["tutor", "learner", "tutor"]
+
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_folder_enabled=False)
+    app = create_app(settings, transport_factory=refusing_factory())
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        saved = c.post("/api/socratic/import", json={
+            "origin": "chatgpt", "title": "Swollen calf", "topic": "Deep venous thrombosis",
+            "transcript": [{"role": "tutor", "text": "Differential?"}, {"role": "learner", "text": "DVT first."}],
+            "assessment": {"differential": "Sound.", "treatment": "Not discussed.", "knowledge_strengths": "", "knowledge_gaps": ["Wells score thresholds"], "summary": "Good start."},
+        })
+        assert saved.status_code == 201, saved.text
+        body = saved.json()
+        assert body["session"]["assessed"] and body["session"]["origin"] == "chatgpt" and body["gaps_filed"] == 1
+        overview = c.get("/api/socratic").json()
+        assert overview["recent"][0]["transcript"][1]["text"] == "DVT first."
+        assert any(f["text"].endswith("Wells score thresholds") for f in c.get("/api/flags").json())
+        # A paste where no model can assess it here: kept, and marked for the Mac.
+        assert c.post("/api/socratic/import", json={"text": "ChatGPT: Hi?"}).status_code == 409

@@ -12,6 +12,7 @@ import sqlite3
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
+from pydantic import Field
 
 from ..model import socratic as service
 from ..storage import socratic as store
@@ -21,6 +22,11 @@ from .routes_sources import CLAUDE_DESTINATION, CODEX_DESTINATION
 from .schemas import LearnerAnswer, RecordId, Strict
 
 router = APIRouter(prefix="/socratic", tags=["socratic"])
+
+IMPORT_DISCLOSURE = (
+    "Bringing in a session sends its transcript, once, to the Mac's own model connection to name and "
+    "assess it. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
+)
 
 DISCLOSURE = (
     "Each answer you give sends the page the session is about, the abstracts reviewed for it, related "
@@ -49,6 +55,25 @@ class FinishIn(Strict):
     assessment: dict[str, Any]
 
 
+class ImportTurn(Strict):
+    role: str = Field(pattern="^(tutor|learner)$")
+    text: str = Field(max_length=8000)
+
+
+class ImportIn(Strict):
+    """A session held elsewhere: the turns from an assistant, or a pasted transcript."""
+
+    transcript: list[ImportTurn] = Field(default_factory=list, max_length=80)
+    text: str = Field(default="", max_length=60000)
+    title: str = Field(default="", max_length=120)
+    topic: str = Field(default="", max_length=120)
+    origin: str = Field(default="pasted", pattern="^(chatgpt|claude|pasted)$")
+    assessment: dict[str, Any] | None = None
+
+
+UNASSESSED = "Saved. It is assessed on the Mac: open the Tutor there and choose Assess."
+
+
 def _mode_note(mode: str) -> str:
     return "" if mode in ("codex", "claude") else service.HOST_MODE
 
@@ -63,6 +88,7 @@ def overview(connection: sqlite3.Connection = Depends(get_connection), mode: str
         "can_answer_here": mode in ("codex", "claude"),
         "note": _mode_note(mode),
         "disclosure": DISCLOSURE,
+        "import_disclosure": IMPORT_DISCLOSURE,
     }
 
 
@@ -75,6 +101,49 @@ def start(payload: StartIn, connection: sqlite3.Connection = Depends(get_connect
     if started["session"] is None:
         raise ConflictError("no_page", started["note"])
     return {**started, "note": _mode_note(mode), "disclosure": DISCLOSURE}
+
+
+@router.post("/import", status_code=201)
+async def import_session(
+    payload: ImportIn,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    mode: str = Depends(get_model_mode),
+) -> dict[str, Any]:
+    """Bring in a Socratic session held elsewhere (ADR 0026). With an assessment
+    -- an assistant saving its own session -- it is filed as done and its gaps
+    become flags. Without one, it is assessed on the Mac's own connection, here
+    or when next opened on the Mac."""
+    turns = [turn.model_dump() for turn in payload.transcript] or service.parse_transcript(payload.text)
+    entry = service.match_page(connection, payload.topic or payload.title)
+    try:
+        session = store.import_session(
+            connection, title=payload.title or payload.topic, topic=entry.topic if entry else payload.topic,
+            entry_id=entry.id if entry else None, origin=payload.origin, transcript=turns, assessment=payload.assessment,
+        )
+    except ValueError:
+        raise ConflictError("empty", "No answers of yours were found in that transcript. Paste the whole conversation.") from None
+    if session.as_dict()["assessed"]:
+        return {"session": session.as_dict(), "gaps_filed": service.file_gaps(connection, session), "note": ""}
+    if mode in ("codex", "claude"):
+        workspace = request.state.workspace
+        return await service.review(workspace.database_path, session.id, workspace.turn_factory)
+    return {"session": session.as_dict(), "gaps_filed": 0, "note": UNASSESSED}
+
+
+@router.post("/{session_id}/assess")
+async def assess(
+    session_id: str,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    mode: str = Depends(get_model_mode),
+) -> dict[str, Any]:
+    """Assess an imported session on the Mac's own connection."""
+    store.get_session(connection, session_id)
+    if mode not in ("codex", "claude"):
+        raise ConflictError("needs_model", UNASSESSED)
+    workspace = request.state.workspace
+    return await service.review(workspace.database_path, session_id, workspace.turn_factory)
 
 
 @router.get("/{session_id}")

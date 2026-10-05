@@ -76,7 +76,7 @@ INSTRUCTIONS = (
     "socratic_start and BE the tutor -- one open question at a time, never the answer first, "
     "through the differential, the treatment options and the knowledge; the page grounds the "
     "session and your own knowledge and web search assess and extend it, said as such -- "
-    "recording each exchange with socratic_turn and closing with socratic_finish. Podcasts: podcast_list and podcast_read "
+    "recording each exchange with socratic_turn and closing with socratic_finish. If a tutoring dialogue happened without those calls (voice mode, say), save it afterwards with socratic_save. Podcasts: podcast_list and podcast_read "
     "give the episodes and their scripts; podcast_create writes one on the Mac after the owner's "
     "yes to its disclosure. The older open-answer flow remains: "
     "tutor_next_question, let the owner answer in their own words, tutor_grade "

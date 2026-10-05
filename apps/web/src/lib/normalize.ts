@@ -1046,6 +1046,8 @@ function socraticSession(raw: unknown): SocraticSession {
       summary: str(assessment.summary)
     },
     exchanges: num(data.exchanges),
+    origin: str(data.origin),
+    assessed: data.assessed === true || (data.assessed === undefined && status === 'done' && Boolean(str(assessment.summary) || str(assessment.differential))),
     created_at: str(data.created_at),
     finished_at: typeof data.finished_at === 'string' ? data.finished_at : null
   }
@@ -1059,7 +1061,8 @@ export function socraticOverview(raw: unknown): SocraticOverview {
     mode: str(data.mode),
     can_answer_here: data.can_answer_here === true,
     note: str(data.note),
-    disclosure: str(data.disclosure)
+    disclosure: str(data.disclosure),
+    import_disclosure: str(data.import_disclosure)
   }
 }
 
