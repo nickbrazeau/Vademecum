@@ -313,3 +313,13 @@ async def test_sync_passes_through_the_gateway_on_the_peer_token_alone(seat) -> 
     assert status.json()["role"] == "foris" and status.json()["node_id"].startswith("node_")
     changes = await web.get("/api/sync/changes?since=0", headers={"X-Vademecum-Sync": "the-peer-token-the-mac-presents"})
     assert changes.status_code == 200 and changes.json()["done"] is True
+
+
+def test_the_proxy_passes_byte_ranges_so_a_phone_can_play_audio() -> None:
+    """Safari plays audio only from a server that answers byte ranges (ADR 0027);
+    the API does, so the gateway must pass Range in and Content-Range back."""
+    from vademecum_mcp.desk import FORWARDED_REQUEST_HEADERS, FORWARDED_RESPONSE_HEADERS
+
+    assert {"range", "if-range", "x-content-sha256"} <= set(FORWARDED_REQUEST_HEADERS)
+    assert {"content-range", "accept-ranges"} <= set(FORWARDED_RESPONSE_HEADERS)
+    assert "cookie" not in FORWARDED_REQUEST_HEADERS and "authorization" not in FORWARDED_REQUEST_HEADERS

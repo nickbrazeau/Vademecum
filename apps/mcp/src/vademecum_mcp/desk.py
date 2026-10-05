@@ -52,8 +52,14 @@ MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 # Headers that describe the message, not the hop. Everything else is dropped in
 # both directions; in particular the API's `Host` is its own, and the browser's
 # cookies never reach the API.
-FORWARDED_REQUEST_HEADERS = ("content-type", "content-length", "accept")
-FORWARDED_RESPONSE_HEADERS = ("content-type", "content-length", "content-disposition", "cache-control", "x-correlation-id")
+# Range and If-Range let a phone's audio player seek and stream an episode
+# (Safari will not play audio without byte ranges); the digest lets the API
+# check podcast audio the Mac sends (ADR 0027).
+FORWARDED_REQUEST_HEADERS = ("content-type", "content-length", "accept", "range", "if-range", "x-content-sha256")
+FORWARDED_RESPONSE_HEADERS = (
+    "content-type", "content-length", "content-disposition", "cache-control", "x-correlation-id",
+    "content-range", "accept-ranges", "etag", "last-modified",
+)
 
 # What the service worker is allowed to cache, and therefore what may be
 # served with a long cache lifetime: hashed build output only.
