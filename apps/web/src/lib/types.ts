@@ -679,6 +679,8 @@ export interface PodcastEpisode {
   takeaways: string[]
   voices: Record<string, string>
   has_audio: boolean
+  /** Rendered, but the file is on the Mac that rendered it, not here. */
+  audio_elsewhere: boolean
   archived: boolean
   listened_at: string | null
   sources: PodcastSource[]

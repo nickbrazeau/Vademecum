@@ -152,7 +152,7 @@ def backfill_pictures(database_path: Path, source_dir: Path) -> dict:
         connection.close()
 
 
-def scan_sources_folder(database_path: Path, source_dir: Path, folder: Path | None) -> dict:
+def scan_sources_folder(database_path: Path, source_dir: Path, folder: Path | None, max_new: int | None = None) -> dict:
     """One scan of the learner's folder, on its own connection (ADR 0012)."""
     if folder is None:
         return {"folder_present": False, "stored": [], "piles_created": [], "rejected": []}
@@ -160,7 +160,7 @@ def scan_sources_folder(database_path: Path, source_dir: Path, folder: Path | No
     folder_intake.scaffold(folder)
     connection = connect(database_path)
     try:
-        report = folder_intake.scan_folder(connection, source_dir=source_dir, folder=folder)
+        report = folder_intake.scan_folder(connection, source_dir=source_dir, folder=folder, max_new=max_new)
     finally:
         connection.close()
     if report["stored"] or report["piles_created"]:
@@ -174,18 +174,50 @@ def scan_sources_folder(database_path: Path, source_dir: Path, folder: Path | No
     return report
 
 
+SCAN_BATCH = 8
+
+
+async def _scan_elsewhere(app: FastAPI, database_path: Path, source_dir: Path, folder: Path | None) -> dict:
+    """A scan in a process of its own: reading a long PDF is pure Python, and in
+    a thread it holds the interpreter lock long enough to starve every request.
+    Falls back to a thread if the process cannot be had."""
+    from concurrent.futures import ProcessPoolExecutor
+    from concurrent.futures.process import BrokenProcessPool
+    import multiprocessing
+
+    pool = getattr(app.state, "scan_pool", None)
+    if pool is None:
+        try:
+            pool = ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn"))
+        except (OSError, ValueError):
+            pool = False
+        app.state.scan_pool = pool
+    if pool:
+        try:
+            return await asyncio.get_running_loop().run_in_executor(pool, scan_sources_folder, database_path, source_dir, folder, SCAN_BATCH)
+        except BrokenProcessPool:
+            app.state.scan_pool = None
+    return await asyncio.to_thread(scan_sources_folder, database_path, source_dir, folder, SCAN_BATCH)
+
+
 async def _watch_folder(app: FastAPI, database_path: Path, source_dir: Path, interval: float) -> None:
-    """Scan the folder every `interval` seconds; a failed scan is reported, not fatal.
+    """Scan the folder now and every `interval` seconds; a failed scan is reported, not fatal.
 
     The folder is re-resolved each time, so a `setup folder` while this runs
     is honoured at the next scan and `app.state.sources_folder` follows it.
+    A folder with more new files than one scan takes is scanned again at once.
     """
+    first = True
+    more = False
     while True:
-        await asyncio.sleep(interval)
+        if not first and not more:
+            await asyncio.sleep(interval)
+        first = False
         try:
             folder = current_sources_dir(app.state.settings)
             app.state.sources_folder = folder
-            report = await asyncio.to_thread(scan_sources_folder, database_path, source_dir, folder)
+            report = await _scan_elsewhere(app, database_path, source_dir, folder)
+            more = bool(report.get("more_waiting"))
             # Encyclopedia pages as Markdown files beside the piles, both ways (ADR 0026).
             await asyncio.to_thread(sync_page_files, database_path, folder, source_dir)
             if report.get("stored") or report.get("piles_created"):
@@ -197,6 +229,7 @@ async def _watch_folder(app: FastAPI, database_path: Path, source_dir: Path, int
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the watch reports and continues
+            more = False
             logger.error("folder_scan_failed error=%s", type(exc).__name__)
 
 
@@ -303,6 +336,19 @@ def _status_change_handler(database_path: Path):
     return handle
 
 
+def _stack_dumps_on_signal() -> None:
+    """`kill -USR1 <pid>` writes every thread's stack to the log: a busy server can be
+    diagnosed without stopping it. Python stacks only; no data."""
+    import faulthandler
+    import signal
+    import sys
+
+    try:
+        faulthandler.register(signal.SIGUSR1, file=sys.stderr, all_threads=True)
+    except (AttributeError, ValueError, RuntimeError):
+        pass
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -318,6 +364,7 @@ def create_app(
     static resolver substitutes for the MCP server's access store, so the whole
     stack runs with no process, no socket and no model call anywhere.
     """
+    _stack_dumps_on_signal()
     resolved = settings or get_settings()
 
     @asynccontextmanager
@@ -548,13 +595,14 @@ def create_app(
             if resolved.model_provider in ("codex", "claude"):
                 app.state.turn_factory = owner.turn_factory
 
-            # The learner's folder (ADR 0012): scanned once before the first
-            # request, then in the background while this process runs.
+            # The learner's folder (ADR 0012): laid out now, and scanned in the
+            # background from the first moment, so a folder with hundreds of new
+            # files never keeps the web app from opening.
             folder = current_sources_dir(resolved)
             if folder is not None:
                 app.state.sources_folder = folder
-                await asyncio.to_thread(scan_sources_folder, owner.database_path, owner.source_dir, folder)
-                await asyncio.to_thread(sync_page_files, owner.database_path, folder, owner.source_dir)
+                folder.mkdir(parents=True, exist_ok=True)
+                folder_intake.scaffold(folder)
                 folder_task = asyncio.create_task(
                     _watch_folder(app, owner.database_path, owner.source_dir, resolved.sources_scan_interval)
                 )
@@ -599,6 +647,9 @@ def create_app(
                     await task
                 except (asyncio.CancelledError, Exception):
                     pass
+            scan_pool = getattr(app.state, "scan_pool", None)
+            if scan_pool:
+                scan_pool.shutdown(wait=False, cancel_futures=True)
             await app.state.workspaces.aclose()
             await app.state.model_bridge.aclose()
 

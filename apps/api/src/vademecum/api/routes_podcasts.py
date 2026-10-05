@@ -54,6 +54,14 @@ def _podcasts_dir(source_dir: Path) -> Path:
     return source_dir.parent / "podcasts"
 
 
+def _here(data: dict[str, Any], source_dir: Path, episode: store.Episode) -> dict[str, Any]:
+    """An episode as this machine can play it: the audio file stays on the Mac that
+    rendered it, so a copy elsewhere says so instead of offering a player that
+    cannot load."""
+    present = bool(episode.audio_name) and (_podcasts_dir(source_dir) / episode.audio_name).is_file()
+    return {**data, "has_audio": present, "audio_elsewhere": bool(episode.audio_name) and not present}
+
+
 def _choose(connection: sqlite3.Connection, payload: EpisodeIn) -> list[str]:
     if payload.pick == "today":
         page = pages.page_of_the_day(connection)
@@ -77,9 +85,13 @@ def _start_script(request: Request, episode_id: str) -> None:
 
 
 @router.get("")
-def list_episodes(connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
+def list_episodes(
+    connection: sqlite3.Connection = Depends(get_connection),
+    mode: str = Depends(get_model_mode),
+    source_dir: Path = Depends(get_source_dir),
+) -> dict[str, Any]:
     return {
-        "episodes": [e.as_dict() for e in store.list_episodes(connection)],
+        "episodes": [_here(e.as_dict(), source_dir, e) for e in store.list_episodes(connection)],
         "can_write": mode in ("codex", "claude"),
         "can_render": mode in ("codex", "claude") and bool(service.available_voices()),
         "note": "" if mode in ("codex", "claude") else service.NEEDS_MAC,
@@ -108,8 +120,9 @@ async def create(payload: EpisodeIn, request: Request, connection: sqlite3.Conne
 
 
 @router.get("/{episode_id}")
-def read(episode_id: str, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
-    return store.get_episode(connection, episode_id).as_dict()
+def read(episode_id: str, connection: sqlite3.Connection = Depends(get_connection), source_dir: Path = Depends(get_source_dir)) -> dict[str, Any]:
+    episode = store.get_episode(connection, episode_id)
+    return _here(episode.as_dict(), source_dir, episode)
 
 
 @router.post("/{episode_id}/script", status_code=status.HTTP_202_ACCEPTED)

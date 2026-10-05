@@ -19,7 +19,7 @@ import { useLoad } from '../lib/useLoad'
 const STATUS_LABEL: Record<PodcastEpisode['status'], string> = {
   draft: 'writing the script',
   scripted: 'script ready',
-  rendered: 'audio ready',
+  rendered: 'audio on the Mac',
   failed: 'could not be written'
 }
 
@@ -119,10 +119,13 @@ function EpisodeCard({ episode, voices, canRender, onChanged }: { episode: Podca
     <li className="podcast-episode">
       <p className="title">{episode.title || 'Untitled episode'}</p>
       <p className="muted small">
-        {STATUS_LABEL[episode.status]} · {episode.entry_ids.length} page{episode.entry_ids.length === 1 ? '' : 's'} · {momentLabel(episode.created_at)}
+        {episode.has_audio ? 'audio ready' : STATUS_LABEL[episode.status]} · {episode.entry_ids.length} page{episode.entry_ids.length === 1 ? '' : 's'} · {momentLabel(episode.created_at)}
         {episode.has_audio ? ` · ${durationLabel(episode.duration_seconds)} · ${byteLabel(episode.audio_bytes)}` : null}
       </p>
       {episode.status_detail ? <p className="warn small">{episode.status_detail}</p> : null}
+      {episode.audio_elsewhere ? (
+        <p className="muted small">The audio is on the Mac that rendered it. Open Vademecum there to play it.</p>
+      ) : null}
       {episode.has_audio ? (
         <audio controls preload="none" src={`${API_ROOT}/podcasts/${episode.id}/audio`} className="podcast-audio" onEnded={finished}>
           <a href={`${API_ROOT}/podcasts/${episode.id}/audio`}>Download the audio</a>

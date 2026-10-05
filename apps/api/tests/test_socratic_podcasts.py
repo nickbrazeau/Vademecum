@@ -258,3 +258,28 @@ def test_a_session_held_elsewhere_is_brought_in(tmp_path) -> None:
         assert any(f["text"].endswith("Wells score thresholds") for f in c.get("/api/flags").json())
         # A paste where no model can assess it here: kept, and marked for the Mac.
         assert c.post("/api/socratic/import", json={"text": "ChatGPT: Hi?"}).status_code == 409
+
+
+def test_a_copy_without_the_audio_file_offers_no_player(tmp_path) -> None:
+    """The audio stays on the Mac that rendered it; the cloud copy has the record
+    but not the file, so it must not offer a player that cannot load."""
+    from fastapi.testclient import TestClient
+
+    from conftest import LOCAL_ORIGIN, refusing_factory
+    from vademecum.app import create_app
+    from vademecum.config import Settings
+    from vademecum.db import connect
+    from vademecum.storage import podcasts as store
+
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_folder_enabled=False)
+    app = create_app(settings, transport_factory=refusing_factory())
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        connection = connect(app.state.database_path)
+        try:
+            episode = store.create_episode(connection, title="Rendered elsewhere", entry_ids=[])
+            store.set_rendered(connection, episode.id, audio_name="elsewhere.m4a", audio_bytes=1000, duration_seconds=60, voices={})
+        finally:
+            connection.close()
+        listed = c.get("/api/podcasts").json()["episodes"][0]
+        assert listed["has_audio"] is False and listed["audio_elsewhere"] is True
+        assert c.get(f"/api/podcasts/{episode.id}").json()["audio_elsewhere"] is True

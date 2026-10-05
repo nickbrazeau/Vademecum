@@ -147,8 +147,13 @@ def scan_folder(
     folder: Path,
     now: Callable[[], float] = time.time,
     settle_seconds: float = SETTLE_SECONDS,
+    max_new: int | None = None,
 ) -> dict[str, Any]:
-    """Bring the folder's files into their piles. Idempotent; returns a report."""
+    """Bring the folder's files into their piles. Idempotent; returns a report.
+
+    ``max_new`` stops after that many new files: a folder with hundreds dropped
+    at once is brought in a few at a time, scan by scan, so the encyclopedia and
+    the page files follow along instead of waiting for the last one."""
     piles_dir = folder / PILES_DIRNAME
     report: dict[str, Any] = {
         "folder_present": piles_dir.is_dir(),
@@ -180,6 +185,9 @@ def scan_folder(
 
     def take_all(paths: list[Path], pile_id: str, title: str) -> None:
         for path in sorted(paths, key=lambda item: item.name.casefold()):
+            if max_new is not None and len(report["stored"]) >= max_new:
+                report["more_waiting"] = True
+                return
             _take(connection, report, source_dir=source_dir, path=path, pile_id=pile_id, pile_title=title, now=now, settle_seconds=settle_seconds)
 
     for entry in sorted(piles_dir.iterdir(), key=lambda path: path.name.casefold()):

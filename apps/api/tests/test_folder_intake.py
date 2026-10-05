@@ -84,7 +84,32 @@ def test_startup_scaffolds_the_layout_and_scans(folder_settings: Settings, folde
             assert (piles / tier).is_dir(), tier
         readme = (folder / "README.txt").read_text(encoding="utf-8")
         assert "piles/highconfidence" in readme and "patient" in readme
+        # Scanned in the background from the first moment: the web app opens at once.
+        import time
+
+        deadline = time.time() + 60
+        while time.time() < deadline and not client.get("/api/piles").json():
+            time.sleep(0.25)
         assert [pile["title"] for pile in client.get("/api/piles").json()] == ["Sepsis"]
+
+
+def test_a_crowded_folder_is_taken_a_few_files_per_scan(tmp_path: Path, piles: Path, folder: Path) -> None:
+    from vademecum.db import connect
+    from vademecum.db.migrate import apply_migrations
+    from vademecum.ingest.folder import scan_folder
+
+    for index in range(5):
+        touch(piles / "highconfidence" / "Sepsis" / f"lecture-{index}.txt", LECTURE + f"Part {index}.\n".encode())
+    database = tmp_path / "db.sqlite3"
+    connection = connect(database)
+    try:
+        apply_migrations(connection)
+        first = scan_folder(connection, source_dir=tmp_path / "src", folder=folder, now=lambda: 1e12, max_new=2)
+        assert len(first["stored"]) == 2 and first.get("more_waiting")
+        rest = scan_folder(connection, source_dir=tmp_path / "src", folder=folder, now=lambda: 1e12, max_new=10)
+        assert len(rest["stored"]) == 3 and not rest.get("more_waiting")
+    finally:
+        connection.close()
 
 
 def test_tier_folders_rate_their_piles(with_folder: TestClient, piles: Path) -> None:
