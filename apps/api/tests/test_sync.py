@@ -359,3 +359,11 @@ def test_podcast_audio_goes_to_the_cloud_copy_and_is_retired_once_heard(pair) ->
         connection.close()
     held = {item["episode_id"] for item in away.get("/api/sync/podcast-audio", headers={"X-Vademecum-Sync": TOKEN}).json()["held"]}
     assert held == set(newest_first[1:6])
+    # Rendered again in other voices: the same name, a new file, sent again.
+    (home_dir / f"{newest_first[1]}.m4a").write_bytes(b"new voices" * 500)
+    connection = db(home_app)
+    try:
+        assert push_podcast_audio(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 1
+    finally:
+        connection.close()
+    assert away.get(f"/api/podcasts/{newest_first[1]}/audio").content == b"new voices" * 500

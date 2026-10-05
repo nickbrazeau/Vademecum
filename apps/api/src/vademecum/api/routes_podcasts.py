@@ -30,7 +30,7 @@ DISCLOSURE = (
     "Writing an episode sends the chosen pages -- their text and the points they rest on -- with the "
     "literature reviewed for them, related pages and case-series points already on this Mac, once, "
     "to write the script. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
-    + " Rendering the audio uses this Mac's own speech voices; the script is spoken on-device and sent nowhere."
+    + " Rendering the audio happens on this Mac, with its own voices or the on-device Kokoro voices; the script is spoken on-device and sent nowhere."
 )
 MAX_PAGES = 6
 
@@ -52,6 +52,13 @@ class RenderIn(Strict):
 
 def _podcasts_dir(source_dir: Path) -> Path:
     return store.podcasts_dir(source_dir)
+
+
+def _voices_dir(source_dir: Path) -> Path:
+    """Kokoro's files (ADR 0027), in the data directory beside the attachments."""
+    from ..model import kokoro
+
+    return kokoro.voices_dir_for(source_dir.parent.parent)
 
 
 def _here(data: dict[str, Any], source_dir: Path, episode: store.Episode) -> dict[str, Any]:
@@ -94,15 +101,16 @@ def list_episodes(
     return {
         "episodes": [_here(e.as_dict(), source_dir, e) for e in store.list_episodes(connection)],
         "can_write": mode in ("codex", "claude"),
-        "can_render": mode in ("codex", "claude") and bool(service.available_voices()),
+        "can_render": mode in ("codex", "claude") and bool(service.available_voices(_voices_dir(source_dir))),
         "note": "" if mode in ("codex", "claude") else service.NEEDS_MAC,
         "disclosure": DISCLOSURE,
     }
 
 
 @router.get("/voices")
-def voices() -> dict[str, Any]:
-    return {"voices": service.available_voices(), "default": dict(service.DEFAULT_VOICES)}
+def voices(source_dir: Path = Depends(get_source_dir)) -> dict[str, Any]:
+    directory = _voices_dir(source_dir)
+    return {"voices": service.available_voices(directory), "default": service.default_voices(directory)}
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
@@ -149,12 +157,15 @@ async def render(
         raise ConflictError("needs_mac", service.NEEDS_MAC)
     if not episode.script:
         raise ConflictError("no_script", "This episode has no script yet.")
-    known = {voice["name"] for voice in service.available_voices()}
+    directory = _voices_dir(source_dir)
+    known = {voice["name"] for voice in service.available_voices(directory)}
     chosen = {"A": payload.voice_a if payload.voice_a in known else "", "B": payload.voice_b if payload.voice_b in known else ""}
     workspace = request.state.workspace
-    synth = getattr(request.app.state, "podcast_synth", None) or service.say_synth
+    synth = getattr(request.app.state, "podcast_synth", None) or service.synth_for(directory)
     encode = getattr(request.app.state, "podcast_encode", None) or service.afconvert_encode
-    result = await service.render(workspace.database_path, episode_id, _podcasts_dir(source_dir), chosen, synth=synth, encode=encode)
+    result = await service.render(
+        workspace.database_path, episode_id, _podcasts_dir(source_dir), chosen, synth=synth, encode=encode, voices_dir=directory
+    )
     if "error" in result:
         raise ConflictError("no_script", result["error"])
     return result

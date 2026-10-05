@@ -1127,7 +1127,7 @@ export function podcastVoices(raw: unknown): { voices: PodcastVoice[]; default: 
   return {
     voices: arr(data.voices).map((item) => {
       const voice = obj(item)
-      return { name: str(voice.name), locale: str(voice.locale) }
+      return { name: str(voice.name), label: str(voice.label) || str(voice.name), locale: str(voice.locale) }
     }),
     default: Object.fromEntries(Object.entries(fallback).map(([key, value]) => [key, str(value)]))
   }

@@ -25,13 +25,14 @@ from ..appserver.errors import BridgeError
 from ..db import connect
 from ..storage import encyclopedia as pages
 from ..storage import podcasts as store
-from . import prompts, schemas
+from . import kokoro, prompts, schemas
+from .speakable import speakable
 from .socratic import further_context, page_material
 
 logger = logging.getLogger("vademecum.podcasts")
 
 DEFAULT_VOICES = {"A": "Samantha", "B": "Daniel"}
-SAMPLE_RATE = 22050
+SAMPLE_RATE = 24000  # Kokoro's own rate; `say` renders at any rate asked
 PAUSE_SECONDS = 0.45
 RENDER_TIMEOUT_SECONDS = 600
 NEEDS_MODEL = "Writing a script needs the Mac's own model connection (codex or claude mode)."
@@ -132,10 +133,21 @@ async def write_script(database_path: Path, episode_id: str, turn_factory: Any) 
 # --- the audio -----------------------------------------------------------------------
 
 
-def available_voices() -> list[dict[str, str]]:
-    """The Mac's English voices, by name; empty where there is no synthesiser."""
+def default_voices(voices_dir: Path | None = None) -> dict[str, str]:
+    """Kokoro's two best voices once installed (ADR 0027); the Mac's own otherwise."""
+    return dict(kokoro.DEFAULTS) if kokoro.ready(voices_dir) else dict(DEFAULT_VOICES)
+
+
+def available_voices(voices_dir: Path | None = None) -> list[dict[str, str]]:
+    """Kokoro's natural voices first, when installed, then the Mac's English
+    voices by name; empty where there is no synthesiser."""
+    natural = kokoro.listed(voices_dir)
     if shutil.which("say") is None:
-        return []
+        return natural
+    return natural + _say_voices()
+
+
+def _say_voices() -> list[dict[str, str]]:
     try:
         listing = subprocess.run(["say", "-v", "?"], capture_output=True, text=True, timeout=20, check=False).stdout
     except (OSError, subprocess.SubprocessError):
@@ -149,7 +161,7 @@ def available_voices() -> list[dict[str, str]]:
         if locale_index is None:
             continue
         name = " ".join(parts[:locale_index])
-        voices.append({"name": name, "locale": parts[locale_index]})
+        voices.append({"name": name, "label": name, "locale": parts[locale_index]})
     return voices
 
 
@@ -160,6 +172,18 @@ def say_synth(text: str, voice: str, target: Path) -> None:
         timeout=RENDER_TIMEOUT_SECONDS,
         capture_output=True,
     )
+
+
+def synth_for(voices_dir: Path | None) -> Synth:
+    """Kokoro for a Kokoro voice, the Mac's `say` for any other."""
+
+    def speak(text: str, voice: str, target: Path) -> None:
+        if voice.startswith(kokoro.PREFIX) and voices_dir is not None and kokoro.ready(voices_dir):
+            kokoro.synth(voices_dir, text, voice, target, SAMPLE_RATE)
+        else:
+            say_synth(text, DEFAULT_VOICES["A"] if voice.startswith(kokoro.PREFIX) else voice, target)
+
+    return speak
 
 
 def afconvert_encode(source: Path, target: Path) -> None:
@@ -179,7 +203,7 @@ def render_lines(lines: list[dict[str, str]], voices: dict[str, str], target: Pa
             pause = b"\x00\x00" * int(SAMPLE_RATE * PAUSE_SECONDS)
             for index, line in enumerate(lines):
                 piece = folder / f"line-{index}.wav"
-                synth(line["text"], voices.get(line["speaker"], DEFAULT_VOICES["A"]), piece)
+                synth(speakable(line["text"]), voices.get(line["speaker"], DEFAULT_VOICES["A"]), piece)
                 with wave.open(str(piece), "rb") as part:
                     if part.getnchannels() != 1 or part.getsampwidth() != 2 or part.getframerate() != SAMPLE_RATE:
                         raise RuntimeError("the synthesiser answered in an unexpected format")
@@ -192,7 +216,16 @@ def render_lines(lines: list[dict[str, str]], voices: dict[str, str], target: Pa
     return target.stat().st_size, int(round(frames / SAMPLE_RATE))
 
 
-async def render(database_path: Path, episode_id: str, podcasts_dir: Path, voices: dict[str, str], *, synth: Synth = say_synth, encode: Encode = afconvert_encode) -> dict[str, Any]:
+async def render(
+    database_path: Path,
+    episode_id: str,
+    podcasts_dir: Path,
+    voices: dict[str, str],
+    *,
+    synth: Synth | None = None,
+    encode: Encode = afconvert_encode,
+    voices_dir: Path | None = None,
+) -> dict[str, Any]:
     connection = connect(database_path)
     try:
         episode = store.get_episode(connection, episode_id)
@@ -200,7 +233,10 @@ async def render(database_path: Path, episode_id: str, podcasts_dir: Path, voice
         connection.close()
     if not episode.script:
         return {"error": "This episode has no script yet."}
-    chosen = {"A": voices.get("A") or DEFAULT_VOICES["A"], "B": voices.get("B") or DEFAULT_VOICES["B"]}
+    fallback = default_voices(voices_dir)
+    chosen = {"A": voices.get("A") or fallback["A"], "B": voices.get("B") or fallback["B"]}
+    if synth is None:
+        synth = synth_for(voices_dir)
     audio_name = f"{episode.id}.m4a"
     target = podcasts_dir / audio_name
     try:

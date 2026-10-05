@@ -60,9 +60,11 @@ in Safari; those device checks remain a human acceptance step.
   assistant is the tutor; on the Mac the dashboard runs the dialogue on your own sign-in, with the
   browser's dictation and speech where it offers them. The assessment names gaps, and each becomes
   a flag ([ADR 0025](docs/adr/0025-socratic-tutor-and-podcasts.md)).
-- **Podcast.** A two-host script written from encyclopedia pages, saying only what the
-  pages say, rendered to audio on the Mac with its own speech voices: no service, no key. Anywhere
-  else the browser reads the script aloud.
+- **Podcast.** A two-host script grounded in encyclopedia pages, rendered to audio on the Mac
+  with no service and no key: natural Kokoro voices once `./scripts/voices.sh` has run, the Mac's
+  own voices otherwise. The five newest unheard episodes play on the phone through the cloud copy;
+  an episode listened to is archived and its audio deleted
+  ([ADR 0027](docs/adr/0027-podcast-audio-in-the-cloud-copy.md)).
 - **Flashcards.** A front and a back written from an encyclopedia page, citing its points. The
   next card is a weighted draw, not a queue: topics you flagged, areas an exam report put below
   the mark, pages whose board question you missed, and cards you asked to see again come up more

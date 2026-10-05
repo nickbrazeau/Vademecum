@@ -358,7 +358,10 @@ PODCAST_DEVELOPER = (
     "work through the material in a sensible order, and close with the take-homes. Aim for "
     "roughly 1,500 to 2,000 words. 'title' names the episode; 'takeaways' are three to five "
     "sentences a listener should leave with, each naming its source in words. Never include a "
-    "real patient's details."
+    "real patient's details. Write for the ear, not the page: spell out an acronym the first time "
+    "unless every clinician says it as letters (HIV, MRSA, CT); say numbers and units in words a "
+    "host would use; never refer to a figure, table or image; keep turns short, two to four "
+    "sentences, with the other host reacting now and then in a few words."
 )
 
 

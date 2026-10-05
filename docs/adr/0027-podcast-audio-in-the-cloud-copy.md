@@ -1,4 +1,4 @@
-# ADR 0027 — Podcast audio in the cloud copy, retired once heard
+# ADR 0027 — Podcast audio: natural voices, in the cloud copy, retired once heard
 
 - Status: accepted
 - Date: 2026-10-05
@@ -28,6 +28,22 @@ deleted for space once listened to.
   has finished. The Worker refuses deletion anywhere else.
 - A copy without the file never shows a player. It says the audio arrives with the
   Mac's next sync, or that it was deleted after listening.
+
+### Voices and text for the ear
+
+- **Kokoro** (an open speech model, Apache 2.0) renders on the Mac through ONNX Runtime,
+  with no account, key or service. `scripts/voices.sh` installs the package and fetches
+  the model (325 MB) and voice pack (28 MB) once from the project's GitHub release,
+  checked against pinned SHA-256 digests. Once present, new episodes default to two of
+  its voices, Heart and Michael. The Mac's own `say` voices remain listed and are the
+  fallback. Each line is levelled to the same loudness so neither host is quieter.
+- **Speakable text.** Before speaking, symbols, units, ranges, dosing shorthand,
+  Latin abbreviations and genus initials are written out ("2-4 mg/kg q8h" becomes "2 to 4
+  milligrams per kilogram every 8 hours"). This and the next point are lessons from the
+  owner's earlier podcast project. There, respelling hundreds of medical words made speech
+  choppier, so no respelling list is applied.
+- **The script prompt writes for the ear:** acronyms spelled out unless said as letters
+  by everyone, no references to figures, short turns with brief reactions.
 
 ## Consequences
 

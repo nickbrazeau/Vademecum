@@ -148,8 +148,8 @@ def test_a_script_is_checked_and_rendered_line_by_line() -> None:
         with wave.open(str(target), "wb") as out:
             out.setnchannels(1)
             out.setsampwidth(2)
-            out.setframerate(22050)
-            out.writeframes(b"\x01\x00" * 22050)
+            out.setframerate(24000)
+            out.writeframes(b"\x01\x00" * 24000)
 
     def encode(source: Path, target: Path) -> None:
         target.write_bytes(source.read_bytes())
@@ -160,7 +160,7 @@ def test_a_script_is_checked_and_rendered_line_by_line() -> None:
         target = Path(folder) / "out" / "episode.m4a"
         size, seconds = render_lines([{"speaker": "A", "text": "Hello."}, {"speaker": "B", "text": "Hi."}], {"A": "Samantha", "B": "Daniel"}, target, synth=synth, encode=encode)
     assert spoken == [("Samantha", "Hello."), ("Daniel", "Hi.")]
-    assert seconds == 3 and size > 4 * 22050, "two seconds of speech and two pauses, encoded"
+    assert seconds == 3 and size > 4 * 24000, "two seconds of speech and two pauses, encoded"
 
 
 def test_an_episode_is_written_from_pages_and_rendered_on_the_mac(tmp_path: Path) -> None:
@@ -197,7 +197,7 @@ def test_an_episode_is_written_from_pages_and_rendered_on_the_mac(tmp_path: Path
             with wave.open(str(target), "wb") as out:
                 out.setnchannels(1)
                 out.setsampwidth(2)
-                out.setframerate(22050)
+                out.setframerate(24000)
                 out.writeframes(b"\x01\x00" * 2205)
 
         app.state.podcast_synth = synth
@@ -283,3 +283,25 @@ def test_a_copy_without_the_audio_file_offers_no_player(tmp_path) -> None:
         listed = c.get("/api/podcasts").json()["episodes"][0]
         assert listed["has_audio"] is False and listed["audio_elsewhere"] is True
         assert c.get(f"/api/podcasts/{episode.id}").json()["audio_elsewhere"] is True
+
+
+def test_text_is_made_speakable_and_kokoro_waits_for_its_files(tmp_path) -> None:
+    """ADR 0027: the voice reads words, not symbols; Kokoro is offered only once
+    its package and files are on the Mac, and the Mac's own voices stay otherwise."""
+    from vademecum.model import kokoro
+    from vademecum.model import podcasts as service
+    from vademecum.model.speakable import speakable
+
+    assert speakable("S. aureus: 2-4 mg/kg q8h vs. oral") == "Staphylococcus aureus: 2 to 4 milligrams per kilogram every 8 hours versus oral"
+    assert speakable("IgE ≥ 500 IU/mL (~70%) [3].") == "IgE greater than or equal to 500 international units per milliliter (about 70 percent)."
+    assert speakable("BP 90/60 mmHg on TMP/SMX") == "BP 90 over 60 millimeters of mercury on TMP SMX"
+    assert not kokoro.ready(tmp_path) and kokoro.listed(tmp_path) == []
+    assert service.default_voices(tmp_path) == service.DEFAULT_VOICES
+    spoken: list[tuple[str, str]] = []
+    original = service.say_synth
+    service.say_synth = lambda text, voice, target: spoken.append((text, voice))  # type: ignore[assignment]
+    try:
+        service.synth_for(tmp_path)("Hello.", "kokoro:af_heart", tmp_path / "x.wav")
+    finally:
+        service.say_synth = original  # type: ignore[assignment]
+    assert spoken == [("Hello.", service.DEFAULT_VOICES["A"])], "a Kokoro voice without Kokoro falls back to the Mac's"

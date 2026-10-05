@@ -701,6 +701,8 @@ export interface PodcastList {
 
 export interface PodcastVoice {
   name: string
+  /** What the picker shows: "Heart (Kokoro, US)", or the Mac voice's own name. */
+  label: string
   locale: string
 }
 

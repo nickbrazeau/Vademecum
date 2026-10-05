@@ -98,13 +98,16 @@ def push_podcast_audio(connection: sqlite3.Connection, peer: "Peer", source_dir:
         offer = peer._json("GET", "/api/sync/podcast-audio")
     except SyncError:
         return 0  # an older peer, without the route
-    held = {str(item.get("episode_id")) for item in offer.get("held", []) if isinstance(item, dict)}
+    # By size as well as id: an episode rendered again, in new voices, goes again.
+    held = {
+        (str(item.get("episode_id")), int(item.get("bytes") or 0)) for item in offer.get("held", []) if isinstance(item, dict)
+    }
     keep = int(offer.get("keep") or podcasts.CLOUD_KEEP)
     directory = podcasts.podcasts_dir(source_dir)
     sent = 0
     for episode in podcasts.unheard_with_audio(connection)[:keep]:
         path = directory / episode.audio_name
-        if episode.id in held or not path.is_file():
+        if not path.is_file() or (episode.id, path.stat().st_size) in held:
             continue
         data = path.read_bytes()
         headers = dict(peer._headers)

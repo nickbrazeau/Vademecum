@@ -90,9 +90,21 @@ function Script({ episode, onFinished }: { episode: PodcastEpisode; onFinished: 
   )
 }
 
-function EpisodeCard({ episode, voices, canRender, onChanged }: { episode: PodcastEpisode; voices: PodcastVoice[]; canRender: boolean; onChanged: () => void }) {
-  const [voiceA, setVoiceA] = useState(episode.voices.A || 'Samantha')
-  const [voiceB, setVoiceB] = useState(episode.voices.B || 'Daniel')
+function EpisodeCard({
+  episode,
+  voices,
+  defaults,
+  canRender,
+  onChanged
+}: {
+  episode: PodcastEpisode
+  voices: PodcastVoice[]
+  defaults: Record<string, string>
+  canRender: boolean
+  onChanged: () => void
+}) {
+  const [voiceA, setVoiceA] = useState(episode.voices.A || defaults.A || 'Samantha')
+  const [voiceB, setVoiceB] = useState(episode.voices.B || defaults.B || 'Daniel')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
 
@@ -115,6 +127,7 @@ function EpisodeCard({ episode, voices, canRender, onChanged }: { episode: Podca
   }
 
   const names = voices.map((voice) => voice.name)
+  const labelOf = (name: string) => voices.find((voice) => voice.name === name)?.label ?? name
   return (
     <li className="podcast-episode">
       <p className="title">{episode.title || 'Untitled episode'}</p>
@@ -156,7 +169,7 @@ function EpisodeCard({ episode, voices, canRender, onChanged }: { episode: Podca
           <select id={`voice-a-${episode.id}`} value={voiceA} disabled={busy} onChange={(event) => setVoiceA(event.target.value)}>
             {(names.includes(voiceA) ? names : [voiceA, ...names]).map((name) => (
               <option key={name} value={name}>
-                {name}
+                {labelOf(name)}
               </option>
             ))}
           </select>
@@ -164,7 +177,7 @@ function EpisodeCard({ episode, voices, canRender, onChanged }: { episode: Podca
           <select id={`voice-b-${episode.id}`} value={voiceB} disabled={busy} onChange={(event) => setVoiceB(event.target.value)}>
             {(names.includes(voiceB) ? names : [voiceB, ...names]).map((name) => (
               <option key={name} value={name}>
-                {name}
+                {labelOf(name)}
               </option>
             ))}
           </select>
@@ -242,6 +255,7 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
   if (result.state === 'failed') return <Unavailable error={result.error} onRetry={reload} />
   const list = result.value
   const voiceList = voices.result.state === 'ready' ? voices.result.value.voices : []
+  const voiceDefaults = voices.result.state === 'ready' ? voices.result.value.default : {}
   const pageList: EncyclopediaEntry[] = pages.result.state === 'ready' ? pages.result.value.entries : []
   const current = list.episodes.filter((episode) => !episode.archived)
   const archive = list.episodes
@@ -327,13 +341,15 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
         {current.length > 0 ? (
           <ul className="list">
             {current.map((episode) => (
-              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} canRender={list.can_render} onChanged={reload} />
+              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} defaults={voiceDefaults} canRender={list.can_render} onChanged={reload} />
             ))}
           </ul>
         ) : null}
         {list.can_render ? (
           <p className="muted small">
-            Voices are the Mac’s own. More, and better ones, can be added in System Settings under Accessibility, Spoken Content.
+            {voiceList.some((voice) => voice.name.startsWith('kokoro:'))
+              ? 'Kokoro voices are natural on-device voices; the Mac’s own are listed after them.'
+              : 'Voices are the Mac’s own. For natural voices, run scripts/voices.sh once on this Mac and restart Vademecum.'}
           </p>
         ) : null}
       </section>
@@ -346,7 +362,7 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
           <p className="muted small">Episodes you have listened to, most recent first.</p>
           <ul className="list">
             {archive.map((episode) => (
-              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} canRender={list.can_render} onChanged={reload} />
+              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} defaults={voiceDefaults} canRender={list.can_render} onChanged={reload} />
             ))}
           </ul>
         </details>
