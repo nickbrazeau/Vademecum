@@ -225,7 +225,9 @@ class BuildRunner:
             if not query:
                 continue
             try:
-                articles = list(self._provider.search(query))
+                # A blocking network call: off the event loop, or every request
+                # waits on PubMed while it answers.
+                articles = await asyncio.to_thread(lambda q=query: list(self._provider.search(q)))
             except Exception:
                 # An outage is not an empty search result. Abort before commit,
                 # preserving accepted references, their evidence and coverage.

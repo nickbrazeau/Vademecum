@@ -147,7 +147,25 @@ def available_voices(voices_dir: Path | None = None) -> list[dict[str, str]]:
     return natural + _say_voices()
 
 
+_SAY_CACHE: tuple[float, list[dict[str, str]]] | None = None
+SAY_CACHE_SECONDS = 600
+
+
 def _say_voices() -> list[dict[str, str]]:
+    """The Mac's voices change only when the owner installs one: listed at most
+    every ten minutes, since `say -v ?` is slow while the processor is busy."""
+    import time
+
+    global _SAY_CACHE
+    if _SAY_CACHE is not None and time.monotonic() - _SAY_CACHE[0] < SAY_CACHE_SECONDS:
+        return [dict(v) for v in _SAY_CACHE[1]]
+    voices = _list_say_voices()
+    if voices:
+        _SAY_CACHE = (time.monotonic(), voices)
+    return [dict(v) for v in voices]
+
+
+def _list_say_voices() -> list[dict[str, str]]:
     try:
         listing = subprocess.run(["say", "-v", "?"], capture_output=True, text=True, timeout=20, check=False).stdout
     except (OSError, subprocess.SubprocessError):
