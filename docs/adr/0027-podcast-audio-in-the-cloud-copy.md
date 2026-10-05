@@ -1,6 +1,8 @@
-# 0027. Podcast audio in the cloud copy, retired once heard
+# ADR 0027 — Podcast audio in the cloud copy, retired once heard
 
-Status: accepted, 2026-10-05
+- Status: accepted
+- Date: 2026-10-05
+- Extends: [0017](0017-the-seat-on-cloudflare.md), [0025](0025-socratic-tutor-and-podcasts.md), [0026](0026-feedback-october.md)
 
 ## Context
 
