@@ -424,6 +424,8 @@ export const api = {
       normalize.flashcardDraw(data.next)
     ),
   preferences: () => request<unknown>('/preferences').then(normalize.preferencesPayload),
+  setPodcastSpeed: (speed: number) =>
+    request<unknown>('/preferences', { method: 'PUT', ...body({ podcast_speed: speed }) }).then(normalize.preferencesPayload),
   savePreferences: (visibleTabs: string[], order?: string[]) =>
     request<unknown>('/preferences', { method: 'PUT', ...body(order ? { visible_tabs: visibleTabs, order } : { visible_tabs: visibleTabs }) }).then(
       normalize.preferencesPayload

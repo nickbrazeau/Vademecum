@@ -1183,6 +1183,7 @@ export function preferencesPayload(raw: unknown): Preferences {
     visible_tabs: strings(data.visible_tabs),
     order: strings(data.order),
     daily_goal: num(data.daily_goal, 20),
+    podcast_speed: num(data.podcast_speed, 1),
     tabs: arr(data.tabs).map((item) => {
       const tab = obj(item)
       return { name: str(tab.name), label: str(tab.label), fixed: tab.fixed === true }

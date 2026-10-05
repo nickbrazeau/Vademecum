@@ -23,13 +23,59 @@ const STATUS_LABEL: Record<PodcastEpisode['status'], string> = {
   failed: 'could not be written'
 }
 
+export const SPEEDS = [1, 1.25, 1.5, 1.75, 2] as const
+function speedLabel(speed: number): string {
+  return `${speed}×`
+}
+
+/** Listening speed, one choice for every episode and every device. */
+function SpeedPicker({ speed, onSpeed }: { speed: number; onSpeed: (speed: number) => void }) {
+  return (
+    <div className="chips podcast-speed" role="group" aria-label="Listening speed">
+      {SPEEDS.map((choice) => (
+        <button key={choice} type="button" className={`chip${choice === speed ? ' on' : ''}`} aria-pressed={choice === speed} onClick={() => onSpeed(choice)}>
+          {speedLabel(choice)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** The player, at the chosen speed; browsers reset the rate when a source loads, so it is set again then. */
+function Player({ episode, speed, onEnded }: { episode: PodcastEpisode; speed: number; onEnded: () => void }) {
+  const audio = useRef<HTMLAudioElement>(null)
+  useEffect(() => {
+    if (audio.current) {
+      audio.current.defaultPlaybackRate = speed
+      audio.current.playbackRate = speed
+    }
+  }, [speed])
+  const apply = () => {
+    if (audio.current) audio.current.playbackRate = speed
+  }
+  return (
+    <audio
+      ref={audio}
+      controls
+      preload="none"
+      src={`${API_ROOT}/podcasts/${episode.id}/audio`}
+      className="podcast-audio"
+      onEnded={onEnded}
+      onLoadedMetadata={apply}
+      onPlay={apply}
+    >
+      <a href={`${API_ROOT}/podcasts/${episode.id}/audio`}>Download the audio</a>
+    </audio>
+  )
+}
+
 function durationLabel(seconds: number): string {
   const minutes = Math.floor(seconds / 60)
   const rest = seconds % 60
   return minutes > 0 ? `${minutes} min ${rest} s` : `${rest} s`
 }
 
-function Script({ episode, onFinished }: { episode: PodcastEpisode; onFinished: () => void }) {
+function Script({ episode, speed, onFinished }: { episode: PodcastEpisode; speed: number; onFinished: () => void }) {
   const [reading, setReading] = useState(false)
   const stop = useRef<() => void>(() => undefined)
   useEffect(() => () => stop.current(), [])
@@ -50,7 +96,7 @@ function Script({ episode, onFinished }: { episode: PodcastEpisode; onFinished: 
         onFinished()
         return
       }
-      stop.current = speak(line, { onEnd: next })
+      stop.current = speak(line, { onEnd: next, rate: speed })
       index += 1
     }
     next()
@@ -95,11 +141,15 @@ function EpisodeCard({
   voices,
   defaults,
   canRender,
-  onChanged
+  onChanged,
+  speed,
+  onSpeed
 }: {
   episode: PodcastEpisode
   voices: PodcastVoice[]
   defaults: Record<string, string>
+  speed: number
+  onSpeed: (speed: number) => void
   canRender: boolean
   onChanged: () => void
 }) {
@@ -152,11 +202,10 @@ function EpisodeCard({
         <p className="muted small">Listened to. The audio was deleted to save space; the script, take-homes and sources stay.</p>
       ) : null}
       {episode.has_audio ? (
-        <audio controls preload="none" src={`${API_ROOT}/podcasts/${episode.id}/audio`} className="podcast-audio" onEnded={finished}>
-          <a href={`${API_ROOT}/podcasts/${episode.id}/audio`}>Download the audio</a>
-        </audio>
+        <Player episode={episode} speed={speed} onEnded={finished} />
       ) : null}
-      {episode.script.length > 0 ? <Script episode={episode} onFinished={finished} /> : null}
+      {episode.has_audio || (canSpeak() && episode.script.length > 0) ? <SpeedPicker speed={speed} onSpeed={onSpeed} /> : null}
+      {episode.script.length > 0 ? <Script episode={episode} speed={speed} onFinished={finished} /> : null}
       {episode.sources.length > 0 ? (
         <details className="support-details">
           <summary>Sources ({episode.sources.length})</summary>
@@ -229,6 +278,18 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
   const [chosen, setChosen] = useState<string[]>([])
   const [title, setTitle] = useState('')
   const [asked, setAsked] = useState('')
+  // The listening speed is a preference on the server, so the phone and the Mac share it.
+  const [speed, setSpeed] = useState(1)
+  useEffect(() => {
+    api.preferences().then(
+      (preferences) => setSpeed(preferences.podcast_speed),
+      () => undefined
+    )
+  }, [])
+  const chooseSpeed = (choice: number) => {
+    setSpeed(choice)
+    api.setPodcastSpeed(choice).catch(() => undefined)
+  }
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [note, setNote] = useState('')
@@ -403,7 +464,7 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
         {current.length > 0 ? (
           <ul className="list">
             {current.map((episode) => (
-              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} defaults={voiceDefaults} canRender={list.can_render} onChanged={reload} />
+              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} defaults={voiceDefaults} speed={speed} onSpeed={chooseSpeed} canRender={list.can_render} onChanged={reload} />
             ))}
           </ul>
         ) : null}
@@ -424,7 +485,7 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
           <p className="muted small">Episodes you have listened to, most recent first.</p>
           <ul className="list">
             {archive.map((episode) => (
-              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} defaults={voiceDefaults} canRender={list.can_render} onChanged={reload} />
+              <EpisodeCard key={episode.id} episode={episode} voices={voiceList} defaults={voiceDefaults} speed={speed} onSpeed={chooseSpeed} canRender={list.can_render} onChanged={reload} />
             ))}
           </ul>
         </details>

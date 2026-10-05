@@ -209,4 +209,31 @@ describe('the Podcast tab', () => {
     await user.type(screen.getByLabelText('Ask for an episode'), 'Anything')
     expect(screen.getByRole('button', { name: 'Make this episode' })).toBeDisabled()
   })
+
+  it('plays at the chosen speed, up to 2×, and saves it as a preference', async () => {
+    let saved = 1
+    const calls = stub({
+      '/api/podcasts': { episodes: [{ ...EPISODE, status: 'rendered', has_audio: true, audio_bytes: 1000, duration_seconds: 60 }], can_write: false, can_render: false, note: '', disclosure: '', waiting: 1, max_hosted: 10 },
+      '/api/podcasts/voices': { voices: [], default: {} },
+      '/api/encyclopedia': { entries: [], counts: {}, can_compile: false, running: false, last_refresh: null, note: '', disclosure: '' },
+      '/api/preferences': () => ({ visible_tabs: [], order: [], tabs: [], daily_goal: 20, podcast_speed: saved }),
+      'PUT /api/preferences': (body: unknown) => {
+        saved = (body as { podcast_speed: number }).podcast_speed
+        return { visible_tabs: [], order: [], tabs: [], daily_goal: 20, podcast_speed: saved }
+      }
+    })
+    const user = userEvent.setup()
+    const { unmount } = render(<Podcasts />)
+    await screen.findByText('Lactate, two ways')
+    const audio = document.querySelector('audio') as HTMLAudioElement
+    expect(audio.playbackRate).toBe(1)
+    await user.click(screen.getByRole('button', { name: '2×' }))
+    expect(screen.getByRole('button', { name: '2×' })).toHaveAttribute('aria-pressed', 'true')
+    expect(audio.playbackRate).toBe(2)
+    await waitFor(() => expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({ podcast_speed: 2 }))
+    unmount()
+    render(<Podcasts />)
+    await screen.findByText('Lactate, two ways')
+    await waitFor(() => expect((document.querySelector('audio') as HTMLAudioElement).playbackRate).toBe(2))
+  })
 })

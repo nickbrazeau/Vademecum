@@ -158,3 +158,15 @@ def test_the_owner_orders_the_tabs_between_today_and_settings(connection) -> Non
     assert [tab["name"] for tab in moved["tabs"]] == moved["order"]
     again = preferences.set_visible_tabs(connection, ["tutor"])
     assert again["order"] == moved["order"], "choosing tabs again keeps the order"
+
+
+def test_the_listening_speed_is_a_shared_preference(tmp_path: Path) -> None:
+    """ADR 0027: chosen once, on any device, and kept with the other preferences (which sync)."""
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_folder_enabled=False)
+    app = create_app(settings, transport_factory=refusing_factory())
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        assert c.get("/api/preferences").json()["podcast_speed"] == 1.0
+        assert c.put("/api/preferences", json={"podcast_speed": 2}).json()["podcast_speed"] == 2.0
+        assert c.put("/api/preferences", json={"podcast_speed": 3}).status_code == 409
+        kept = c.get("/api/preferences").json()
+        assert kept["podcast_speed"] == 2.0 and kept["daily_goal"] == 20, "other preferences untouched"

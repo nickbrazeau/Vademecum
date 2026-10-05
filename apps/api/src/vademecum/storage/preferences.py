@@ -66,6 +66,31 @@ def set_daily_goal(connection: sqlite3.Connection, goal: int) -> dict[str, Any]:
     return get_preferences(connection)
 
 
+PODCAST_SPEEDS = (1.0, 1.25, 1.5, 1.75, 2.0)
+
+
+def podcast_speed(connection: sqlite3.Connection) -> float:
+    """The owner's listening speed for episodes, shared by every device (ADR 0027)."""
+    try:
+        value = float(_read(connection).get("podcast_speed", 1.0))
+    except (TypeError, ValueError):
+        return 1.0
+    return value if value in PODCAST_SPEEDS else 1.0
+
+
+def set_podcast_speed(connection: sqlite3.Connection, speed: float) -> dict[str, Any]:
+    if float(speed) not in PODCAST_SPEEDS:
+        raise ValueError("speed")
+    stored = _read(connection)
+    with transaction(connection) as tx:
+        tx.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (KEY, json.dumps({**stored, "podcast_speed": float(speed)}, separators=(",", ":")), utc_now()),
+        )
+    return get_preferences(connection)
+
+
 def ordered(names: list[str] | None) -> list[str]:
     """The owner's order of the tabs: Today first and Settings last always; any tab
     not in their order (a new one) goes where the catalogue puts it, before Settings."""
@@ -87,7 +112,13 @@ def get_preferences(connection: sqlite3.Connection) -> dict[str, Any]:
         known = set(stored.get("known_tabs") or [name for name in TAB_NAMES if name != "construction"])
         visible = [name for name in order if name in wanted or name in FIXED or name not in known]
     by_name = {tab["name"]: tab for tab in TABS}
-    return {"visible_tabs": visible, "order": order, "tabs": [dict(by_name[name]) for name in order], "daily_goal": daily_goal(connection)}
+    return {
+        "visible_tabs": visible,
+        "order": order,
+        "tabs": [dict(by_name[name]) for name in order],
+        "daily_goal": daily_goal(connection),
+        "podcast_speed": podcast_speed(connection),
+    }
 
 
 def set_visible_tabs(connection: sqlite3.Connection, names: list[str], order: list[str] | None = None) -> dict[str, Any]:

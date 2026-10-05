@@ -1587,3 +1587,7 @@ details.card-details[open] > summary {
   height: 0.6rem;
   accent-color: var(--accent);
 }
+
+.podcast-speed {
+  margin: 0.25rem 0 0.5rem;
+}

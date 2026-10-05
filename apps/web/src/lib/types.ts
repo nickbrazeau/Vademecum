@@ -757,6 +757,8 @@ export interface Preferences {
   order: string[]
   tabs: TabChoice[]
   daily_goal: number
+  /** Listening speed for podcast episodes, shared by every device (ADR 0027). */
+  podcast_speed: number
 }
 
 export interface Dissection {

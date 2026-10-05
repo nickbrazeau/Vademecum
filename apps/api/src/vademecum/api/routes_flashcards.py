@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends
 
 from ..storage import flashcards as store
 from ..storage import preferences
+from ..storage.sources import ConflictError
 from .deps import get_connection
 from .schemas import RecordId, Strict
 
@@ -31,6 +32,8 @@ class PreferencesIn(Strict):
     # The owner's order of the tabs between Today and Settings (ADR 0026).
     order: list[str] | None = None
     daily_goal: int | None = None
+    # Listening speed for podcast episodes (ADR 0027): 1, 1.25, 1.5, 1.75 or 2.
+    podcast_speed: float | None = None
 
 
 @router.get("")
@@ -64,6 +67,11 @@ def read_preferences(connection: sqlite3.Connection = Depends(get_connection)) -
 def write_preferences(payload: PreferencesIn, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
     if payload.daily_goal is not None:
         preferences.set_daily_goal(connection, payload.daily_goal)
+    if payload.podcast_speed is not None:
+        try:
+            preferences.set_podcast_speed(connection, payload.podcast_speed)
+        except ValueError:
+            raise ConflictError("speed", "Choose 1, 1.25, 1.5, 1.75 or 2 times.") from None
     if payload.visible_tabs is None and payload.order is None:
         return preferences.get_preferences(connection)
     order = None if payload.order is None else [name[:40] for name in payload.order[:40]]
