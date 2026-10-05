@@ -41,6 +41,8 @@ class Episode:
     updated_at: str
     # What the episode was written from (ADR 0026): the pages and the literature reviewed for them.
     sources: tuple[dict[str, str], ...] = ()
+    # When the owner finished it; an episode listened to sits in the archive (ADR 0026).
+    listened_at: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -51,6 +53,7 @@ class Episode:
         data["voices"] = dict(self.voices)
         data["words"] = sum(len(line["text"].split()) for line in self.script)
         data["has_audio"] = bool(self.audio_name)
+        data["archived"] = self.listened_at is not None
         return data
 
 
@@ -86,6 +89,7 @@ def _episode(row: sqlite3.Row) -> Episode:
             for item in (_loads(row["sources"], []) if "sources" in row.keys() else [])
             if isinstance(item, dict)
         ),
+        listened_at=row["listened_at"] if "listened_at" in row.keys() else None,
     )
 
 
@@ -102,14 +106,21 @@ def create_episode(connection: sqlite3.Connection, *, title: str, entry_ids: lis
 
 
 def get_episode(connection: sqlite3.Connection, episode_id: str) -> Episode:
-    row = connection.execute("SELECT * FROM podcast_episodes WHERE id = ?", (episode_id,)).fetchone()
+    row = connection.execute(
+        "SELECT e.*, l.listened_at FROM podcast_episodes e LEFT JOIN podcast_listens l ON l.episode_id = e.id WHERE e.id = ?",
+        (episode_id,),
+    ).fetchone()
     if row is None:
         raise NotFoundError("podcast episode", episode_id)
     return _episode(row)
 
 
 def list_episodes(connection: sqlite3.Connection, *, limit: int = 50) -> list[Episode]:
-    rows = connection.execute("SELECT * FROM podcast_episodes ORDER BY created_at DESC, id LIMIT ?", (max(1, int(limit)),)).fetchall()
+    rows = connection.execute(
+        "SELECT e.*, l.listened_at FROM podcast_episodes e LEFT JOIN podcast_listens l ON l.episode_id = e.id"
+        " ORDER BY e.created_at DESC, e.id LIMIT ?",
+        (max(1, int(limit)),),
+    ).fetchall()
     return [_episode(row) for row in rows]
 
 
@@ -151,6 +162,20 @@ def set_failed(connection: sqlite3.Connection, episode_id: str, detail: str, *, 
             "UPDATE podcast_episodes SET status = ?, status_detail = ?, updated_at = ? WHERE id = ?",
             ("scripted" if keep_script and get_episode(connection, episode_id).script else "failed", detail[:500], now, episode_id),
         )
+    return get_episode(connection, episode_id)
+
+
+def set_listened(connection: sqlite3.Connection, episode_id: str, listened: bool) -> Episode:
+    """Finished: to the archive. Not finished after all: back to the list."""
+    get_episode(connection, episode_id)
+    with transaction(connection) as tx:
+        if listened:
+            tx.execute(
+                "INSERT INTO podcast_listens (episode_id, listened_at) VALUES (?, ?) ON CONFLICT(episode_id) DO NOTHING",
+                (episode_id, utc_now()),
+            )
+        else:
+            tx.execute("DELETE FROM podcast_listens WHERE episode_id = ?", (episode_id,))
     return get_episode(connection, episode_id)
 
 

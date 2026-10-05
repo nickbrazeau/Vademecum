@@ -675,6 +675,8 @@ export interface PodcastEpisode {
   takeaways: string[]
   voices: Record<string, string>
   has_audio: boolean
+  archived: boolean
+  listened_at: string | null
   sources: PodcastSource[]
   audio_bytes: number
   duration_seconds: number

@@ -4,7 +4,7 @@
  * rendered with chosen voices, and played.
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Podcasts } from '../src/pages/Podcasts'
@@ -85,7 +85,7 @@ describe('the Socratic tutor on the Mac', () => {
   })
 })
 
-describe('the Podcast Generator', () => {
+describe('the Podcast tab', () => {
   it('writes an episode from improvement areas, lists it with its script, and renders it with chosen voices', async () => {
     let rendered = false
     const calls = stub({
@@ -111,5 +111,31 @@ describe('the Podcast Generator', () => {
     await waitFor(() => expect(calls.find((call) => call.url === '/api/podcasts/pod_1/render')?.body).toEqual({ voice_a: 'Karen', voice_b: 'Daniel' }))
     await waitFor(() => expect(screen.getByText(/audio ready · 1 page · /)).toBeInTheDocument())
     expect(document.querySelector('audio')?.getAttribute('src')).toBe('/api/podcasts/pod_1/audio')
+  })
+
+  it('drops an episode played to the end into the archive, and brings it back', async () => {
+    let listened = false
+    const audio = { ...EPISODE, status: 'rendered', has_audio: true, audio_bytes: 120000, duration_seconds: 75 }
+    const calls = stub({
+      '/api/podcasts': () => ({ episodes: [{ ...audio, archived: listened, listened_at: listened ? '2026-10-04T23:00:00Z' : null }], can_write: false, can_render: false, note: 'Episodes are written on the Mac.', disclosure: '' }),
+      '/api/podcasts/voices': { voices: [], default: {} },
+      '/api/encyclopedia': { entries: [], counts: {}, can_compile: false, running: false, last_refresh: null, note: '', disclosure: '' },
+      'POST /api/podcasts/pod_1/listened': (body: unknown) => {
+        listened = (body as { listened: boolean }).listened
+        return { ...audio, archived: listened }
+      }
+    })
+    const user = userEvent.setup()
+    render(<Podcasts />)
+    await screen.findByText('Lactate, two ways')
+    expect(screen.queryByText(/Archive/)).toBeNull()
+    fireEvent.ended(document.querySelector('audio') as HTMLAudioElement)
+    expect(await screen.findByText('Archive (1)')).toBeInTheDocument()
+    expect(screen.getByText(/Nothing new to listen to/)).toBeInTheDocument()
+    expect(calls.find((call) => call.url === '/api/podcasts/pod_1/listened')?.body).toEqual({ listened: true })
+    await user.click(screen.getByText('Archive (1)'))
+    await user.click(screen.getByRole('button', { name: 'Back to episodes' }))
+    await waitFor(() => expect(screen.queryByText('Archive (1)')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Mark listened' })).toBeInTheDocument()
   })
 })

@@ -180,7 +180,9 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
   return (
     <div className="stack">
       <section className="card" aria-labelledby="map-heading">
-        <h2 id="map-heading">Where the gaps are</h2>
+        <h2 id="map-heading">
+          Where the gaps are<sup aria-hidden="true">*</sup>
+        </h2>
         {!hasTopics ? (
           <p className="muted">
             Nothing to draw yet. This map fills in from your piles, from what you flag, and from any exam report you add below.
@@ -219,13 +221,6 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
               hidden={hidden}
               onToggleSpecialty={toggleSpecialty}
             />
-            <p className="muted small">
-              Size is open flags; colour is the specialty, and each legend entry switches its
-              topics on or off. A dashed ring is an area an exam report placed below the mark.
-              A line means one learning point was filed under both topics.
-              Where things sit is remembered between opens; new topics settle in around the ones
-              already placed.
-            </p>
             {layoutFailure ? (
               <p className="failure small" role="status">
                 The layout could not be remembered: {layoutFailure.message} The map is unchanged.
@@ -352,6 +347,11 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
           <FlagGroups flags={flags.result.value} onChanged={reloadBoth} />
         ) : null}
       </details>
+      <p className="muted small map-footnote">
+        * Size is open flags; colour is the specialty, and each legend entry switches its topics on or off. A dashed ring is an
+        area an exam report placed below the mark. A line means one learning point was filed under both topics. Where things sit
+        is remembered between opens; new topics settle in around the ones already placed.
+      </p>
     </div>
   )
 }

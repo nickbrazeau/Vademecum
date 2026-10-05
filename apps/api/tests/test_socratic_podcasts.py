@@ -207,6 +207,12 @@ def test_an_episode_is_written_from_pages_and_rendered_on_the_mac(tmp_path: Path
         assert rendered["voices"] == {"A": "Samantha", "B": "Daniel"}, "an unknown voice falls back to the default"
         audio = c.get(f"/api/podcasts/{episode_id}/audio")
         assert audio.status_code == 200 and audio.headers["content-type"].startswith("audio/mp4") and len(audio.content) > 1000
+        # Finished: to the archive, and back again if the owner says so.
+        archived = c.post(f"/api/podcasts/{episode_id}/listened", json={"listened": True}).json()
+        assert archived["archived"] is True and archived["listened_at"]
+        assert c.get("/api/podcasts").json()["episodes"][0]["archived"] is True
+        assert c.post(f"/api/podcasts/{episode_id}/listened", json={"listened": False}).json()["archived"] is False
+        c.post(f"/api/podcasts/{episode_id}/listened", json={})
         assert c.delete(f"/api/podcasts/{episode_id}").status_code == 204
         assert c.get("/api/podcasts").json()["episodes"] == []
 
@@ -214,4 +220,5 @@ def test_an_episode_is_written_from_pages_and_rendered_on_the_mac(tmp_path: Path
 def test_the_new_tables_sync_and_export() -> None:
     assert "socratic_sessions" in SYNCED_TABLES and "socratic_sessions" not in DOMI_OWNED and "socratic_sessions" in EXPORTED_TABLES
     assert "podcast_episodes" in SYNCED_TABLES and "podcast_episodes" in DOMI_OWNED and "podcast_episodes" in EXPORTED_TABLES
+    assert "podcast_listens" in SYNCED_TABLES and "podcast_listens" not in DOMI_OWNED, "finished on the phone, archived on the Mac"
     assert sessions.MAX_EXCHANGES == 12

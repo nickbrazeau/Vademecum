@@ -399,6 +399,8 @@ export const api = {
   rewritePodcast: (episodeId: string) => request<{ started: boolean }>(`/podcasts/${episodeId}/script`, { method: 'POST' }),
   renderPodcast: (episodeId: string, voices: { voice_a: string; voice_b: string }) =>
     request<unknown>(`/podcasts/${episodeId}/render`, { method: 'POST', ...body(voices) }).then(normalize.podcastEpisode),
+  markPodcastListened: (episodeId: string, listened: boolean) =>
+    request<unknown>(`/podcasts/${episodeId}/listened`, { method: 'POST', ...body({ listened }) }).then(normalize.podcastEpisode),
   deletePodcast: (episodeId: string) => request<void>(`/podcasts/${episodeId}`, { method: 'DELETE' }),
 
   // The feedback of 4 October (ADR 0026): local reads and writes, no model turn.

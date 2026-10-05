@@ -41,6 +41,10 @@ class EpisodeIn(Strict):
     title: str = ""
 
 
+class ListenedIn(Strict):
+    listened: bool = True
+
+
 class RenderIn(Strict):
     voice_a: str = ""
     voice_b: str = ""
@@ -151,6 +155,12 @@ def audio(episode_id: str, connection: sqlite3.Connection = Depends(get_connecti
     if not path.is_file():
         raise ConflictError("no_audio", "The audio file is not on this machine; it stays on the Mac that rendered it.")
     return FileResponse(path, media_type="audio/mp4", filename=f"{episode.title[:60] or 'episode'}.m4a")
+
+
+@router.post("/{episode_id}/listened")
+def listened(episode_id: str, payload: ListenedIn, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Finished, on any device: the episode drops to the archive (ADR 0026). Local; sends nothing."""
+    return store.set_listened(connection, episode_id, payload.listened).as_dict()
 
 
 @router.delete("/{episode_id}", status_code=status.HTTP_204_NO_CONTENT)

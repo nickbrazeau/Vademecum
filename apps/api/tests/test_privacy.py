@@ -391,6 +391,7 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/podcasts/{episode_id}/script",
         "/api/podcasts/{episode_id}/render",
         "/api/podcasts/{episode_id}/audio",
+        "/api/podcasts/{episode_id}/listened",
         # The feedback of 4 October (ADR 0026): local reads and writes, no model turn.
         "/api/tutor/scorecard",
         "/api/activity",

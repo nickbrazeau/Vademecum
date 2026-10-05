@@ -1085,6 +1085,8 @@ export function podcastEpisode(raw: unknown): PodcastEpisode {
     takeaways: strings(data.takeaways),
     voices: Object.fromEntries(Object.entries(voices).map(([key, value]) => [key, str(value)])),
     has_audio: data.has_audio === true,
+    archived: data.archived === true,
+    listened_at: typeof data.listened_at === 'string' ? data.listened_at : null,
     sources: arr(data.sources).map((item) => {
       const source = obj(item)
       return {
