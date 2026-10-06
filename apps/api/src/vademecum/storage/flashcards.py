@@ -233,21 +233,82 @@ def weigh(card: Flashcard, *, weights: dict[str, Any], last: tuple[str, str] | N
     return weight, reasons
 
 
-def next_card(connection: sqlite3.Connection, *, not_id: str | None = None, rng: random.Random | None = None) -> dict[str, Any] | None:
-    ids = [card_id for card_id in eligible_card_ids(connection) if card_id != not_id] or eligible_card_ids(connection)
-    if not ids:
+def next_card(
+    connection: sqlite3.Connection,
+    *,
+    not_id: str | None = None,
+    rng: random.Random | None = None,
+    practise: bool = False,
+    now: Any = None,
+) -> dict[str, Any] | None:
+    """Spaced repetition (feedback of 5 October): the card ready longest, as a share of
+    its gap, comes first, with the Improvement Map's weight behind it; then a few new
+    cards a day, the map's gaps first; then rest until the next is ready, unless the
+    owner asks to keep practising, when the weighted draw of before returns."""
+    from . import srs
+
+    all_ids = eligible_card_ids(connection)
+    if not all_ids:
         return None
+    moment = now or srs.now_utc()
+    plans = srs.schedules(connection)
     weights = improvement_weights(connection)
     latest = _last_reviews(connection)
-    cards = [get_card(connection, card_id) for card_id in ids]
-    weighed = [weigh(card, weights=weights, last=latest.get(card.id)) for card in cards]
-    chosen_index = (rng or random.SystemRandom()).choices(range(len(cards)), weights=[w for w, _ in weighed], k=1)[0]
-    card = cards[chosen_index]
+    randomizer = rng or random.SystemRandom()
+    eligible = set(all_ids)
+
+    ready = [i for i in all_ids if i in plans and plans[i].due_at is not None and plans[i].due_at <= moment]
+    fresh = [i for i in all_ids if i not in plans]
+    later = sorted(plans[i].due_at for i in all_ids if i in plans and plans[i].due_at is not None and plans[i].due_at > moment)
+    new_left = max(0, srs.NEW_PER_DAY - srs.new_started_today(connection, moment))
+    counts = {
+        "ready": len(ready),
+        "new_left_today": min(new_left, len(fresh)),
+        "new_total": len(fresh),
+        "learned": len([i for i in plans if i in eligible]),
+        "next_ready_at": later[0].isoformat().replace("+00:00", "Z") if later else None,
+        "new_per_day": srs.NEW_PER_DAY,
+    }
+
+    def pick_weighted(ids: list[str]) -> str:
+        cards = [get_card(connection, card_id) for card_id in ids]
+        weighed = [weigh(card, weights=weights, last=latest.get(card.id))[0] for card in cards]
+        return ids[randomizer.choices(range(len(ids)), weights=weighed, k=1)[0]]
+
+    kind = ""
+    choice: str | None = None
+    candidates = [i for i in ready if i != not_id] or ready
+    if candidates:
+        def urgency(card_id: str) -> float:
+            plan = plans[card_id]
+            gap = max(plan.interval_days, 1 / 144)  # ten minutes, for a card being relearned
+            overdue = (moment - plan.due_at).total_seconds() / 86400  # type: ignore[operator]
+            card = get_card(connection, card_id)
+            return (1 + overdue / gap) * weigh(card, weights=weights, last=latest.get(card_id))[0] + randomizer.random() * 0.01
+
+        choice, kind = max(candidates, key=urgency), "ready"
+    elif new_left > 0 and fresh:
+        choice, kind = pick_weighted([i for i in fresh if i != not_id] or fresh), "new"
+    elif practise:
+        choice, kind = pick_weighted([i for i in all_ids if i != not_id] or all_ids), "practice"
+    if choice is None:
+        return {"card": None, "reasons": [], "citations": [], "deck": len(all_ids), "kind": "rest", "counts": counts, "schedule": None, "intervals": {}}
+    card = get_card(connection, choice)
+    plan = plans.get(choice, srs.NEW)
+    reasons = weigh(card, weights=weights, last=latest.get(choice))[1]
+    if kind == "ready" and not plan.is_new:
+        reasons = [f"Ready again: last seen {srs.gap_label(moment - plan.last_at)} ago."] + [r for r in reasons if r != "New card."]  # type: ignore[operator]
+    if kind == "practice":
+        reasons = ["Extra practice: nothing else is ready yet."] + reasons
     return {
         "card": card.as_dict(),
-        "reasons": weighed[chosen_index][1],
+        "reasons": reasons,
         "citations": cited_points(connection, list(card.point_ids)),
-        "deck": len(ids),
+        "deck": len(all_ids),
+        "kind": kind,
+        "counts": counts,
+        "schedule": plan.as_dict(),
+        "intervals": srs.preview(plan, moment),
     }
 
 

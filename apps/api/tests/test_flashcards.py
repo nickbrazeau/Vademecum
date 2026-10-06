@@ -170,3 +170,55 @@ def test_the_listening_speed_is_a_shared_preference(tmp_path: Path) -> None:
         assert c.put("/api/preferences", json={"podcast_speed": 3}).status_code == 409
         kept = c.get("/api/preferences").json()
         assert kept["podcast_speed"] == 2.0 and kept["daily_goal"] == 20, "other preferences untouched"
+
+
+def test_spaced_repetition_orders_the_deck(tmp_path: Path) -> None:
+    """Feedback of 5 October: a card answered "Got it" rests a day, then three, then
+    longer; "Again" brings it back in ten minutes; ready cards come before new ones,
+    and with nothing ready the deck rests unless the owner asks to keep practising."""
+    from datetime import timedelta
+
+    from vademecum.db import connect
+    from vademecum.storage import srs
+    from vademecum.storage.learning import DraftCitation, DraftPoint, settle_point, upsert_point
+
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_folder_enabled=False)
+    app = create_app(settings, transport_factory=refusing_factory())
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        connection = connect(app.state.database_path)
+        try:
+            pile_id = _real_point(c)
+            source = c.get(f"/api/piles/{pile_id}/sources").json()[0]
+            segment = connection.execute("SELECT id, text FROM source_segments WHERE source_id = ? ORDER BY ordinal LIMIT 1", (source["id"],)).fetchone()
+            for topic in ("alpha", "beta"):
+                point_id, _ = upsert_point(
+                    connection, pile_id=pile_id, generation_id=None,
+                    draft=DraftPoint(claim=f"A claim about {topic}.", detail="", topics=(topic,), citations=(DraftCitation(source_id=source["id"], segment_id=segment["id"], locator="Paragraph 1", quote=segment["text"][:60]),)),
+                )
+                settle_point(connection, point_id)
+                page = _page(connection, topic, [point_id])
+                store.insert_cards(connection, entry_id=page.id, topic=topic, entry_version=1, drafts=[{"front": f"{topic} front?", "back": "Back.", "point_ids": [point_id]}])
+            first = store.next_card(connection)
+            assert first["kind"] == "new" and first["counts"]["new_total"] == 2 and first["intervals"] == {"again": "10 min", "good": "1 day"}
+            a = first["card"]["id"]
+            store.record_review(connection, a, "good")
+            second = store.next_card(connection)
+            assert second["kind"] == "new" and second["card"]["id"] != a, "the answered card rests; the new one comes"
+            b = second["card"]["id"]
+            store.record_review(connection, b, "again")
+            now = srs.now_utc()
+            rest = store.next_card(connection, now=now)
+            assert rest["kind"] == "rest" and rest["card"] is None and rest["counts"]["next_ready_at"]
+            assert store.next_card(connection, now=now, practise=True)["kind"] == "practice"
+            soon = store.next_card(connection, now=now + timedelta(minutes=11))
+            assert soon["kind"] == "ready" and soon["card"]["id"] == b, "asked to see again: back in ten minutes"
+            later = store.next_card(connection, now=now + timedelta(days=2))
+            assert later["counts"]["ready"] == 2
+            plans = srs.schedules(connection)
+            assert plans[a].interval_days == 1.0 and plans[b].lapses == 0 and plans[b].ease < srs.START_EASE
+            assert srs.new_started_today(connection, now) == 2
+        finally:
+            connection.close()
+        over_api = c.get("/api/flashcards/next").json()
+        assert over_api["kind"] in ("rest", "ready") and "counts" in over_api
+        assert c.get("/api/flashcards/next?practise=true").json()["card"] is not None

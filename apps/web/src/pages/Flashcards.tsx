@@ -11,6 +11,7 @@ import { useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
+import { momentLabel } from '../lib/format'
 import type { RouteName } from '../lib/router'
 import type { FlashcardDraw } from '../lib/types'
 import { openPageLater } from '../lib/pageLink'
@@ -22,6 +23,8 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
   const [revealed, setRevealed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
+  // Past what is ready, by choice: spaced repetition otherwise rests (feedback of 5 October).
+  const [practise, setPractise] = useState(false)
 
   const current = draw ?? (result.state === 'ready' ? result.value : null)
 
@@ -48,7 +51,7 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
     setBusy(true)
     setFailure(null)
     try {
-      setDraw(await api.flashcardReview(current.card.id, rating))
+      setDraw(await api.flashcardReview(current.card.id, rating, practise))
       setRevealed(false)
     } catch (error) {
       setFailure(asApiError(error))
@@ -62,13 +65,53 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
     setBusy(true)
     setFailure(null)
     try {
-      setDraw(await api.flashcardNext(current.card.id))
+      setDraw(await api.flashcardNext(current.card.id, practise))
       setRevealed(false)
     } catch (error) {
       setFailure(asApiError(error))
     } finally {
       setBusy(false)
     }
+  }
+
+  const keepPractising = async () => {
+    setBusy(true)
+    setFailure(null)
+    setPractise(true)
+    try {
+      setDraw(await api.flashcardNext(undefined, true))
+      setRevealed(false)
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const counts = current.counts
+  const tally = (
+    <p className="muted small flashcard-tally" aria-live="polite">
+      {counts.ready} ready now · {counts.new_left_today} new left today (of {counts.new_per_day} a day) · {counts.learned} of {current.deck} started
+    </p>
+  )
+
+  if (current.card === null && current.kind === 'rest') {
+    return (
+      <section className="card" aria-labelledby="flashcards-rest-heading">
+        <h2 id="flashcards-rest-heading">All caught up</h2>
+        {tally}
+        <p className="body">
+          Nothing is ready yet.
+          {counts.next_ready_at ? ` The next card is ready ${momentLabel(counts.next_ready_at)}.` : ''} Cards come back on a spacing schedule: a
+          day after you first get one right, then three days, then longer each time; one you ask to see again returns in ten minutes.
+        </p>
+        <div className="actions">
+          <button type="button" className="button primary" disabled={busy} onClick={() => void keepPractising()}>
+            Keep practising
+          </button>
+        </div>
+      </section>
+    )
   }
 
   if (current.card === null) {
@@ -96,9 +139,7 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
     <div className="stack">
       <section className="card flashcard" aria-labelledby="flashcard-heading">
         <h2 id="flashcard-heading">Flashcard</h2>
-        <p className="muted small">
-          {current.deck} card{current.deck === 1 ? '' : 's'} in the deck
-        </p>
+        {tally}
         {current.reasons.length > 0 ? <p className="muted small flashcard-why">{current.reasons.join(' ')}</p> : null}
         <p className="prompt flashcard-front">{card.front}</p>
         {revealed ? (
@@ -136,10 +177,10 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
             ) : null}
             <div className="actions">
               <button type="button" className="button" disabled={busy} onClick={() => void rate('again')}>
-                Again
+                Again{current.intervals.again ? <span className="muted small"> · {current.intervals.again}</span> : null}
               </button>
               <button type="button" className="button primary" disabled={busy} onClick={() => void rate('good')}>
-                Got it
+                Got it{current.intervals.good ? <span className="small"> · next in {current.intervals.good}</span> : null}
               </button>
             </div>
           </>

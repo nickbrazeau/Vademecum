@@ -25,6 +25,8 @@ class PageReviewIn(Strict):
 class ReviewIn(Strict):
     card_id: RecordId
     rating: Literal["again", "good"]
+    # Keep practising past what is ready (spaced repetition otherwise rests).
+    practise: bool = False
 
 
 class PreferencesIn(Strict):
@@ -41,21 +43,24 @@ def flashcards_overview(connection: sqlite3.Connection = Depends(get_connection)
     return store.overview(connection)
 
 
-@router.get("/next")
-def next_card(not_id: str | None = None, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
-    """A weighted draw, not a queue: the map's gaps come up more often. Nothing is due."""
-    drawn = store.next_card(connection, not_id=not_id)
+def _drawn(drawn: dict[str, Any] | None) -> dict[str, Any]:
     if drawn is None:
-        return {"card": None, "reasons": [], "citations": [], "deck": 0, "empty_reason": store.NO_CARDS}
+        return {"card": None, "reasons": [], "citations": [], "deck": 0, "kind": "empty", "counts": {}, "schedule": None, "intervals": {}, "empty_reason": store.NO_CARDS}
     return {**drawn, "empty_reason": ""}
+
+
+@router.get("/next")
+def next_card(not_id: str | None = None, practise: bool = False, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Spaced repetition: the card ready longest first, then a few new ones a day, the
+    map's gaps weighted up; with practise=true, extra cards when nothing is ready."""
+    return _drawn(store.next_card(connection, not_id=not_id, practise=practise))
 
 
 @router.post("/review")
 def review(payload: ReviewIn, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
     """Record how it went and draw the next card. Local; nothing leaves this machine."""
     recorded = store.record_review(connection, payload.card_id, payload.rating)
-    drawn = store.next_card(connection, not_id=payload.card_id)
-    return {"review": recorded, "next": {**drawn, "empty_reason": ""} if drawn else {"card": None, "reasons": [], "citations": [], "deck": 0, "empty_reason": store.NO_CARDS}}
+    return {"review": recorded, "next": _drawn(store.next_card(connection, not_id=payload.card_id, practise=payload.practise))}
 
 
 @preferences_router.get("")

@@ -418,9 +418,10 @@ export const api = {
 
   // Flashcards and preferences (ADR 0024): local, no model turn.
   flashcardsOverview: () => request<unknown>('/flashcards').then(normalize.flashcardOverview),
-  flashcardNext: (notId?: string) => request<unknown>(`/flashcards/next${query({ not_id: notId })}`).then(normalize.flashcardDraw),
-  flashcardReview: (cardId: string, rating: 'again' | 'good') =>
-    request<{ review: unknown; next: unknown }>('/flashcards/review', { method: 'POST', ...body({ card_id: cardId, rating }) }).then((data) =>
+  flashcardNext: (notId?: string, practise = false) =>
+    request<unknown>(`/flashcards/next${query({ not_id: notId, practise: practise ? 'true' : undefined })}`).then(normalize.flashcardDraw),
+  flashcardReview: (cardId: string, rating: 'again' | 'good', practise = false) =>
+    request<{ review: unknown; next: unknown }>('/flashcards/review', { method: 'POST', ...body({ card_id: cardId, rating, practise }) }).then((data) =>
       normalize.flashcardDraw(data.next)
     ),
   preferences: () => request<unknown>('/preferences').then(normalize.preferencesPayload),

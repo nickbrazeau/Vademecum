@@ -1160,7 +1160,20 @@ export function flashcardDraw(raw: unknown): FlashcardDraw {
     reasons: strings(data.reasons),
     citations: arr(data.citations).map(pageCitation),
     deck: num(data.deck),
-    empty_reason: str(data.empty_reason)
+    empty_reason: str(data.empty_reason),
+    kind: str(data.kind) || (data.card ? 'new' : 'empty'),
+    counts: (() => {
+      const c = obj(data.counts)
+      return {
+        ready: num(c.ready),
+        new_left_today: num(c.new_left_today),
+        new_total: num(c.new_total),
+        learned: num(c.learned),
+        next_ready_at: typeof c.next_ready_at === 'string' ? c.next_ready_at : null,
+        new_per_day: num(c.new_per_day, 20)
+      }
+    })(),
+    intervals: Object.fromEntries(Object.entries(obj(data.intervals)).map(([key, value]) => [key, str(value)]))
   }
 }
 

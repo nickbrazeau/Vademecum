@@ -49,10 +49,29 @@ describe('flashcards', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show the answer' }))
     expect(screen.getByText('2 mmol/L.')).toBeInTheDocument()
     expect(screen.getByText('Lactate above 2 is abnormal')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Got it' }))
+    await userEvent.click(screen.getByRole('button', { name: /^Got it/ }))
     expect(await screen.findByText('First-line vasopressor in septic shock?')).toBeInTheDocument()
-    expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ card_id: 'card_1', rating: 'good' })
+    expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ card_id: 'card_1', rating: 'good', practise: false })
     expect(screen.queryByText('2 mmol/L.')).not.toBeInTheDocument()
+  })
+
+  it('spaces the cards: the gap on each answer, the page hidden until the answer, and a rest with Keep practising', async () => {
+    const counts = { ready: 0, new_left_today: 0, new_total: 3, learned: 9, next_ready_at: '2026-10-07T09:00:00Z', new_per_day: 20 }
+    const calls = stub({
+      '/api/flashcards/next': { card: null, reasons: [], citations: [], deck: 12, empty_reason: '', kind: 'rest', counts, intervals: {} }
+    })
+    render(<Flashcards />)
+    expect(await screen.findByRole('heading', { name: 'All caught up' })).toBeInTheDocument()
+    expect(screen.getByText(/0 ready now · 0 new left today \(of 20 a day\) · 9 of 12 started/)).toBeInTheDocument()
+    stub({ '/api/flashcards/next': { ...DRAW, kind: 'practice', counts, intervals: { again: '10 min', good: '3 days' } } })
+    await userEvent.click(screen.getByRole('button', { name: 'Keep practising' }))
+    expect(await screen.findByText('Lactate above ___ mmol/L marks hypoperfusion.')).toBeInTheDocument()
+    expect(screen.queryByText(/Lactate in sepsis/)).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show the answer' }))
+    expect(screen.getByRole('link', { name: 'Lactate in sepsis' })).toHaveAttribute('href', '/encyclopedia?page=ency_1')
+    expect(screen.getByRole('button', { name: /Again · 10 min/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Got it · next in 3 days/ })).toBeInTheDocument()
+    expect(calls.length).toBeGreaterThan(0)
   })
 
   it('says where cards come from when there are none', async () => {

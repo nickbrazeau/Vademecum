@@ -728,12 +728,26 @@ export interface Flashcard {
   point_ids: string[]
 }
 
+export interface FlashcardCounts {
+  ready: number
+  new_left_today: number
+  new_total: number
+  learned: number
+  next_ready_at: string | null
+  new_per_day: number
+}
+
 export interface FlashcardDraw {
   card: Flashcard | null
   reasons: string[]
   citations: PageCitation[]
   deck: number
   empty_reason: string
+  /** Spaced repetition (feedback of 5 October): ready, new, practice, rest or empty. */
+  kind: string
+  counts: FlashcardCounts
+  /** What each answer would do: "10 min", "3 days". */
+  intervals: Record<string, string>
 }
 
 export interface FlashcardOverview {
