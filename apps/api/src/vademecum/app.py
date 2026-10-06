@@ -323,10 +323,36 @@ def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) ->
         connection.close()
 
 
-async def _sync_loop(database_path: Path, source_dir: Path, settings: Settings) -> None:
+async def _remember_model(app: FastAPI | None, database_path: Path, settings: Settings) -> None:
+    """The Mac's connection, noted before each sync so the phone's copy can show it."""
+    bridge = getattr(getattr(app, "state", None), "model_bridge", None) if app is not None else None
+    if bridge is None or settings.model_provider not in ("codex", "claude"):
+        return
+    try:
+        value = await asyncio.wait_for(bridge.status(), timeout=30)
+    except Exception:  # noqa: BLE001 - a courtesy, never a reason to skip the sync
+        return
+
+    def write() -> None:
+        from .storage import model_seen
+
+        connection = connect(database_path)
+        try:
+            model_seen.record(connection, settings.model_provider, value)
+        finally:
+            connection.close()
+
+    try:
+        await asyncio.to_thread(write)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def _sync_loop(database_path: Path, source_dir: Path, settings: Settings, app: FastAPI | None = None) -> None:
     """Sync every `sync_interval` seconds; a failed round is logged, not fatal."""
     while True:
         await asyncio.sleep(settings.sync_interval)
+        await _remember_model(app, database_path, settings)
         try:
             await asyncio.to_thread(sync_with_peer, database_path, source_dir, settings)
         except asyncio.CancelledError:
@@ -657,7 +683,7 @@ def create_app(
                 # Domi pulls from and pushes to foris (ADR 0015),
                 # on a timer, never at startup itself.
                 sync_task = asyncio.create_task(
-                    _sync_loop(owner.database_path, owner.source_dir, resolved)
+                    _sync_loop(owner.database_path, owner.source_dir, resolved, app)
                 )
 
         try:

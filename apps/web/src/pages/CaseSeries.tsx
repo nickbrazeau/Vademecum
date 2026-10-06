@@ -18,6 +18,7 @@ import { ApiError, api, asApiError } from '../lib/api'
 import { dateLabel, momentLabel } from '../lib/format'
 import type { CaseEntry, CaseSettings } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
+import { Switch } from '../components/Switch'
 
 export const CASES_DISCLOSURE = {
   headline: 'Keeping the hub updated sends fixed public requests, with nothing of yours in them:',
@@ -154,15 +155,14 @@ export function HubSettings({ onChanged }: { onChanged: () => void }) {
       <fieldset className="case-series-picker">
         <legend>Series to follow</legend>
         {settings.catalogue.map((entry) => (
-          <label key={entry.id} className="case-series-option">
-            <input
-              type="checkbox"
-              checked={series[entry.id] !== false}
-              disabled={busy}
-              onChange={(event) => setChosen({ ...series, [entry.id]: event.target.checked })}
-            />{' '}
-            {entry.name} <span className="muted small">({entry.publisher})</span>
-          </label>
+          <Switch
+            key={entry.id}
+            label={entry.name}
+            hint={entry.publisher}
+            checked={series[entry.id] !== false}
+            disabled={busy}
+            onChange={(on) => setChosen({ ...series, [entry.id]: on })}
+          />
         ))}
       </fieldset>
       <label htmlFor="case-hours">Hours between refreshes</label>

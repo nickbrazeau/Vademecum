@@ -14,6 +14,7 @@ import { useLoad } from '../lib/useLoad'
 import { LITERATURE_DISCLOSURE, TransmissionDisclosure } from './TransmissionDisclosure'
 import { Unavailable } from './Unavailable'
 import { PhiWarning } from './PhiWarning'
+import { Switch } from './Switch'
 
 function TopicRow({ topic, onChanged }: { topic: Topic; onChanged: () => void }) {
   const [failure, setFailure] = useState<ApiError | null>(null)
@@ -255,11 +256,12 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
       <TransmissionDisclosure disclosure={LITERATURE_DISCLOSURE} />
 
       {current ? (
-        <label className="field inline">
-          <input type="checkbox" checked={current.weekly_enabled} disabled={busy || !current.enabled}
-            onChange={(event) => void weekly(event.target.checked)} />
-          <span>Check weekly while Vademecum is running</span>
-        </label>
+        <Switch
+          label="Check weekly while Vademecum is running"
+          checked={current.weekly_enabled}
+          disabled={busy || !current.enabled}
+          onChange={(on) => void weekly(on)}
+        />
       ) : null}
       {current ? (
         <fieldset className="stack" aria-label="What comes first">
@@ -268,15 +270,12 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
             Each check looks first for practice guidelines and papers in the journals below, then
             fills in with everything else on the topic. This changes the order, never the facts.
           </p>
-          <label className="field inline">
-            <input
-              type="checkbox"
-              checked={current.guidelines_first}
-              disabled={busy}
-              onChange={(event) => void savePreferences({ guidelines_first: event.target.checked })}
-            />
-            <span>Practice guidelines first</span>
-          </label>
+          <Switch
+            label="Practice guidelines first"
+            checked={current.guidelines_first}
+            disabled={busy}
+            onChange={(on) => void savePreferences({ guidelines_first: on })}
+          />
           <ul className="chips" aria-label="Preferred journals">
             {current.preferred_journals.map((journal) => (
               <li key={journal} className="chip on">
@@ -320,7 +319,7 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
       ) : null}
 
       {specialties.length > 0 ? (
-        <details className="watch-group" open>
+        <details className="watch-group">
           <summary>
             <h3>Subspecialties to watch</h3>
             <span className="muted small">{watchedCount(specialties.map((s) => s.name))} on</span>
@@ -358,6 +357,10 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
         </p>
       ) : null}
 
+      <details className="watch-group">
+        <summary>
+          <h3>Add your own topic</h3>
+        </summary>
       <form
         className="stack"
         onSubmit={(event) => {
@@ -394,6 +397,7 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
           Add topic
         </button>
       </form>
+      </details>
 
       {suggestions.result.state === 'ready' && suggestions.result.value.length > 0 ? (
         <details className="watch-group">
@@ -430,11 +434,20 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
             No topics yet. Add one above and the check will have something to look for.
           </p>
         ) : (
-          <ul className="list">
-            {topics.result.value.map((topic) => (
-              <TopicRow key={topic.id} topic={topic} onChanged={refresh} />
-            ))}
-          </ul>
+          <details className="watch-group">
+            <summary>
+              <h3>Watched topics</h3>
+              <span className="muted small">
+                {topics.result.value.filter((topic) => topic.enabled).length} on, {topics.result.value.length} in all
+              </span>
+            </summary>
+            <p className="muted small">Every topic being watched, with when it was last checked. Stop or delete one here.</p>
+            <ul className="list">
+              {topics.result.value.map((topic) => (
+                <TopicRow key={topic.id} topic={topic} onChanged={refresh} />
+              ))}
+            </ul>
+          </details>
         )
       ) : null}
     </section>

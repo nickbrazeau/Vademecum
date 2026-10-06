@@ -1658,3 +1658,44 @@ details[open].strength-topic > summary::before {
 .drop-zone ul {
   text-align: left;
 }
+
+/* A labelled on/off switch: words on the left, the switch on the right. */
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.switch-row.disabled {
+  cursor: default;
+}
+.switch-label {
+  display: flex;
+  flex-direction: column;
+}
+.switch-hint {
+  font-weight: normal;
+}
+.tab-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tab-row .switch-row {
+  flex: 1;
+}
+
+.usage-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.4rem 0;
+}
+.usage-row progress {
+  width: 100%;
+  height: 0.5rem;
+  accent-color: var(--accent);
+}

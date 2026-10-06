@@ -25,6 +25,7 @@ import type {
   LearningPoint,
   LiteratureSettings,
   LoginCancelled,
+  ModelSeen,
   ModelStatus,
   Pile,
   RetiredMaterial,
@@ -472,6 +473,7 @@ export const api = {
   // The model connection (ADR 0006). None of these sends learning content:
   // they read sign-in and usage state and perform ChatGPT device-code sign-in.
   modelStatus: () => request<ModelStatus>('/model/status'),
+  modelLastSeen: () => request<{ seen: ModelSeen | null }>('/model/last-seen'),
   startModelLogin: () => request<DeviceLogin>('/model/login', { method: 'POST' }),
   // No body: the pending sign-in is held by the backend, so the browser never
   // has to keep a login id in order to cancel one.

@@ -1133,6 +1133,18 @@ export interface RateLimits {
   limit_reason: string | null
 }
 
+/** The Mac's connection as it last saw it, shown on the phone's copy (feedback of 5 October). */
+export interface ModelSeen {
+  provider: string
+  state: string
+  signed_in: boolean
+  plan: string | null
+  primary: { used_percent: number; resets_at: string | null; window_minutes: number | null } | null
+  secondary: { used_percent: number; resets_at: string | null; window_minutes: number | null } | null
+  limited: boolean
+  seen_at: string
+}
+
 export interface ModelStatus {
   state: ModelState
   signed_in: boolean

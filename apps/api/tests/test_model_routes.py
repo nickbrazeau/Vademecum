@@ -68,6 +68,22 @@ class TestStatusRoute:
         assert EMAIL not in response.text
         assert "@" not in response.text
 
+    def test_the_mac_keeps_a_summary_for_the_phone(self, settings: Settings) -> None:
+        """Feedback of 5 October: the phone's copy shows the Mac's connection as last seen,
+        a summary only: no account name, address or identifier."""
+        script = AccountScript(
+            account=chatgpt_account(plan="plus", email=EMAIL),
+            limits=rate_limits(primary_used=35, secondary_used=60),
+        )
+        with app_with(settings, ScriptedTransport(responder=script)) as client:
+            assert client.get("/api/model/last-seen").json() == {"seen": None}
+            client.get("/api/model/status")
+            seen = client.get("/api/model/last-seen")
+        data = seen.json()["seen"]
+        assert data["signed_in"] is True and data["plan"] == "plus" and data["primary"]["used_percent"] == 35
+        assert data["provider"] == settings.model_provider and data["seen_at"]
+        assert EMAIL not in seen.text and "@" not in seen.text
+
     def test_a_reached_limit_is_its_own_state(self, settings: Settings) -> None:
         script = AccountScript(
             account=chatgpt_account(),

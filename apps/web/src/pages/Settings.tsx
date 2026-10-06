@@ -13,6 +13,8 @@ import type { Preferences, TabChoice } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { CaseSeries, HubSettings } from './CaseSeries'
 import { Model } from './Model'
+import { Switch } from '../components/Switch'
+import { momentLabel } from '../lib/format'
 
 /** How many reviews make a day enough, shown on Today (ADR 0026). */
 function DailyGoal({ initial }: { initial: number }) {
@@ -57,6 +59,47 @@ function DailyGoal({ initial }: { initial: number }) {
  * connection and its allowance, the literature watch, the Case Series hub, and
  * where your data lives.
  */
+/** On the phone's copy: the Mac's connection and allowance, as the Mac last saw them. */
+function MacModelSeen() {
+  const { result } = useLoad(() => api.modelLastSeen(), [])
+  const seen = result.state === 'ready' ? result.value.seen : null
+  const name = seen?.provider === 'claude' ? 'Claude, through the Claude app' : 'ChatGPT, through Codex'
+  const windows = seen ? [seen.primary, seen.secondary].filter((w): w is NonNullable<typeof w> => w !== null) : []
+  const span = (minutes: number | null) => (minutes === null ? 'Allowance' : minutes >= 10000 ? 'This week' : minutes >= 1440 ? 'Today' : `Next ${Math.round(minutes / 60)} hours`)
+  return (
+    <div className="stack">
+      <p className="muted small">
+        Here, in ChatGPT or Claude, the model is the assistant you are talking to. Your Mac does the building, the board questions, the podcasts and
+        the Socratic tutor on its own connection:
+      </p>
+      {result.state === 'loading' ? <p className="muted">Reading…</p> : null}
+      {result.state === 'ready' && seen === null ? (
+        <p className="muted">The Mac has not reported its connection yet. Open Settings on the Mac once, and it shows here after the next sync.</p>
+      ) : null}
+      {seen ? (
+        <div className="model-seen">
+          <p className="body">
+            <span className={`badge ${seen.signed_in ? 'strength-strong' : 'strength-weak'}`}>{seen.signed_in ? 'Signed in' : 'Signed out'}</span>{' '}
+            {name}
+            {seen.plan ? ` · ${seen.plan} plan` : ''}
+            {seen.limited ? ' · limit reached' : ''}
+          </p>
+          {windows.map((window, index) => (
+            <div key={index} className="usage-row">
+              <span className="small">
+                {span(window.window_minutes)}: {window.used_percent}% used
+                {window.resets_at ? ` · resets ${momentLabel(window.resets_at)}` : ''}
+              </span>
+              <progress max={100} value={window.used_percent} aria-label={`${window.used_percent} percent used`} />
+            </div>
+          ))}
+          <p className="muted small">As the Mac saw it {momentLabel(seen.seen_at)}.</p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences: Preferences) => void; showModel?: boolean }) {
   const { result, reload } = useLoad(() => api.preferences(), [])
   const [chosen, setChosen] = useState<string[] | null>(null)
@@ -119,16 +162,13 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
           <legend className="visually-hidden">Sections to show</legend>
           {tabs.map((tab, index) => (
             <div key={tab.name} className="tab-row">
-              <label className="tab-option">
-                <input
-                  type="checkbox"
-                  checked={tab.fixed || visible.includes(tab.name)}
-                  disabled={tab.fixed || busy}
-                  onChange={(event) => toggle(tab.name, event.target.checked)}
-                />{' '}
-                {tab.label}
-                {tab.fixed ? <span className="muted small"> (always shown, {tab.name === 'today' ? 'first' : 'last'})</span> : null}
-              </label>
+              <Switch
+                label={tab.label}
+                checked={tab.fixed || visible.includes(tab.name)}
+                disabled={tab.fixed || busy}
+                onChange={(on) => toggle(tab.name, on)}
+                hint={tab.fixed ? `always shown, ${tab.name === 'today' ? 'first' : 'last'}` : undefined}
+              />
               {tab.fixed ? null : (
                 <span className="tab-move">
                   <button
@@ -175,14 +215,7 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
 
       <section className="card" aria-labelledby="model-settings-heading">
         <h2 id="model-settings-heading">Model and allowance</h2>
-        {showModel ? (
-          <Model />
-        ) : (
-          <p className="muted small">
-            Here the model is the assistant you are talking to, in ChatGPT or Claude. Your Mac’s own connection, and its allowance, show in
-            Settings on the Mac.
-          </p>
-        )}
+        {showModel ? <Model /> : <MacModelSeen />}
       </section>
 
       <section className="card" aria-labelledby="literature-settings-heading">
