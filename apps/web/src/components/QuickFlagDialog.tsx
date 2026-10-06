@@ -92,6 +92,13 @@ export function QuickFlagDialog({
     >
       <form
         method="dialog"
+        onKeyDown={(event) => {
+          // ⌘S (Ctrl-S elsewhere) saves the flag from any field, rather than the browser's Save Page.
+          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+            event.preventDefault()
+            void submit()
+          }
+        }}
         onSubmit={(event) => {
           event.preventDefault()
           void submit()
@@ -153,6 +160,9 @@ export function QuickFlagDialog({
           </button>
           <button type="submit" className="button primary" disabled={text.trim() === '' || saving}>
             {saving ? 'Saving…' : 'Save flag'}
+            <kbd className="shortcut" aria-hidden="true">
+              ⌘S
+            </kbd>
           </button>
         </div>
       </form>

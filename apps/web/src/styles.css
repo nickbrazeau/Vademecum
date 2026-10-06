@@ -1591,3 +1591,39 @@ details.card-details[open] > summary {
 .podcast-speed {
   margin: 0.25rem 0 0.5rem;
 }
+
+.button .shortcut {
+  margin-left: 0.5rem;
+  opacity: 0.75;
+  font-size: 0.75em;
+}
+
+/* Every section that opens and shuts shows that it does (feedback of 5 October): the
+   flex summaries above lose the browser's own triangle, so they get one back. */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details.support-details > summary::before,
+details.settings-details > summary::before,
+details.toggle-card > summary::before,
+details.watch-group > summary::before,
+details.card-details > summary::before,
+details.strength-group > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1.1em;
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+details[open].support-details > summary::before,
+details[open].settings-details > summary::before,
+details[open].toggle-card > summary::before,
+details[open].watch-group > summary::before,
+details[open].card-details > summary::before,
+details[open].strength-group > summary::before {
+  transform: rotate(90deg);
+}

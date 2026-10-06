@@ -11,6 +11,7 @@ import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import { momentLabel } from '../lib/format'
 import type { EncyclopediaEntry, EncyclopediaList, Specialty } from '../lib/types'
+import { takePendingPage } from '../lib/pageLink'
 import { useLoad } from '../lib/useLoad'
 
 export function CompileCard({ state, onChanged }: { state: EncyclopediaList; onChanged: () => void }) {
@@ -284,6 +285,12 @@ export function Encyclopedia() {
     event.preventDefault()
     setQ(typed.trim())
   }
+
+  useEffect(() => {
+    const asked = takePendingPage()
+    if (asked) void show(asked)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const show = async (entryId: string) => {
     setOpening(null)

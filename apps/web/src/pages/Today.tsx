@@ -130,12 +130,18 @@ function PageToReview({
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [reviewed, setReviewed] = useState<string[]>([])
 
+  // Reviewed: counted, and straight on to another page (feedback of 5 October).
   const markReviewed = async (entryId: string) => {
     setBusy(true)
     setFailure(null)
     try {
       onReviewed(await api.markPageReviewed(entryId))
       setReviewed((current) => [...current, entryId])
+      const next = await api.encyclopediaPage({ random: true, not_id: entryId })
+      if (next.page) {
+        setPage(next.page)
+        document.getElementById('page-heading')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      }
     } catch (error) {
       setFailure(asApiError(error))
     } finally {
@@ -165,7 +171,7 @@ function PageToReview({
   }
 
   return (
-    <details className="card toggle-card" open aria-labelledby="page-heading">
+    <details className="card toggle-card" aria-labelledby="page-heading">
       <summary>
         <h2 id="page-heading">A page to review</h2>
         <span className="muted small">{page ? page.title : 'none today'}</span>
@@ -193,8 +199,13 @@ function PageToReview({
               disabled={busy || reviewed.includes(page.id)}
               onClick={() => void markReviewed(page.id)}
             >
-              {reviewed.includes(page.id) ? 'Reviewed' : 'I reviewed this page'}
+              {reviewed.includes(page.id) ? 'Reviewed' : 'I reviewed this page: next one'}
             </button>
+            {reviewed.length > 0 ? (
+              <span className="muted small" role="status">
+                {reviewed.length} reviewed here
+              </span>
+            ) : null}
             <button type="button" className="button" disabled={busy || sheet.encyclopedia.entries < 2} onClick={() => void another()}>
               Another page
             </button>
@@ -303,7 +314,7 @@ export function Today({
 
       <PageToReview sheet={sheet} onNavigate={onNavigate} onReviewed={setBoard} />
 
-      <details className="card toggle-card" open aria-labelledby="literature-heading">
+      <details className="card toggle-card" aria-labelledby="literature-heading">
         <summary>
           <h2 id="literature-heading">New in the literature</h2>
           <span className="muted small">{unread.length === 0 ? 'nothing unread' : `${unread.length} unread`}</span>
@@ -333,7 +344,7 @@ export function Today({
       </details>
 
       {cases.length > 0 ? (
-        <details className="card toggle-card" open aria-labelledby="new-cases-heading">
+        <details className="card toggle-card" aria-labelledby="new-cases-heading">
           <summary>
             <h2 id="new-cases-heading">New in the case series</h2>
             <span className="muted small">{cases.length} new</span>
@@ -346,7 +357,7 @@ export function Today({
         </details>
       ) : null}
 
-      <details className="card toggle-card" open={sheet.worth_a_look.length > 0} aria-labelledby="worth-a-look-heading">
+      <details className="card toggle-card" aria-labelledby="worth-a-look-heading">
         <summary>
           <h2 id="worth-a-look-heading">Worth a look</h2>
           <span className="muted small">{sheet.worth_a_look.length} point{sheet.worth_a_look.length === 1 ? '' : 's'}</span>

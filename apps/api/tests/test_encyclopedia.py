@@ -405,3 +405,28 @@ def test_the_new_tables_sync_and_export() -> None:
         assert table in SYNCED_TABLES and table in EXPORTED_TABLES
     assert {"encyclopedia_entries", "board_questions"} <= DOMI_OWNED
     assert "board_attempts" not in DOMI_OWNED, "answers are given on either node"
+
+
+def test_questions_written_during_a_pass_join_it_at_random(connection) -> None:
+    """Feedback of 5 October: a pass drawn from forty questions held back the next
+    two thousand. New ones are shuffled in among those not yet asked; the question
+    on screen keeps its place."""
+    import random
+
+    entry = store.upsert_entry(connection, topic="t", title="T", specialty_id=None, summary="", sections=[], point_ids=["lp_a"], points_hash_value="1")
+    store.insert_questions(
+        connection,
+        entry,
+        [{"stem": f"Stem {i}?", "options": ["a", "b", "c", "d", "e"], "answer_index": 0, "explanation": "x", "point_ids": ["lp_a"], "hold_reason": ""} for i in range(12)],
+    )
+    ids = [q.id for q in store.questions_for_entry(connection, entry.id)]
+    number = store._draw_cycle(connection, ids[:3], rng=random.Random(1))  # noqa: SLF001
+    on_screen = connection.execute(
+        "SELECT question_id FROM board_cycle_entries WHERE cycle_number = ? AND served_at IS NULL ORDER BY position LIMIT 1", (number,)
+    ).fetchone()["question_id"]
+    store._fold_in_new(connection, number, ids, rng=random.Random(2))  # noqa: SLF001
+    order = [r["question_id"] for r in connection.execute("SELECT question_id FROM board_cycle_entries WHERE cycle_number = ? ORDER BY position", (number,))]
+    assert sorted(order) == sorted(ids) and order[0] == on_screen
+    assert order[1:] != sorted(order[1:], key=ids.index), "shuffled, not in the order written"
+    store._fold_in_new(connection, number, ids, rng=random.Random(3))  # noqa: SLF001
+    assert len(list(connection.execute("SELECT 1 FROM board_cycle_entries WHERE cycle_number = ?", (number,)))) == 12, "nothing doubled"

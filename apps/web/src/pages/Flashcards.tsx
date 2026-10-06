@@ -13,6 +13,7 @@ import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import type { RouteName } from '../lib/router'
 import type { FlashcardDraw } from '../lib/types'
+import { openPageLater } from '../lib/pageLink'
 import { useLoad } from '../lib/useLoad'
 
 export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
@@ -23,6 +24,14 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
   const [failure, setFailure] = useState<ApiError | null>(null)
 
   const current = draw ?? (result.state === 'ready' ? result.value : null)
+
+  // The card's page, opened in the Encyclopedia tab.
+  const openPage = (entryId: string) => (event: MouseEvent) => {
+    if (onNavigate === undefined) return
+    event.preventDefault()
+    openPageLater(entryId)
+    onNavigate('encyclopedia')
+  }
 
   const go = (name: RouteName) => (event: MouseEvent) => {
     if (onNavigate === undefined) return
@@ -88,16 +97,24 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
       <section className="card flashcard" aria-labelledby="flashcard-heading">
         <h2 id="flashcard-heading">Flashcard</h2>
         <p className="muted small">
-          From the page <strong>{card.title || card.topic}</strong> · {current.deck} card{current.deck === 1 ? '' : 's'} in the deck
+          {current.deck} card{current.deck === 1 ? '' : 's'} in the deck
         </p>
         {current.reasons.length > 0 ? <p className="muted small flashcard-why">{current.reasons.join(' ')}</p> : null}
         <p className="prompt flashcard-front">{card.front}</p>
         {revealed ? (
           <>
             <p className="body flashcard-back">{card.back}</p>
+            <p className="muted small">
+              From the encyclopedia page{' '}
+              <a href={`/encyclopedia?page=${encodeURIComponent(card.entry_id)}`} onClick={openPage(card.entry_id)}>
+                {card.title || card.topic}
+              </a>
+            </p>
             {current.citations.length > 0 ? (
               <details className="support-details">
-                <summary>What this rests on</summary>
+                <summary>
+                  Where this comes from: {current.citations.length} learning point{current.citations.length === 1 ? '' : 's'} from your sources
+                </summary>
                 <ul className="list small">
                   {current.citations.map((citation) => (
                     <li key={citation.id}>

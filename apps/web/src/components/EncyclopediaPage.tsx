@@ -107,7 +107,10 @@ export function EncyclopediaPage({ page, compact = false }: { page: Encyclopedia
       ) : null}
       {!compact && page.citations.length > 0 ? (
         <details className="support-details">
-          <summary>The points this page rests on</summary>
+          <summary>
+            Where this page comes from: {page.citations.length} learning point{page.citations.length === 1 ? '' : 's'}, each with the passage in your
+            sources it was taken from
+          </summary>
           <ul className="list small">
             {page.citations.map((citation) => (
               <li key={citation.id}>

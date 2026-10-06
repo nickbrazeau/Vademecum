@@ -151,7 +151,8 @@ describe('the cover sheet', () => {
   it('says the literature section is empty until a topic check finds papers', async () => {
     stubApi()
     render(<App />)
-    expect(await screen.findByText(/new papers appear here only when a topic check finds them/i)).toBeVisible()
+    // Collapsed by default (feedback of 5 October): present, behind its heading.
+    expect(await screen.findByText(/new papers appear here only when a topic check finds them/i)).toBeInTheDocument()
   })
 
   it('does not invent anything to fill an empty workspace', async () => {

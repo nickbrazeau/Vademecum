@@ -687,6 +687,39 @@ def _draw_cycle(connection: sqlite3.Connection, question_ids: list[str], *, rng:
     return number
 
 
+def _fold_in_new(connection: sqlite3.Connection, number: int, eligible: list[str], *, rng: random.Random | None = None) -> None:
+    """Questions written since the pass was drawn join it now, shuffled in among the
+    ones not yet asked (feedback of 5 October): a pass drawn when there were forty
+    questions would otherwise hold back the next two thousand until it ended. The
+    question on screen, the first not yet asked, keeps its place."""
+    present = {row["question_id"] for row in connection.execute("SELECT question_id FROM board_cycle_entries WHERE cycle_number = ?", (number,))}
+    new = [question_id for question_id in eligible if question_id not in present]
+    if not new:
+        return
+    unserved = connection.execute(
+        "SELECT id, question_id FROM board_cycle_entries WHERE cycle_number = ? AND served_at IS NULL ORDER BY position", (number,)
+    ).fetchall()
+    keep = unserved[:1]
+    rest = [row["question_id"] for row in unserved[1:]] + new
+    (rng or random.SystemRandom()).shuffle(rest)
+    top = connection.execute("SELECT COALESCE(MAX(position), -1) AS top FROM board_cycle_entries WHERE cycle_number = ?", (number,)).fetchone()["top"]
+    now = utc_now()
+    with transaction(connection) as tx:
+        tx.execute(
+            "DELETE FROM board_cycle_entries WHERE cycle_number = ? AND served_at IS NULL AND id NOT IN (" + ",".join("?" * len(keep)) + ")"
+            if keep
+            else "DELETE FROM board_cycle_entries WHERE cycle_number = ? AND served_at IS NULL",
+            (number, *[row["id"] for row in keep]),
+        )
+        position = int(top) + 1
+        for question_id in rest:
+            tx.execute(
+                "INSERT INTO board_cycle_entries (id, cycle_number, position, question_id, served_at, created_at) VALUES (?, ?, ?, ?, NULL, ?)",
+                (new_id("bcyc"), number, position, question_id, now),
+            )
+            position += 1
+
+
 def _cycle_state(connection: sqlite3.Connection, number: int) -> CycleState:
     row = connection.execute(
         "SELECT COUNT(*) AS total, SUM(CASE WHEN served_at IS NULL THEN 0 ELSE 1 END) AS served"
@@ -714,6 +747,8 @@ def _next_question(connection: sqlite3.Connection, *, rng: random.Random | None 
     for _ in range(2):
         if number == 0:
             number = _draw_cycle(connection, eligible, rng=rng)
+        else:
+            _fold_in_new(connection, number, eligible, rng=rng)
         rows = connection.execute(
             "SELECT id, question_id FROM board_cycle_entries WHERE cycle_number = ? AND served_at IS NULL ORDER BY position",
             (number,),

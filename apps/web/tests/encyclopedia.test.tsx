@@ -55,7 +55,7 @@ describe('an encyclopedia page', () => {
     expect(screen.getByRole('heading', { name: 'Lactate in sepsis' })).toBeInTheDocument()
     expect(screen.getByText('A lactate above 2 mmol/L is abnormal in sepsis.')).toBeInTheDocument()
     expect(screen.getByText(/From Sepsis lecture.pdf, Page 3/)).toBeInTheDocument()
-    expect(screen.getByText('The points this page rests on')).toBeInTheDocument()
+    expect(screen.getByText(/Where this page comes from: \d+ learning point/)).toBeInTheDocument()
     expect(screen.getByText('Lactate above 2 is abnormal')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Literature reviewed for this page/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Lactate targets in septic shock' })).toHaveAttribute('href', 'https://pubmed.ncbi.nlm.nih.gov/30012345/')

@@ -95,8 +95,15 @@ export function BoardTutor({ initial, onNavigate }: { initial: BoardNext; onNavi
       <section className="card" aria-labelledby="board-question-heading">
         <h2 id="board-question-heading">Question</h2>
         <CyclePosition cycle={view.cycle} />
+        {/* The page is named only after answering: its title can give the answer away (feedback of 5 October). */}
         <p className="muted small">
-          From the page <strong>{question.title || question.topic}</strong>
+          {answered ? (
+            <>
+              From the page <strong>{question.title || question.topic}</strong>
+            </>
+          ) : (
+            'Vignette'
+          )}
           {view.history_count > 0 ? ` · answered ${view.history_count} time${view.history_count === 1 ? '' : 's'} before` : null}
         </p>
         <p className="prompt board-stem">{question.stem}</p>
