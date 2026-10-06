@@ -82,6 +82,11 @@ describe('the Socratic tutor on the Mac', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
     expect(await screen.findByText(/runs in the conversation/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start a session' })).not.toBeInTheDocument()
+    // Launched from here into ChatGPT or Claude, with a prompt that names the tools (feedback of 5 October).
+    const chatgpt = screen.getByRole('link', { name: 'Open in ChatGPT' })
+    expect(chatgpt.getAttribute('href')).toMatch(/^https:\/\/chatgpt\.com\/\?q=.*socratic_start.*socratic_turn/)
+    expect(chatgpt).toHaveAttribute('target', '_blank')
+    expect(screen.getByRole('link', { name: 'Open in Claude' }).getAttribute('href')).toMatch(/^https:\/\/claude\.ai\/new\?q=/)
   })
 })
 

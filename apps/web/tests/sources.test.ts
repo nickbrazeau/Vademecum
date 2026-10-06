@@ -57,6 +57,13 @@ describe('no network destination other than the local API', () => {
       for (const url of urls) {
         if (/127\.0\.0\.1|localhost|www\.w3\.org/.test(url)) continue
         if (label(path) === 'components/PaperLink.tsx' && url.startsWith('https://pubmed.ncbi.nlm.nih.gov/')) continue
+        // Launching the Socratic tutor in ChatGPT or Claude (feedback of 5 October): a link the
+        // owner taps, opened in a new tab, carrying a fixed prompt and nothing of theirs.
+        if (
+          label(path) === 'components/SocraticTutor.tsx' &&
+          (url.startsWith('https://chatgpt.com/?q=') || url.startsWith('https://claude.ai/new?q='))
+        )
+          continue
         offenders.push(`${label(path)}: ${url}`)
       }
     }

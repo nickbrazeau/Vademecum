@@ -23,7 +23,14 @@ async def test_the_app_document_is_complete_as_served(mcp_client: Client) -> Non
     assert "<script src" not in html and "<link " not in html and "@import" not in html
     # The only addresses in it are a link a person may follow (PubMed), XML
     # namespaces, and React's error-page prefix. Nothing is loaded from anywhere.
-    harmless = ("https://pubmed.ncbi.nlm.nih.gov/", "http://www.w3.org/", "https://react.dev/errors/")
+    harmless = (
+            "https://pubmed.ncbi.nlm.nih.gov/",
+            "http://www.w3.org/",
+            "https://react.dev/errors/",
+            # Launching the Socratic tutor (ADR 0028): links the owner taps, carrying a fixed prompt.
+            "https://chatgpt.com/?q=",
+            "https://claude.ai/new?q=",
+        )
     for address in set(re.findall(r"https?://[^\"'\s)<`]+", html)):
         assert address.startswith(harmless), address
     assert "Educational only" in html

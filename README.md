@@ -66,10 +66,12 @@ in Safari; those device checks remain a human acceptance step.
   progress bar. Up to ten unheard episodes are kept, and they play on the phone through the cloud copy;
   an episode listened to is archived and its audio deleted
   ([ADR 0027](docs/adr/0027-podcast-audio-in-the-cloud-copy.md)).
-- **Flashcards.** A front and a back written from an encyclopedia page, citing its points. The
-  next card is a weighted draw, not a queue: topics you flagged, areas an exam report put below
-  the mark, pages whose board question you missed, and cards you asked to see again come up more
-  often, and the card says why. Nothing is due ([ADR 0024](docs/adr/0024-flashcards-and-chosen-tabs.md)).
+- **Flashcards.** A front and a back written from an encyclopedia page, citing its points, on a
+  spacing schedule: a card you get right comes back in a day, then three, then longer each time;
+  one you ask to see again returns in ten minutes. Cards ready again come first, then twenty new
+  ones a day, with topics you flagged, areas an exam report put below the mark and pages whose
+  board question you missed weighted up; then a rest, or extra practice if you ask
+  ([ADR 0024](docs/adr/0024-flashcards-and-chosen-tabs.md), [ADR 0028](docs/adr/0028-feedback-of-5-october.md)).
 - **Settings.** Choose which tabs the app shows; Today and Settings always stay. The choice
   follows you to the phone.
 - **Knowledge Gap Flags.** `⌘K` from anywhere. One textarea, one required field.

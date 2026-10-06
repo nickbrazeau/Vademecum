@@ -17,6 +17,16 @@ import type { SocraticOverview, SocraticSession } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { PhiWarning } from './PhiWarning'
 
+// Launching the tutor in ChatGPT or Claude from here (feedback of 5 October). The prompt
+// names the tools, so the assistant records each exchange, and asks it to say so plainly
+// when it cannot reach them (voice mode, or a connector not yet refreshed).
+export const LAUNCH_PROMPT =
+  'Using my Vademecum connector, start a Socratic session: call socratic_start, then ask me one open question at a time, ' +
+  'record every exchange with socratic_turn, and close with socratic_finish. If you cannot call the Vademecum tools here, ' +
+  'tell me before we begin.'
+export const CHATGPT_LAUNCH = `https://chatgpt.com/?q=${encodeURIComponent(LAUNCH_PROMPT)}`
+export const CLAUDE_LAUNCH = `https://claude.ai/new?q=${encodeURIComponent(LAUNCH_PROMPT)}`
+
 const ORIGIN_LABEL: Record<string, string> = { chatgpt: 'from ChatGPT', claude: 'from Claude', pasted: 'pasted in' }
 
 const PROBE_LABEL: Record<string, string> = {
@@ -180,11 +190,6 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
           literature reviewed for it, related pages, and its own knowledge, saying which is which. At the end, how you reasoned and
           what to revisit; each gap becomes a flag.
         </p>
-        <p className="muted small">
-          In ChatGPT or Claude, in a text chat with Vademecum selected, say “Start a Socratic session in Vademecum”, and each exchange lands
-          here as you go. Voice mode in those apps does not reach Vademecum: afterwards, in a text chat, say “Save that Socratic session to
-          Vademecum”, or paste the transcript below. On this Mac, Voice mode here speaks each question and listens for your answer.
-        </p>
         {overview.can_answer_here ? (
           <>
             <p className="muted small">{overview.disclosure}</p>
@@ -192,11 +197,53 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
               <button type="button" className="button primary" disabled={busy} onClick={() => void start()}>
                 {busy ? 'Starting…' : 'Start a session'}
               </button>
+              {canSpeak() && canDictate() ? (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setVoiceOn(true)
+                    void start()
+                  }}
+                >
+                  Start with voice
+                </button>
+              ) : null}
             </div>
           </>
         ) : (
           <p className="muted small">{overview.note}</p>
         )}
+        <div className="socratic-launch">
+          <h3>Or with ChatGPT or Claude</h3>
+          <div className="actions">
+            <a className="button" href={CHATGPT_LAUNCH} target="_blank" rel="noopener noreferrer">
+              Open in ChatGPT
+            </a>
+            <a className="button" href={CLAUDE_LAUNCH} target="_blank" rel="noopener noreferrer">
+              Open in Claude
+            </a>
+            <button
+              type="button"
+              className="button ghost"
+              onClick={() => {
+                void navigator.clipboard?.writeText(LAUNCH_PROMPT).then(
+                  () => setNote('The prompt is copied. Paste it in a chat with Vademecum connected.'),
+                  () => setNote(LAUNCH_PROMPT)
+                )
+              }}
+            >
+              Copy the prompt
+            </button>
+          </div>
+          <p className="muted small">
+            This opens a text chat with the prompt filled in, and every exchange is saved here as you go. Speak your answers with the
+            microphone’s dictation in that chat. Voice mode in those apps calls no tools, so a voice conversation does not reach Vademecum;
+            after one, say “Save that Socratic session to Vademecum” in a text chat, or paste the transcript below. If the assistant says it
+            cannot reach Vademecum, refresh the connector in its settings.
+          </p>
+        </div>
         <details className="support-details">
           <summary>Bring in a session from ChatGPT or Claude</summary>
           <p className="muted small">
@@ -250,6 +297,11 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
               ))}
             </ul>
           </section>
+        ) : null}
+        {note ? (
+          <p className="ok small" role="status">
+            {note}
+          </p>
         ) : null}
         {failure ? (
           <p className="failure" role="alert">
