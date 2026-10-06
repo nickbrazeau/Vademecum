@@ -378,6 +378,8 @@ export const api = {
   // The encyclopedia and the board bank (ADR 0023). Reading and answering are
   // local; Compile now starts the two model turns the page's disclosure names.
   encyclopediaList: (q?: string) => request<unknown>(`/encyclopedia${query({ q })}`).then(normalize.encyclopediaList),
+  revealPageFile: (entryId: string, openIt = false) =>
+    request<{ path: string }>(`/encyclopedia/${entryId}/reveal${openIt ? '?open_it=true' : ''}`, { method: 'POST' }),
   encyclopediaPage: (options: { random?: boolean; not_id?: string } = {}) =>
     request<unknown>(`/encyclopedia/page${query(options)}`).then(normalize.encyclopediaPage),
   encyclopediaEntry: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}`).then(normalize.encyclopediaEntry),

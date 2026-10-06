@@ -204,6 +204,15 @@ function EditablePage({ page, onSaved, canEdit }: { page: EncyclopediaEntry; onS
     }
   }
 
+  const reveal = async (openIt: boolean) => {
+    setFailure(null)
+    try {
+      await api.revealPageFile(page.id, openIt)
+    } catch (error) {
+      setFailure(asApiError(error))
+    }
+  }
+
   return (
     <>
       {editing ? (
@@ -227,18 +236,38 @@ function EditablePage({ page, onSaved, canEdit }: { page: EncyclopediaEntry; onS
         </div>
       ) : (
         <>
+          {/* Edited on the Mac, whose copy is the page's: the cloud copy shows the edit once it syncs. At the top, where
+              it is seen (feedback of 5 October), with the page's own Markdown file beside it. */}
+          {canEdit ? (
+            <div className="page-tools">
+              <div className="actions">
+                <button type="button" className="button primary" onClick={() => { setDraft(page.markdown); setEditing(true) }}>
+                  Edit this page
+                </button>
+                {page.file_path ? (
+                  <>
+                    <button type="button" className="button" disabled={busy} onClick={() => void reveal(false)}>
+                      Show in Finder
+                    </button>
+                    <button type="button" className="button ghost" disabled={busy} onClick={() => void reveal(true)}>
+                      Open the Markdown file
+                    </button>
+                  </>
+                ) : null}
+                {page.edited ? (
+                  <button type="button" className="button ghost" disabled={busy} onClick={() => void act(() => api.revertPage(page.id))}>
+                    Go back to the compiled page
+                  </button>
+                ) : null}
+              </div>
+              {page.file_path ? (
+                <p className="muted small">
+                  Backed by <code>{page.file_path}</code> in your source folder. Edit it here, or in any Markdown editor; whichever is newer is kept.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <EncyclopediaPage page={page} />
-          {/* Edited on the Mac, whose copy is the page's: the cloud copy shows the edit once it syncs. */}
-          {canEdit ? <div className="actions">
-            <button type="button" className="button" onClick={() => { setDraft(page.markdown); setEditing(true) }}>
-              Edit
-            </button>
-            {page.edited ? (
-              <button type="button" className="button ghost" disabled={busy} onClick={() => void act(() => api.revertPage(page.id))}>
-                Go back to the compiled page
-              </button>
-            ) : null}
-          </div> : null}
         </>
       )}
       {failure ? (

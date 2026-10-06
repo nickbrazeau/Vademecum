@@ -67,3 +67,44 @@ def backfill_pictures(connection: sqlite3.Connection, *, source_dir: Path, limit
     if visited:
         logger.info("pictures_backfilled sources=%d reread=%d missing=%d pictures=%d", visited, reread, missing, pictures)
     return {"visited": visited, "reread": reread, "missing": missing, "pictures": pictures}
+
+
+REGATHERED_KEY = "images_regathered_cap"
+
+
+def regather_capped_images(connection: sqlite3.Connection, *, source_dir: Path) -> dict:
+    """Pictures again, and only pictures, for every source that reached the old cap of
+    200 (feedback of 5 October): its later chapters' figures were never kept. The text,
+    its segments and every learning point are untouched. Runs once per cap."""
+    from .images import MAX_PER_DOCUMENT, OLD_MAX_PER_DOCUMENT, ORIGIN_RENDERED, extract_images
+
+    done = connection.execute("SELECT value FROM app_state WHERE key = ?", (REGATHERED_KEY,)).fetchone()
+    if done is not None and done["value"] == str(MAX_PER_DOCUMENT):
+        return {"sources": 0, "pictures": 0}
+    rows = connection.execute(
+        "SELECT s.id, s.media_type, s.stored_name, COUNT(i.id) AS n,"
+        " SUM(CASE WHEN i.origin = ? THEN 1 ELSE 0 END) AS rendered"
+        " FROM sources s JOIN source_images i ON i.source_id = s.id GROUP BY s.id HAVING n >= ?",
+        (ORIGIN_RENDERED, OLD_MAX_PER_DOCUMENT),
+    ).fetchall()
+    sources = pictures = 0
+    for row in rows:
+        if row["rendered"]:
+            continue  # a scanned source's rendered pages come with its text; left as it is
+        try:
+            payload = (source_dir / row["stored_name"]).read_bytes()
+        except OSError:
+            continue
+        images = extract_images(store._kind_of(row["media_type"]), payload)  # noqa: SLF001
+        if len(images) <= row["n"]:
+            continue
+        pictures += image_store.replace_images(connection, source_id=row["id"], images=images, directory=source_dir.parent / "images")
+        sources += 1
+    with transaction(connection) as tx:
+        tx.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (REGATHERED_KEY, str(MAX_PER_DOCUMENT), utc_now()),
+        )
+    logger.info("pictures_regathered sources=%d pictures=%d", sources, pictures)
+    return {"sources": sources, "pictures": pictures}

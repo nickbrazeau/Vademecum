@@ -430,3 +430,34 @@ def test_questions_written_during_a_pass_join_it_at_random(connection) -> None:
     assert order[1:] != sorted(order[1:], key=ids.index), "shuffled, not in the order written"
     store._fold_in_new(connection, number, ids, rng=random.Random(3))  # noqa: SLF001
     assert len(list(connection.execute("SELECT 1 FROM board_cycle_entries WHERE cycle_number = ?", (number,)))) == 12, "nothing doubled"
+
+
+def test_a_page_names_its_markdown_file_and_reveals_it_only_on_the_mac(tmp_path: Path, monkeypatch) -> None:
+    """Feedback of 5 October: the page's file is named on the page; Show in Finder opens
+    nothing but Finder, on this Mac, and only for a file inside the source folder."""
+    import subprocess
+    import sys
+
+    from vademecum.db import connect
+    from vademecum.storage import page_files
+
+    folder = tmp_path / "Vademecum"
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_dir=folder)
+    app = create_app(settings, transport_factory=refusing_factory())
+    opened: list[list[str]] = []
+    monkeypatch.setattr(subprocess, "run", lambda args, **kwargs: opened.append(list(args)))
+    monkeypatch.setattr(sys, "platform", "darwin")
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        connection = connect(app.state.database_path)
+        try:
+            entry = store.upsert_entry(connection, topic="aki", title="Acute kidney injury", specialty_id=None, summary="S.", sections=[], point_ids=[], points_hash_value="1")
+            assert c.get(f"/api/encyclopedia/{entry.id}").json()["file_path"] is None
+            page_files.sync_folder(connection, folder)
+        finally:
+            connection.close()
+        page = c.get(f"/api/encyclopedia/{entry.id}").json()
+        assert page["file_path"] == "encyclopedia/Other topics/Acute kidney injury.md"
+        assert c.post(f"/api/encyclopedia/{entry.id}/reveal").json()["path"] == page["file_path"]
+        assert opened[-1][:2] == ["open", "-R"] and opened[-1][2].endswith("Acute kidney injury.md")
+        c.post(f"/api/encyclopedia/{entry.id}/reveal?open_it=true")
+        assert opened[-1][0] == "open" and len(opened[-1]) == 2

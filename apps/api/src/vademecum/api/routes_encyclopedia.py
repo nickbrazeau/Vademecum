@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request, status
@@ -94,6 +95,8 @@ def _page_payload(connection: sqlite3.Connection, entry: store.Entry) -> dict[st
 
     data = entry.as_dict()
     data["markdown"] = page_files.body_for(connection, entry.id)
+    # Its Markdown file in the source folder, like a Joplin note (feedback of 5 October).
+    data["file_path"] = page_files.file_of(connection, entry.id)
     data["citations"] = store.cited_points(connection, list(entry.point_ids))
     data["literature"] = store.records_for_entry(connection, entry.id)
     data["questions"] = [q.as_dict() for q in store.questions_for_entry(connection, entry.id) if q.status == "eligible"]
@@ -187,6 +190,27 @@ async def stop_dissection(request: Request, connection: sqlite3.Connection = Dep
 @router.get("/{entry_id}")
 def read_entry(entry_id: str, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
     return _page_payload(connection, store.get_entry(connection, entry_id))
+
+
+@router.post("/{entry_id}/reveal")
+def reveal_file(entry_id: str, request: Request, open_it: bool = False, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Show the page's Markdown file in Finder, or open it in the Mac's editor for .md
+    files. On this Mac only: nothing is sent, and the cloud copy has no folder."""
+    import subprocess
+    import sys
+
+    from ..storage import page_files
+
+    store.get_entry(connection, entry_id)
+    folder = getattr(request.app.state, "sources_folder", None)
+    relative = page_files.file_of(connection, entry_id)
+    if folder is None or relative is None or sys.platform != "darwin":
+        raise ConflictError("no_file", "This page's Markdown file is on the Mac, in the source folder under encyclopedia/.")
+    path = (Path(folder) / relative).resolve()
+    if not path.is_file() or Path(folder).resolve() not in path.parents:
+        raise ConflictError("no_file", "The file is not there yet; it is written at the next folder scan.")
+    subprocess.run(["open", str(path)] if open_it else ["open", "-R", str(path)], check=False, timeout=10, capture_output=True)
+    return {"path": relative}
 
 
 @router.put("/{entry_id}")

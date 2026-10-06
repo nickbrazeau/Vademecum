@@ -591,6 +591,8 @@ export interface PageRecord {
 }
 
 export interface EncyclopediaEntry {
+  /** The page's Markdown file in the source folder, e.g. "encyclopedia/Nephrology/Acute kidney injury.md". */
+  file_path?: string | null
   id: string
   topic: string
   title: string

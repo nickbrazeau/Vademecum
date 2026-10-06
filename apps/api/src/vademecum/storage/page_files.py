@@ -106,6 +106,12 @@ def _write_record(connection: sqlite3.Connection, record: dict[str, Any]) -> Non
         )
 
 
+def file_of(connection: sqlite3.Connection, entry_id: str) -> str | None:
+    """The page's Markdown file, relative to the source folder, once it has been written."""
+    path = (_read_record(connection).get(entry_id) or {}).get("path")
+    return f"{FOLDER}/{path}" if isinstance(path, str) and path else None
+
+
 def set_edit(connection: sqlite3.Connection, entry_id: str, body_md: str) -> None:
     now = utc_now()
     text = body_md.replace("\r\n", "\n").strip()

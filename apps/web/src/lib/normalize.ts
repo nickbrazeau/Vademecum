@@ -965,6 +965,7 @@ export function encyclopediaCounts(raw: unknown): EncyclopediaCounts {
 export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
   const data = obj(raw)
   return {
+    file_path: typeof data.file_path === 'string' ? data.file_path : null,
     id: str(data.id),
     topic: str(data.topic),
     title: str(data.title, str(data.topic)),

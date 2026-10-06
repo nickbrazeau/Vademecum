@@ -142,14 +142,49 @@ def current_sources_dir(settings: Settings) -> Path | None:
 
 
 def backfill_pictures(database_path: Path, source_dir: Path) -> dict:
-    """Pictures for sources stored before they were kept (ADR 0013), own connection."""
+    """Pictures for sources stored before they were kept (ADR 0013), and again for any
+    that reached the old cap of 200 (feedback of 5 October); own connection."""
     from .ingest.backfill import backfill_pictures as run
+    from .ingest.backfill import regather_capped_images
 
     connection = connect(database_path)
     try:
-        return run(connection, source_dir=source_dir)
+        result = run(connection, source_dir=source_dir)
+        result["regathered"] = regather_capped_images(connection, source_dir=source_dir)
+        return result
     finally:
         connection.close()
+
+
+def pictures_waiting(database_path: Path) -> bool:
+    """Cheap: is there any picture work to do at all?"""
+    from .ingest.backfill import REGATHERED_KEY
+    from .ingest.images import MAX_PER_DOCUMENT, OLD_MAX_PER_DOCUMENT
+
+    connection = connect(database_path)
+    try:
+        if connection.execute("SELECT 1 FROM sources WHERE images_at IS NULL LIMIT 1").fetchone():
+            return True
+        done = connection.execute("SELECT value FROM app_state WHERE key = ?", (REGATHERED_KEY,)).fetchone()
+        if done is not None and done["value"] == str(MAX_PER_DOCUMENT):
+            return False
+        return connection.execute(
+            "SELECT 1 FROM source_images GROUP BY source_id HAVING COUNT(*) >= ? LIMIT 1", (OLD_MAX_PER_DOCUMENT,)
+        ).fetchone() is not None
+    finally:
+        connection.close()
+
+
+async def _pictures_in_background(database_path: Path, source_dir: Path) -> dict:
+    """Reading pictures from a long PDF is heavy, pure-Python work: in a process of its
+    own, so the web app keeps answering; only started when there is work."""
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+
+    if not await asyncio.to_thread(pictures_waiting, database_path):
+        return {}
+    with ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn")) as pool:
+        return await asyncio.get_running_loop().run_in_executor(pool, backfill_pictures, database_path, source_dir)
 
 
 def scan_sources_folder(database_path: Path, source_dir: Path, folder: Path | None, max_new: int | None = None) -> dict:
@@ -616,9 +651,7 @@ def create_app(
                 )
             # Sources stored before pictures were kept get them now, in the
             # background: a long scan is read on-device page by page.
-            backfill_task = asyncio.create_task(
-                asyncio.to_thread(backfill_pictures, owner.database_path, owner.source_dir)
-            )
+            backfill_task = asyncio.create_task(_pictures_in_background(owner.database_path, owner.source_dir))
             app.state.backfill_task = backfill_task
             if resolved.sync_peer_url and resolved.sync_token:
                 # Domi pulls from and pushes to foris (ADR 0015),

@@ -36,7 +36,10 @@ MIN_PIXELS = 12_000
 MAX_PIXELS = 40_000_000
 MAX_IMAGE_BYTES = 6 * 1024 * 1024
 MAX_PER_UNIT = 8
-MAX_PER_DOCUMENT = 200
+# A long book has figures on most of its pages: the old cap of 200 kept only those
+# from its first chapters (feedback of 5 October). Small icons are still filtered out.
+MAX_PER_DOCUMENT = 3000
+OLD_MAX_PER_DOCUMENT = 200
 
 REL_IMAGE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
 

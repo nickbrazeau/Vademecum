@@ -475,3 +475,41 @@ def test_older_sources_get_their_pictures_and_a_second_reading(client: TestClien
     reread = client.get(f"/api/sources/{scan['id']}").json()
     assert reread["status"] == "extracted"
     assert reread["segments_preview"][0]["locator"] == "page 1 (OCR)"
+
+
+def test_a_source_that_reached_the_old_cap_gets_its_later_pictures(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    """Feedback of 5 October: the cap of 200 kept only a long book's first chapters of
+    figures. Such a source is read again for pictures only, once; its text is untouched."""
+    import dataclasses
+
+    from vademecum.db import connect
+    from vademecum.ingest import images as image_module
+    from vademecum.ingest.backfill import regather_capped_images
+
+    pile_id = pile(client)
+    uploaded = client.post(
+        f"/api/piles/{pile_id}/sources",
+        files=[("files", ("figure.pdf", pdf_with_picture("A figure and its caption, in words."), "application/pdf"))],
+        data={"confidence": "mid"},
+    )
+    source = uploaded.json()["results"][0]["source"]
+    connection = connect(tmp_path / "data" / "vademecum.sqlite3")
+    try:
+        segments_before = connection.execute("SELECT id, text FROM source_segments WHERE source_id = ? ORDER BY ordinal", (source["id"],)).fetchall()
+        assert connection.execute("SELECT COUNT(*) FROM source_images WHERE source_id = ?", (source["id"],)).fetchone()[0] == 1
+        monkeypatch.setattr(image_module, "OLD_MAX_PER_DOCUMENT", 1)
+        real = image_module.extract_images
+
+        def more(kind, payload, **kwargs):
+            found = real(kind, payload, **kwargs)
+            return found + [dataclasses.replace(found[0], sha256="f" * 64, unit_index=found[0].unit_index)]
+
+        monkeypatch.setattr(image_module, "extract_images", more)
+        report = regather_capped_images(connection, source_dir=tmp_path / "data" / "attachments" / "sources")
+        assert report == {"sources": 1, "pictures": 2}
+        assert connection.execute("SELECT COUNT(*) FROM source_images WHERE source_id = ?", (source["id"],)).fetchone()[0] == 2
+        segments_after = connection.execute("SELECT id, text FROM source_segments WHERE source_id = ? ORDER BY ordinal", (source["id"],)).fetchall()
+        assert [tuple(r) for r in segments_after] == [tuple(r) for r in segments_before], "the text is untouched"
+        assert regather_capped_images(connection, source_dir=tmp_path / "data" / "attachments" / "sources") == {"sources": 0, "pictures": 0}, "once"
+    finally:
+        connection.close()
