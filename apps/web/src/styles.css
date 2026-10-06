@@ -1322,6 +1322,18 @@ details.card-details[open] > summary {
   cursor: pointer;
   padding: 0.5rem 0;
 }
+/* Name, counts, badge and bar spaced apart, wrapping on a phone (feedback of 5 October). */
+.strength-specialty > summary,
+.strength-topic > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+}
+.topic-connections h4 {
+  margin: 0.75rem 0 0.25rem;
+}
 .page-subject-name,
 .strength-name {
   font-weight: 600;
@@ -1611,7 +1623,8 @@ details.settings-details > summary::before,
 details.toggle-card > summary::before,
 details.watch-group > summary::before,
 details.card-details > summary::before,
-details.strength-group > summary::before {
+details.strength-specialty > summary::before,
+details.strength-topic > summary::before {
   content: '▸';
   display: inline-block;
   width: 1.1em;
@@ -1624,6 +1637,7 @@ details[open].settings-details > summary::before,
 details[open].toggle-card > summary::before,
 details[open].watch-group > summary::before,
 details[open].card-details > summary::before,
-details[open].strength-group > summary::before {
+details[open].strength-specialty > summary::before,
+details[open].strength-topic > summary::before {
   transform: rotate(90deg);
 }

@@ -76,7 +76,7 @@ function Topic({ topic }: { topic: TopicStrength }) {
 
 function Specialty({ group }: { group: SpecialtyStrength }) {
   return (
-    <details className={`strength-specialty standing-${group.label}`} open={group.weak > 0 && group.label === 'weak'}>
+    <details className={`strength-specialty standing-${group.label}`}>
       <summary>
         <span className="strength-name">{group.name}</span>
         <span className="muted small">

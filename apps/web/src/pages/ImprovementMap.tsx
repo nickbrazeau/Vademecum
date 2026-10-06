@@ -9,13 +9,16 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { ExamReports } from '../components/ExamReports'
 import { StrengthsView } from '../components/StrengthsView'
 import { TopicGraph, isShown } from '../components/TopicGraph'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
-import type { Flag, MapPosition } from '../lib/types'
+import type { EncyclopediaEntry, Flag, MapPosition } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
+import { openPageLater } from '../lib/pageLink'
+import type { RouteName } from '../lib/router'
 
 function FlagList({ flags, onChanged }: { flags: Flag[]; onChanged: () => void }) {
   const [failure, setFailure] = useState<ApiError | null>(null)
@@ -95,12 +98,88 @@ function FlagGroups({ flags, onChanged }: { flags: Flag[]; onChanged: () => void
   )
 }
 
-export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
+/** A clicked topic's own pages and its neighbours', each a link into the Encyclopedia (feedback of 5 October). */
+function TopicConnections({
+  topic,
+  neighbours,
+  onSelect,
+  onNavigate
+}: {
+  topic: string
+  neighbours: string[]
+  onSelect: (topic: string) => void
+  onNavigate?: (name: RouteName) => void
+}) {
+  const [pages, setPages] = useState<Record<string, EncyclopediaEntry[]> | null>(null)
+  useEffect(() => {
+    let live = true
+    setPages(null)
+    const topics = [topic, ...neighbours.slice(0, 8)]
+    Promise.all(
+      topics.map((name) =>
+        api.encyclopediaList(name).then(
+          (list) => [name, list.entries.slice(0, 3)] as const,
+          () => [name, [] as EncyclopediaEntry[]] as const
+        )
+      )
+    ).then((found) => {
+      if (live) setPages(Object.fromEntries(found))
+    })
+    return () => {
+      live = false
+    }
+  }, [topic, neighbours.join('|')])
+
+  const open = (entryId: string) => (event: MouseEvent) => {
+    if (onNavigate === undefined) return
+    event.preventDefault()
+    openPageLater(entryId)
+    onNavigate('encyclopedia')
+  }
+  const links = (entries: EncyclopediaEntry[] | undefined) =>
+    entries && entries.length > 0 ? (
+      entries.map((entry, index) => (
+        <span key={entry.id}>
+          {index > 0 ? ', ' : ''}
+          <a href={`/encyclopedia?page=${encodeURIComponent(entry.id)}`} onClick={open(entry.id)}>
+            {entry.title}
+          </a>
+        </span>
+      ))
+    ) : (
+      <span className="muted">no page yet</span>
+    )
+
+  return (
+    <div className="topic-connections">
+      <h4>Encyclopedia</h4>
+      <p className="small">{pages === null ? <span className="muted">Looking…</span> : links(pages[topic])}</p>
+      <h4>Connected topics</h4>
+      {neighbours.length === 0 ? (
+        <p className="muted small">No learning point is filed under this topic and another yet.</p>
+      ) : (
+        <ul className="list small">
+          {neighbours.map((name) => (
+            <li key={name}>
+              <button type="button" className="link-button" onClick={() => onSelect(name)}>
+                {name}
+              </button>
+              {pages && name in pages ? <span> · {links(pages[name])}</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: number; onNavigate?: (name: RouteName) => void }) {
   const map = useLoad(() => api.improvementMap(), [reloadToken])
   const flags = useLoad(() => api.listFlags(), [reloadToken])
   const strengths = useLoad(() => api.strengths(), [reloadToken])
   // Everything in the piles is an area to review, so the map starts with everything shown.
-  const [openOnly, setOpenOnly] = useState(false)
+  // Open flags first: where the gaps are (feedback of 5 October).
+  const [openOnly, setOpenOnly] = useState(true)
   const [selected, setSelected] = useState<string | null>(null)
   // Legend entries switched off. A view preference, not a fact: never stored.
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set())
@@ -281,8 +360,8 @@ export function ImprovementMap({ reloadToken }: { reloadToken: number }) {
             {selectedGap ? `${selectedGap.open_flags} open · ${selectedGap.addressed_flags} addressed` : 'No flags'}
             {selectedCovered ? ` · ${selectedCovered.point_count} learning points` : ''}
             {selectedCovered?.cluster ? ` · mostly from ${selectedCovered.cluster.title}` : ''}
-            {neighbours.length > 0 ? ` · linked to ${neighbours.join(', ')}` : ''}
           </p>
+          <TopicConnections topic={selected} neighbours={neighbours} onSelect={setSelected} onNavigate={onNavigate} />
           <label className="field specialty-field">
             <span>
               Specialty

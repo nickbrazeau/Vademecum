@@ -193,7 +193,7 @@ export function App() {
         {route === 'today' ? <Today reloadToken={reloadToken} onNavigate={navigate} /> : null}
         {route === 'tutor' ? <Tutor onNavigate={navigate} /> : null}
         {route === 'sources' ? <Sources /> : null}
-        {route === 'map' ? <ImprovementMap reloadToken={reloadToken} /> : null}
+        {route === 'map' ? <ImprovementMap reloadToken={reloadToken} onNavigate={navigate} /> : null}
         {route === 'encyclopedia' ? <Encyclopedia /> : null}
         {route === 'flashcards' ? <Flashcards onNavigate={navigate} /> : null}
         {route === 'podcasts' ? <Podcasts onNavigate={navigate} /> : null}

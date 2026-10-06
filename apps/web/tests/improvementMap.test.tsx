@@ -141,8 +141,11 @@ describe('the Improvement Map page', () => {
     )
     // Flags with no topic yet are counted beside the map and listed below it, never drawn as a node.
     expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Not filed yet'))).toBe(false)
-    // Everything in the piles is an area to review: covered topics are drawn by default too.
-    expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Nephrology'))).toBe(true)
+    // Open flags are the landing view (feedback of 5 October); covered topics are one tap away.
+    expect(nodes.some((node) => node.getAttribute('aria-label')?.startsWith('Nephrology'))).toBe(false)
+    await userEvent.click(screen.getByRole('button', { name: 'Everything covered' }))
+    const coveredNodes = within(screen.getByRole('group', { name: 'Topic graph' })).getAllByRole('button')
+    expect(coveredNodes.some((node) => node.getAttribute('aria-label')?.startsWith('Nephrology'))).toBe(true)
 
     // The list underneath is still the whole record.
     const everything = screen.getByRole('heading', { name: /everything you have flagged/i }).closest('details') as HTMLElement
@@ -152,8 +155,10 @@ describe('the Improvement Map page', () => {
     await user.click(within(graph).getByRole('button', { name: /^Influenza/ }))
     const panel = await screen.findByRole('region', { name: 'Influenza' })
     expect(panel).toHaveTextContent('3 open · 1 addressed · 4 learning points · mostly from Flu pile')
-    expect(panel).toHaveTextContent(/linked to Pneumonia/)
-    expect(within(panel).getAllByRole('listitem')).toHaveLength(2)
+    // Its connections, each one tap from being selected, and its encyclopedia pages (feedback of 5 October).
+    expect(await within(panel).findByRole('button', { name: 'Pneumonia' })).toBeInTheDocument()
+    expect(panel).toHaveTextContent('Encyclopedia')
+    expect(within(panel).getAllByRole('button', { name: 'Mark addressed' })).toHaveLength(2)
     expect(within(panel).queryByText('MRSA coverage in severe CAP')).not.toBeInTheDocument()
 
     // The legend names the specialties actually drawn, plus the unassigned marker; with
@@ -181,6 +186,7 @@ describe('the Improvement Map page', () => {
     }))
     render(<ImprovementMap reloadToken={0} />)
     await screen.findByRole('group', { name: 'Topic graph' })
+    await userEvent.click(screen.getByRole('button', { name: 'Everything covered' }))
     // One save, a moment after the layout settles — never one per tick.
     await vi.advanceTimersByTimeAsync(700)
     const saves = calls.filter((call) => call.path.endsWith('/improvement-map/positions'))
