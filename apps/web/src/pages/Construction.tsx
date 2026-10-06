@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
+import { FolderDrop } from '../components/FolderDrop'
 import { Unavailable } from '../components/Unavailable'
 import { api } from '../lib/api'
 import type { RouteName } from '../lib/router'
@@ -28,6 +29,8 @@ export function Construction({ onNavigate }: { onNavigate?: (name: RouteName) =>
 
   return (
     <div className="stack">
+      {/* On the Mac, where the source folder is. */}
+      {pages.result.state === 'ready' && pages.result.value.can_compile ? <FolderDrop onPlaced={changed} /> : null}
       <DissectionCard onChanged={changed} />
       {pages.result.state === 'ready' ? <CompileCard state={pages.result.value} onChanged={changed} /> : null}
 

@@ -161,6 +161,98 @@ def _message_for(stored: store.StoredUpload) -> str:
     )
 
 
+FOLDER_NAME_UNSAFE = r'[\\/:*?"<>|\x00-\x1f]+'
+
+
+def _folder_safe(name: str, fallback: str) -> str:
+    """A name that is one folder or file name and nothing more: no separators, no leading dot."""
+    import re
+
+    cleaned = re.sub(FOLDER_NAME_UNSAFE, " ", name).strip().lstrip(".").strip()
+    words = [word for word in cleaned.split() if word.strip(".")]  # no "..", even as a word
+    return " ".join(words)[:100] or fallback
+
+
+@router.post("/sources/folder-drop", status_code=status.HTTP_201_CREATED)
+async def drop_into_folder(
+    request: Request,
+    pile: str = Form(..., max_length=100),
+    confidence: schemas.Confidence = Form(...),
+    files: list[UploadFile] = File(...),
+    source_dir: Path = Depends(get_source_dir),
+) -> dict:
+    """Files dropped on the web app, filed on this Mac (feedback of 5 October): written
+    into the source folder at piles/<confidence>/<pile>/, where the owner can see and
+    arrange them, then read in by the folder scan as if they had been put there by
+    hand. The reply names the files and the folder relative to the source folder,
+    never a full path. Nothing is sent anywhere."""
+    import os
+    import time
+
+    from ..app import _scan_elsewhere, current_sources_dir
+    from ..ingest.folder import PILES_DIRNAME, SETTLE_SECONDS, TIER_FOLDERS
+
+    settings = request.app.state.settings
+    folder = current_sources_dir(settings) if settings.tenancy == "single" else None
+    if folder is None:
+        raise store.ConflictError("not_in_this_mode", "Dropping files into the source folder works on the Mac, where the folder is.")
+    if len(files) > MAX_FILES_PER_REQUEST:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"Drop at most {MAX_FILES_PER_REQUEST} files at a time.")
+    tier_folder = TIER_FOLDERS.get(confidence, TIER_FOLDERS["mid"])
+    pile_name = _folder_safe(pile, "")
+    if not pile_name:
+        raise store.ConflictError("no_pile", "Name the pile.")
+    target_dir = folder / PILES_DIRNAME / tier_folder / pile_name
+    target_dir.mkdir(parents=True, exist_ok=True)
+    placed: list[dict] = []
+    settled = time.time() - SETTLE_SECONDS - 1
+    for upload in files:
+        display = safe_display_name(upload.filename)
+        payload = await upload.read(MAX_UPLOAD_BYTES + 1)
+        if len(payload) > MAX_UPLOAD_BYTES:
+            placed.append({"filename": display, "status": "rejected", "message": "Larger than Vademecum stores. Split it and try again."})
+            continue
+        try:
+            detect(display, payload)
+        except UnsupportedUpload as exc:
+            placed.append({"filename": display, "status": "rejected", "message": exc.message})
+            continue
+        name = _folder_safe(display, "file")
+        stem, dot, ext = name.rpartition(".")
+        if not dot:
+            stem, ext = name, ""
+        candidate = target_dir / name
+        number = 2
+        while candidate.exists():
+            if candidate.read_bytes() == payload:
+                break
+            candidate = target_dir / (f"{stem} ({number}).{ext}" if ext else f"{stem} ({number})")
+            number += 1
+        if candidate.exists():
+            placed.append({"filename": candidate.name, "status": "already_there"})
+            continue
+        partial = target_dir / f".{candidate.name}.partial"
+        partial.write_bytes(payload)
+        os.utime(partial, (settled, settled))
+        partial.replace(candidate)
+        placed.append({"filename": candidate.name, "status": "placed"})
+    if any(item["status"] == "placed" for item in placed):
+        # Read in now rather than at the next scan, apart from the web app's own process.
+        database_path = request.state.workspace.database_path
+
+        async def scan_then_wake() -> None:
+            try:
+                report = await _scan_elsewhere(request.app, database_path, source_dir, folder)
+                if report.get("stored") or report.get("piles_created"):
+                    _wake_agent(request)
+            except Exception:  # noqa: BLE001 - the regular scan will try again
+                pass
+
+        request.app.state.folder_drop_task = asyncio.create_task(scan_then_wake())
+    relative = f"{PILES_DIRNAME}/{tier_folder}/{pile_name}"
+    return {"folder": relative, "files": placed}
+
+
 @router.post("/sources/scan")
 async def scan_folder_now(
     request: Request,

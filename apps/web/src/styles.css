@@ -1641,3 +1641,20 @@ details[open].strength-specialty > summary::before,
 details[open].strength-topic > summary::before {
   transform: rotate(90deg);
 }
+
+.drop-zone {
+  border: 2px dashed var(--line);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  margin: 0.5rem 0;
+}
+.drop-zone.over,
+.drop-zone:focus-visible {
+  border-color: var(--accent);
+  background: rgba(47, 93, 80, 0.06);
+}
+.drop-zone ul {
+  text-align: left;
+}

@@ -268,6 +268,16 @@ export const api = {
     form.append('confidence', confidence)
     return request<UploadReport>(`/piles/${pileId}/sources`, { method: 'POST', body: form }).then(normalize.uploadReport)
   },
+  dropIntoFolder: (pile: string, confidence: Tier, files: File[]) => {
+    const form = new FormData()
+    form.append('pile', pile)
+    form.append('confidence', confidence)
+    for (const file of files) form.append('files', file)
+    return request<{ folder: string; files: { filename: string; status: string; message?: string }[] }>('/sources/folder-drop', {
+      method: 'POST',
+      body: form
+    })
+  },
   getSource: (sourceId: string) => request<SourceDetail>(`/sources/${sourceId}`).then(normalize.sourceDetail),
   updateSource: (sourceId: string, input: { confidence?: Tier; excluded?: boolean }) =>
     request<Source>(`/sources/${sourceId}`, { method: 'PATCH', ...body(input) }).then(normalize.source),

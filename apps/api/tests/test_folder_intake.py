@@ -248,3 +248,28 @@ def test_the_scan_report_carries_no_path(with_folder: TestClient, piles: Path, f
     assert str(folder) not in text
     assert str(folder_settings.resolve_data_dir()) not in text
     assert "/Users/" not in text
+
+
+def test_files_dropped_on_the_web_app_are_filed_in_the_folder(with_folder: TestClient, folder: Path, piles: Path) -> None:
+    """Feedback of 5 October: a new pile by dropping files on the web app, filed on the Mac
+    at piles/<confidence>/<pile>/ and read in like anything put there by hand."""
+    dropped = with_folder.post(
+        "/api/sources/folder-drop",
+        data={"pile": "Sepsis / ../lectures", "confidence": "high"},
+        files=[
+            ("files", ("lecture.txt", LECTURE, "text/plain")),
+            ("files", ("notes.exe", b"MZ\x90\x00", "application/octet-stream")),
+        ],
+    )
+    assert dropped.status_code == 201, dropped.text
+    body = dropped.json()
+    assert body["folder"] == "piles/highconfidence/Sepsis lectures", "one folder name, nothing upward"
+    assert [f["status"] for f in body["files"]] == ["placed", "rejected"]
+    assert (piles / "highconfidence" / "Sepsis lectures" / "lecture.txt").read_bytes() == LECTURE
+    assert str(folder) not in dropped.text, "no full path in the reply"
+    again = with_folder.post("/api/sources/folder-drop", data={"pile": "Sepsis lectures", "confidence": "high"}, files=[("files", ("lecture.txt", LECTURE, "text/plain"))])
+    assert again.json()["files"][0]["status"] == "already_there"
+    deadline = time.time() + 60
+    while time.time() < deadline and "Sepsis lectures" not in [p["title"] for p in with_folder.get("/api/piles").json()]:
+        time.sleep(0.25)
+    assert "Sepsis lectures" in [p["title"] for p in with_folder.get("/api/piles").json()]
