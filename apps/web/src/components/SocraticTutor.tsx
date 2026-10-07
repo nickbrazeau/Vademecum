@@ -22,8 +22,8 @@ import { PhiWarning } from './PhiWarning'
 // when it cannot reach them (voice mode, or a connector not yet refreshed).
 export const LAUNCH_PROMPT =
   'Using my Vademecum connector, start a Socratic session: call socratic_start, then ask me one open question at a time, ' +
-  'record every exchange with socratic_turn, and close with socratic_finish. If you cannot call the Vademecum tools here, ' +
-  'tell me before we begin.'
+  'record every exchange with socratic_turn, and close with socratic_finish. If you do not have socratic_start, tell me ' +
+  'to open chatgpt.com/plugins in a browser, open the Vademecum connection, choose Refresh, then start a new chat.'
 export const CHATGPT_LAUNCH = `https://chatgpt.com/?q=${encodeURIComponent(LAUNCH_PROMPT)}`
 export const CLAUDE_LAUNCH = `https://claude.ai/new?q=${encodeURIComponent(LAUNCH_PROMPT)}`
 
@@ -32,7 +32,7 @@ export function resumePrompt(sessionId: string): string {
   return (
     `Using my Vademecum connector, carry on my open Socratic session: call socratic_start with session_id ${sessionId}, ` +
     'then ask me the next open question, record every exchange with socratic_turn, and close with socratic_finish. ' +
-    'If you cannot call the Vademecum tools here, tell me before we begin.'
+    'If you do not have socratic_start, tell me to open chatgpt.com/plugins in a browser, open the Vademecum connection, choose Refresh, then start a new chat.'
   )
 }
 
@@ -58,8 +58,9 @@ function HandOff({ prompt, primary, lead }: { prompt: string; primary: boolean; 
         </a>
       </div>
       <p className="muted small">
-        A text chat opens with the prompt filled in; speak your answers with the keyboard’s microphone. Every exchange is saved here. If the
-        assistant says it cannot reach Vademecum, refresh the connector in its settings.
+        A text chat opens with the prompt filled in; speak your answers with the keyboard’s microphone. Every exchange is saved here. If
+        ChatGPT says it has no socratic_start, its list of Vademecum’s tools is out of date: in a browser, open chatgpt.com/plugins, open
+        Vademecum, choose Refresh, and start a new chat.
       </p>
     </div>
   )

@@ -39,7 +39,8 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         return {
             **data,
             "socratic": "Socratic sessions use socratic_start, socratic_turn and socratic_finish. If you do not have those "
-            "tools, the connector's tool list is stale: ask the owner to refresh the Vademecum connector in settings.",
+            "tools, ChatGPT is using the tool list it fetched when the connector was added. Tell the owner to "
+            "open chatgpt.com/plugins in a browser, open the Vademecum connection, choose Refresh, then start a new chat.",
         }
 
     @mcp.tool(annotations=READ, meta=CARD)
