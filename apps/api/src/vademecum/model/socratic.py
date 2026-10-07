@@ -214,6 +214,62 @@ def file_gaps(connection, session: store.Session) -> int:
     return filed
 
 
+async def compute_turn(
+    database_path: Path,
+    *,
+    scope_id: str,
+    entry_id: str | None,
+    transcript: list[tuple[str, str]],
+    exchanges: int,
+    turn_factory: Any,
+) -> dict[str, Any]:
+    """One tutor turn on this Mac's own connection: the page and the dialogue go to the
+    model, the next question (or the assessment) comes back. Used for a session held
+    here and, through the relay, for one held on the phone's copy (feedback of 6 October).
+    Returns the model's payload, or {"error": category}."""
+    connection = connect(database_path)
+    try:
+        try:
+            entry = pages.get_entry(connection, entry_id) if entry_id else None
+        except Exception:  # noqa: BLE001 - a page not here yet: the dialogue alone still works
+            entry = None
+        page = page_material(connection, entry) if entry else ""
+        context = further_context(connection, entry) if entry else ""
+    finally:
+        connection.close()
+    try:
+        runner = _runner(turn_factory, scope_id)
+        reply = await runner.run(
+            instructions=prompts.BASE_INSTRUCTIONS,
+            developer_instructions=prompts.SOCRATIC_DEVELOPER,
+            prompt=prompts.socratic_prompt(page, transcript, exchanges, context),
+            output_schema=schemas.SOCRATIC_SCHEMA,
+        )
+    except BridgeError as exc:
+        logger.info("socratic_turn_failed category=%s", exc.category)
+        return {"error": exc.category}
+    return dict(reply.payload)
+
+
+def apply_turn(connection, session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Record a computed turn on the session: the tutor's words, and at the end the
+    assessment with its gaps filed as flags."""
+    from .podcasts import spoken
+
+    session = store.get_session(connection, session_id)
+    if session.status != "open":
+        return {"session": session.as_dict(), "note": "This session has ended.", "gaps_filed": 0}
+    done = bool(payload.get("done")) or session.exchanges >= store.MAX_EXCHANGES
+    said = f"{spoken(payload.get('acknowledgement') or '')} {spoken(payload.get('question') or '')}".strip()
+    if said:
+        session = store.append(connection, session_id, role="tutor", text=said, probe=str(payload.get("probe") or ""))
+    filed = 0
+    if done:
+        session = store.finish(connection, session_id, payload.get("assessment") or {})
+        filed = file_gaps(connection, session)
+    return {"session": session.as_dict(), "note": "", "gaps_filed": filed}
+
+
 async def answer(database_path: Path, session_id: str, learner_text: str, turn_factory: Any) -> dict[str, Any]:
     """On the Mac's own connection: record the answer, run one turn, record the question."""
     connection = connect(database_path)
@@ -223,44 +279,17 @@ async def answer(database_path: Path, session_id: str, learner_text: str, turn_f
             return {"session": session.as_dict(), "note": "This session has ended."}
         if learner_text.strip():
             session = store.append(connection, session_id, role="learner", text=learner_text)
-        entry = pages.get_entry(connection, session.entry_id) if session.entry_id else None
-        page = page_material(connection, entry) if entry else ""
-        context = further_context(connection, entry) if entry else ""
         transcript = [(turn["role"], turn["text"]) for turn in session.transcript]
-        exchanges = session.exchanges
+        entry_id, exchanges = session.entry_id, session.exchanges
     finally:
         connection.close()
-    try:
-        runner = _runner(turn_factory, session_id)
-        reply = await runner.run(
-            instructions=prompts.BASE_INSTRUCTIONS,
-            developer_instructions=prompts.SOCRATIC_DEVELOPER,
-            prompt=prompts.socratic_prompt(page, transcript, exchanges, context),
-            output_schema=schemas.SOCRATIC_SCHEMA,
-        )
-    except BridgeError as exc:
-        logger.info("socratic_turn_failed category=%s", exc.category)
-        connection = connect(database_path)
-        try:
-            return {"session": store.get_session(connection, session_id).as_dict(), "note": f"The model connection failed ({exc.category}). Your answer is kept; try again."}
-        finally:
-            connection.close()
-    from .podcasts import spoken
-
-    payload = reply.payload
-    done = bool(payload.get("done")) or exchanges >= store.MAX_EXCHANGES
-    acknowledgement = spoken(payload.get("acknowledgement") or "")
-    question = spoken(payload.get("question") or "")
-    probe = str(payload.get("probe") or "")
+    payload = await compute_turn(
+        database_path, scope_id=session_id, entry_id=entry_id, transcript=transcript, exchanges=exchanges, turn_factory=turn_factory
+    )
     connection = connect(database_path)
     try:
-        spoken = f"{acknowledgement} {question}".strip()
-        if spoken:
-            session = store.append(connection, session_id, role="tutor", text=spoken, probe=probe)
-        filed = 0
-        if done:
-            session = store.finish(connection, session_id, payload.get("assessment") or {})
-            filed = file_gaps(connection, session)
-        return {"session": session.as_dict(), "note": "", "gaps_filed": filed}
+        if "error" in payload:
+            return {"session": store.get_session(connection, session_id).as_dict(), "note": f"The model connection failed ({payload['error']}). Your answer is kept; try again."}
+        return apply_turn(connection, session_id, payload)
     finally:
         connection.close()

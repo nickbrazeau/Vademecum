@@ -90,6 +90,44 @@ describe('the Socratic tutor on the Mac', () => {
   })
 })
 
+describe("the phone's tutor, answered by the Mac", () => {
+  it('starts through the relay, shows the Mac writing, then the question', async () => {
+    let reads = 0
+    const calls = stub({
+      '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/socratic': { open: null, recent: [], mode: 'host', can_answer_here: true, note: '', disclosure: '', relay: { available: true, live: true } },
+      'POST /api/socratic': { session: { ...OPENED, mode: 'host', transcript: [], waiting: true }, note: 'Your Mac is writing the first question.', gaps_filed: 0 },
+      '/api/socratic/soc_1': () => {
+        reads += 1
+        return { session: { ...OPENED, mode: 'host', waiting: false } }
+      }
+    })
+    const user = userEvent.setup()
+    render(<Tutor />)
+    await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
+    await user.click(await screen.findByRole('button', { name: 'Start a session' }))
+    expect(calls.find((call) => call.method === 'POST' && call.url === '/api/socratic')?.body).toEqual({ relay: true })
+    expect(await screen.findByText(/Your Mac is writing the first question/)).toBeInTheDocument()
+    expect(await screen.findByText(/What is on your differential\?/, {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(reads).toBeGreaterThan(0)
+    expect(calls.some((call) => call.url.endsWith('/answer'))).toBe(false)
+  })
+
+  it('wakes the Mac and says so while it is not yet answering', async () => {
+    stub({
+      '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/socratic': { open: null, recent: [], mode: 'host', can_answer_here: false, note: 'being woken', disclosure: '', relay: { available: true, live: false } }
+    })
+    const user = userEvent.setup()
+    render(<Tutor />)
+    await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
+    expect(await screen.findByText(/Waking your Mac to be the tutor/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start a session' })).not.toBeInTheDocument()
+  })
+})
+
 describe('a Socratic session held elsewhere', () => {
   it('opens a past session to its whole dialogue, and brings in a pasted one', async () => {
     const PAST = {

@@ -154,6 +154,40 @@ async def podcast_audio_put(
     return {"stored": (directory / episode.audio_name).is_file()}
 
 
+class RelayReplyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    payload: dict[str, Any]
+
+
+@router.get("/relay/wait", dependencies=[Depends(require_peer)])
+async def relay_wait(request: Request, timeout: float = Query(default=20, ge=0, le=25)) -> dict:
+    """The Mac's long poll for Socratic turns from the phone's tutor (feedback of 6 October)."""
+    relay = getattr(request.app.state, "relay", None)
+    if relay is None:
+        return {"requests": []}
+    return {"requests": await relay.wait(timeout)}
+
+
+@router.post("/relay/{request_id}", dependencies=[Depends(require_peer)])
+def relay_reply(request_id: str, payload: RelayReplyIn, request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict:
+    """The Mac's answer to one turn: the next question, or the assessment."""
+    from ..model import socratic as tutor
+
+    relay = getattr(request.app.state, "relay", None)
+    asked = relay.complete(request_id) if relay is not None else None
+    if asked is None:
+        return {"applied": False}
+    if "error" in payload.payload:
+        relay.errors[asked["session_id"]] = str(payload.payload["error"])[:40]
+        return {"applied": False}
+    try:
+        result = tutor.apply_turn(connection, asked["session_id"], payload.payload)
+    except Exception:  # noqa: BLE001 - a session deleted meanwhile
+        return {"applied": False}
+    return {"applied": True, "gaps_filed": result.get("gaps_filed", 0)}
+
+
 @router.put("/file/{kind}/{name}", dependencies=[Depends(require_peer)])
 async def sync_put_file(kind: str, name: str, request: Request, source_dir: Path = Depends(get_source_dir)) -> dict:
     """A file the peer's rows will name. The name is its digest, so it checks itself."""

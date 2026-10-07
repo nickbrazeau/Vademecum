@@ -58,7 +58,26 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 /** Keys are `db/...`, `mcp/...` or `attachments/<kind>/<name>`: nothing else, nothing upward. */
 function validKey(key: string): boolean {
-  return /^(db|mcp|attachments)\/[A-Za-z0-9._\/-]{1,200}$/.test(key) && !key.includes('..')
+  return /^(db|mcp|attachments|relay)\/[A-Za-z0-9._\/-]{1,200}$/.test(key) && !key.includes('..')
+}
+
+const RELAY_PATH = '/__relay/wanted'
+
+/**
+ * The Socratic relay's flag (feedback of 6 October): when the owner last opened the tutor
+ * on the phone, written by the container, read here by the Mac with its sync token. Answered
+ * from the bucket by the Worker alone, so the Mac's check every few seconds never wakes the
+ * container.
+ */
+async function relayWanted(request: Request, env: Env): Promise<Response> {
+  const presented = request.headers.get('x-vademecum-sync') ?? ''
+  if (request.method !== 'GET' || !env.VADEMECUM_SYNC_ACCEPT_TOKEN || !timingSafeEqual(presented, env.VADEMECUM_SYNC_ACCEPT_TOKEN)) {
+    return new Response('not found', { status: 404 })
+  }
+  const object = await env.BUCKET.get('relay/wanted')
+  if (object === null) return Response.json({ at: null }, { status: 404, headers: { 'cache-control': 'no-store' } })
+  const at = Number(await object.text())
+  return Response.json({ at: Number.isFinite(at) ? at : null }, { headers: { 'cache-control': 'no-store' } })
 }
 
 async function store(request: Request, env: Env, url: URL): Promise<Response> {
@@ -108,6 +127,7 @@ export default {
     const { success } = await env.LIMITER.limit({ key: address })
     if (!success) return new Response('Too many requests', { status: 429, headers: { 'retry-after': '60' } })
     if (url.pathname.startsWith(STORE_PREFIX)) return store(request, env, url)
+    if (url.pathname === RELAY_PATH) return relayWanted(request, env)
     const seat = getContainer(env.SEAT, 'vademecum')
     return seat.fetch(request)
   }

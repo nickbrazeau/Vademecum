@@ -92,6 +92,34 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
     if (result.state === 'ready') setSession(result.value.open)
   }, [result])
 
+  // The phone's tutor (feedback of 6 October): while the Mac is being woken, look again
+  // every few seconds; give up after a minute and say so.
+  const relayAvailable = result.state === 'ready' && result.value.relay.available
+  const relayLive = result.state === 'ready' && result.value.relay.live
+  const [wakingSince] = useState(() => Date.now())
+  const [macAsleep, setMacAsleep] = useState(false)
+  useEffect(() => {
+    if (!relayAvailable || relayLive || macAsleep) return undefined
+    const timer = window.setInterval(() => {
+      if (Date.now() - wakingSince > 60_000) setMacAsleep(true)
+      else reload()
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [relayAvailable, relayLive, macAsleep, reload, wakingSince])
+
+  // While the Mac writes the next turn, look for it every second and a half.
+  useEffect(() => {
+    if (!session?.waiting) return undefined
+    const id = session.id
+    const timer = window.setInterval(() => {
+      api.socraticRead(id).then(
+        (reply) => setSession(reply.session),
+        () => undefined
+      )
+    }, 1500)
+    return () => window.clearInterval(timer)
+  }, [session?.waiting, session?.id])
+
   useEffect(() => () => {
     stopListening.current()
     stopSpeaking.current()
@@ -162,6 +190,10 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
   }
 
   const start = () => act(async () => {
+    if (relayAvailable) {
+      // The Mac writes the opening question; the page shows it when it comes.
+      return api.socraticStart(undefined, true)
+    }
     const started = await api.socraticStart()
     // The first turn opens the dialogue: no answer yet, the tutor speaks first.
     return overview.can_answer_here ? api.socraticAnswer(started.session.id, '') : started
@@ -212,6 +244,20 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
               ) : null}
             </div>
           </>
+        ) : relayAvailable ? (
+          macAsleep ? (
+            <p className="muted small" role="status">
+              Your Mac is not answering. It needs to be on, awake and running Vademecum to be the tutor here. Meanwhile, use ChatGPT or Claude
+              below.{' '}
+              <button type="button" className="link-button" onClick={() => { setMacAsleep(false); reload() }}>
+                Try again
+              </button>
+            </p>
+          ) : (
+            <p className="muted small" role="status">
+              <span className="spinner" aria-hidden="true" /> Waking your Mac to be the tutor…
+            </p>
+          )
         ) : (
           <p className="muted small">{overview.note}</p>
         )}
@@ -329,7 +375,20 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
             </li>
           ))}
         </ol>
-        {!done && overview.can_answer_here ? (
+        {session.waiting ? (
+          <p className="muted socratic-waiting" role="status">
+            <span className="spinner" aria-hidden="true" /> Your Mac is writing the {session.transcript.length === 0 ? 'first' : 'next'} question…
+          </p>
+        ) : null}
+        {!session.waiting && session.relay_error ? (
+          <div className="failure" role="alert">
+            <p>Your Mac could not write the next question ({session.relay_error}). Your answer is kept.</p>
+            <button type="button" className="button small" disabled={busy} onClick={() => void act(() => api.socraticAnswer(session.id, ''))}>
+              Ask again
+            </button>
+          </div>
+        ) : null}
+        {!done && (overview.can_answer_here || relayAvailable) ? (
           <>
             <label className="field">
               <span>Your answer</span>
@@ -344,7 +403,7 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
             </label>
             <PhiWarning />
             <div className="actions">
-              <button type="button" className="button primary" disabled={busy || answer.trim() === ''} onClick={() => void act(() => api.socraticAnswer(session.id, answer))}>
+              <button type="button" className="button primary" disabled={busy || session.waiting || answer.trim() === ''} onClick={() => void act(() => api.socraticAnswer(session.id, answer))}>
                 {busy ? 'Thinking…' : 'Answer'}
               </button>
               {canDictate() ? (
@@ -374,7 +433,7 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
           </>
         ) : null}
         {!done && !overview.can_answer_here ? <p className="muted small">{overview.note}</p> : null}
-        {note ? (
+        {note && !session.waiting ? (
           <p className="ok" role="status">
             {note}
           </p>

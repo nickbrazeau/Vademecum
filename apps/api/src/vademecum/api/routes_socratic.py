@@ -39,6 +39,8 @@ DISCLOSURE = (
 
 class StartIn(Strict):
     entry_id: RecordId | None = None
+    # From the phone's own tutor: the Mac answers each turn through the relay (feedback of 6 October).
+    relay: bool = False
 
 
 class AnswerIn(Strict):
@@ -74,32 +76,70 @@ class ImportIn(Strict):
 UNASSESSED = "Saved. It is assessed on the Mac: open the Tutor there and choose Assess."
 
 
+RELAY_WAKING = (
+    "Your Mac answers the tutor here: it is being woken now and is ready in a few seconds, as long as it is on, "
+    "awake and running Vademecum."
+)
+RELAY_FIRST = "Your Mac is writing the first question."
+RELAY_NEXT = "Your Mac is writing the next question."
+
+
 def _mode_note(mode: str) -> str:
     return "" if mode in ("codex", "claude") else service.HOST_MODE
 
 
+def _relay(request: Request, mode: str):
+    """The relay, on the phone's copy only (no model of its own, a Mac that syncs to it)."""
+    if mode in ("codex", "claude"):
+        return None
+    return getattr(request.app.state, "relay", None)
+
+
+def _with_relay(session: dict[str, Any], relay) -> dict[str, Any]:
+    if relay is None:
+        return session
+    return {**session, "waiting": relay.waiting(session["id"]), "relay_error": relay.errors.get(session["id"], "")}
+
+
 @router.get("")
-def overview(connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
+def overview(request: Request, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
     current = store.open_session(connection)
+    relay = _relay(request, mode)
+    if relay is not None:
+        relay.wake_mac()
+    relayed = relay is not None and relay.live()
+    note = "" if mode in ("codex", "claude") or relayed else (RELAY_WAKING if relay is not None else service.HOST_MODE)
     return {
-        "open": None if current is None else current.as_dict(),
+        "open": None if current is None else _with_relay(current.as_dict(), relay),
         "recent": [s.as_dict() for s in store.list_sessions(connection, limit=10) if s.status != "open"],
         "mode": mode,
-        "can_answer_here": mode in ("codex", "claude"),
-        "note": _mode_note(mode),
+        "can_answer_here": mode in ("codex", "claude") or relayed,
+        "relay": {"available": relay is not None, "live": relayed},
+        "note": note,
         "disclosure": DISCLOSURE,
         "import_disclosure": IMPORT_DISCLOSURE,
     }
 
 
 @router.post("", status_code=201)
-def start(payload: StartIn, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
+def start(
+    payload: StartIn, request: Request, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)
+) -> dict[str, Any]:
+    relay = _relay(request, mode) if payload.relay else None
+    if payload.relay and relay is None and mode not in ("codex", "claude"):
+        raise ConflictError("no_relay", service.HOST_MODE)
     current = store.open_session(connection)
     if current is not None:
         store.abandon(connection, current.id)
     started = service.start(connection, entry_id=payload.entry_id, mode=mode)
     if started["session"] is None:
         raise ConflictError("no_page", started["note"])
+    if relay is not None:
+        # The phone's own tutor: the Mac writes the opening question.
+        session = started["session"]
+        relay.wake_mac()
+        relay.enqueue(session_id=session["id"], entry_id=session["entry_id"], transcript=[], exchanges=0)
+        return {"session": _with_relay(session, relay), "note": RELAY_FIRST, "disclosure": DISCLOSURE, "gaps_filed": 0}
     return {**started, "note": _mode_note(mode), "disclosure": DISCLOSURE}
 
 
@@ -147,8 +187,10 @@ async def assess(
 
 
 @router.get("/{session_id}")
-def read(session_id: str, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
-    return {"session": store.get_session(connection, session_id).as_dict()}
+def read(
+    session_id: str, request: Request, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)
+) -> dict[str, Any]:
+    return {"session": _with_relay(store.get_session(connection, session_id).as_dict(), _relay(request, mode))}
 
 
 @router.get("/{session_id}/material")
@@ -166,9 +208,21 @@ async def answer(
     mode: str = Depends(get_model_mode),
 ) -> dict[str, Any]:
     """Record the learner's answer and have the Mac's own connection ask the next question."""
-    store.get_session(connection, session_id)
+    session = store.get_session(connection, session_id)
+    relay = _relay(request, mode)
     if mode not in ("codex", "claude"):
-        raise ConflictError("needs_model", service.HOST_MODE)
+        if relay is None:
+            raise ConflictError("needs_model", service.HOST_MODE)
+        # The phone's own tutor: keep the answer, and let the Mac write the next question.
+        if session.status != "open":
+            return {"session": session.as_dict(), "note": "This session has ended.", "gaps_filed": 0}
+        if payload.answer.strip():
+            session = store.append(connection, session_id, role="learner", text=payload.answer)
+        relay.wake_mac()
+        relay.enqueue(
+            session_id=session_id, entry_id=session.entry_id, transcript=[dict(turn) for turn in session.transcript], exchanges=session.exchanges
+        )
+        return {"session": _with_relay(session.as_dict(), relay), "note": RELAY_NEXT, "gaps_filed": 0}
     workspace = request.state.workspace
     return await service.answer(workspace.database_path, session_id, payload.answer, workspace.turn_factory)
 

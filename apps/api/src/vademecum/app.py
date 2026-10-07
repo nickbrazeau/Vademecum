@@ -12,6 +12,7 @@ import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -348,6 +349,50 @@ async def _remember_model(app: FastAPI | None, database_path: Path, settings: Se
         pass
 
 
+async def _relay_loop(database_path: Path, settings: Settings, turn_factory: Any) -> None:
+    """The Mac's side of the Socratic relay. Idle, it checks the Worker's flag every
+    few seconds, which does not wake the phone's copy. When the owner has the tutor
+    open on the phone, it collects turns from the phone's copy, answers each on this
+    Mac's own connection with the page it holds, and posts the reply back; after ten
+    quiet minutes it goes back to checking the flag."""
+    import time
+
+    from .model import relay as relay_rules
+    from .model import socratic as tutor
+    from .sync import HttpTransport, Peer
+
+    peer = Peer(HttpTransport(settings.sync_peer_url, timeout=40), settings.sync_token)
+    active_until = 0.0
+    while True:
+        try:
+            if time.monotonic() >= active_until:
+                wanted = await asyncio.to_thread(peer.relay_wanted)
+                if wanted is None or time.time() - wanted > relay_rules.WANTED_FRESH_SECONDS:
+                    await asyncio.sleep(4)
+                    continue
+                if active_until == 0.0 or time.monotonic() >= active_until:
+                    logger.info("relay_active")
+                active_until = time.monotonic() + relay_rules.IDLE_SECONDS_FREE
+            requests = await asyncio.to_thread(peer.relay_wait, 20)
+            for asked in requests:
+                active_until = time.monotonic() + relay_rules.IDLE_SECONDS_FREE
+                payload = await tutor.compute_turn(
+                    database_path,
+                    scope_id=str(asked.get("session_id")),
+                    entry_id=asked.get("entry_id"),
+                    transcript=[(str(t.get("role")), str(t.get("text"))) for t in asked.get("transcript") or []],
+                    exchanges=int(asked.get("exchanges") or 0),
+                    turn_factory=turn_factory,
+                )
+                await asyncio.to_thread(peer.relay_reply, str(asked.get("id")), payload)
+                logger.info("relay_answered")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - the relay retries; the tutor waits
+            logger.info("relay_retry error=%s", type(exc).__name__)
+            await asyncio.sleep(10)
+
+
 async def _sync_loop(database_path: Path, source_dir: Path, settings: Settings, app: FastAPI | None = None) -> None:
     """Sync every `sync_interval` seconds; a failed round is logged, not fatal."""
     while True:
@@ -663,6 +708,20 @@ def create_app(
             app.state.literature_watcher = owner.watcher
             if resolved.model_provider in ("codex", "claude"):
                 app.state.turn_factory = owner.turn_factory
+            # The Socratic relay (feedback of 6 October): the phone's copy queues tutor
+            # turns; the Mac, when the owner has the tutor open there, answers them.
+            if resolved.sync_role_name == "foris" and resolved.sync_accept_token:
+                from .model.relay import Relay
+
+                app.state.relay = Relay()
+            if (
+                resolved.sync_role_name == "domi"
+                and resolved.sync_peer_url
+                and resolved.sync_token
+                and resolved.model_provider in ("codex", "claude")
+            ):
+                relay_task = asyncio.create_task(_relay_loop(owner.database_path, resolved, owner.turn_factory))
+                app.state.relay_task = relay_task
 
             # The learner's folder (ADR 0012): laid out now, and scanned in the
             # background from the first moment, so a folder with hundreds of new
@@ -706,7 +765,7 @@ def create_app(
                     await compile_task
                 except (asyncio.CancelledError, Exception):
                     pass
-            for task in (folder_task, backfill_task, parent_task, sync_task):
+            for task in (folder_task, backfill_task, parent_task, sync_task, getattr(app.state, "relay_task", None)):
                 if task is None:
                     continue
                 task.cancel()

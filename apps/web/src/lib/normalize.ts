@@ -1048,6 +1048,8 @@ function socraticSession(raw: unknown): SocraticSession {
     },
     exchanges: num(data.exchanges),
     origin: str(data.origin),
+    waiting: data.waiting === true,
+    relay_error: str(data.relay_error),
     assessed: data.assessed === true || (data.assessed === undefined && status === 'done' && Boolean(str(assessment.summary) || str(assessment.differential))),
     created_at: str(data.created_at),
     finished_at: typeof data.finished_at === 'string' ? data.finished_at : null
@@ -1063,7 +1065,11 @@ export function socraticOverview(raw: unknown): SocraticOverview {
     can_answer_here: data.can_answer_here === true,
     note: str(data.note),
     disclosure: str(data.disclosure),
-    import_disclosure: str(data.import_disclosure)
+    import_disclosure: str(data.import_disclosure),
+    relay: (() => {
+      const relay = obj(data.relay)
+      return { available: relay.available === true, live: relay.live === true }
+    })()
   }
 }
 

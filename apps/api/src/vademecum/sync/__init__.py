@@ -71,6 +71,27 @@ class Peer:
             "POST", "/api/sync/apply", {"node_id": node_id, "changes": [c.as_dict() for c in changes], "files": files}
         )
 
+    # --- the Socratic relay (feedback of 6 October) --------------------------
+
+    def relay_wanted(self) -> float | None:
+        """When the owner last had the tutor open on the phone (epoch seconds), read from
+        the Worker in front of the phone's copy: it does not wake the container."""
+        status, raw = self._transport.request("GET", "/__relay/wanted", headers=dict(self._headers), body=None)
+        if status != 200:
+            return None
+        try:
+            return float(json.loads(raw.decode("utf-8")).get("at"))
+        except (ValueError, TypeError, AttributeError):
+            return None
+
+    def relay_wait(self, timeout: int = 20) -> list[dict[str, Any]]:
+        data = self._json("GET", f"/api/sync/relay/wait?timeout={int(timeout)}")
+        requests = data.get("requests", [])
+        return [r for r in requests if isinstance(r, dict)] if isinstance(requests, list) else []
+
+    def relay_reply(self, request_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._json("POST", f"/api/sync/relay/{request_id}", {"payload": payload})
+
     def file(self, kind: str, name: str) -> bytes | None:
         status, raw = self._transport.request("GET", f"/api/sync/file/{kind}/{name}", headers=dict(self._headers), body=None)
         return raw if status == 200 else None

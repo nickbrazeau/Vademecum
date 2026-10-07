@@ -648,6 +648,10 @@ export interface SocraticSession {
   /** chatgpt, claude or pasted when brought in from elsewhere (ADR 0026); empty when held here. */
   origin: string
   assessed: boolean
+  /** On the phone's copy: the Mac is writing the tutor's next turn (feedback of 6 October). */
+  waiting: boolean
+  /** On the phone's copy: why the Mac could not write it, if it could not. */
+  relay_error: string
 }
 
 export interface SocraticOverview {
@@ -658,6 +662,8 @@ export interface SocraticOverview {
   note: string
   disclosure: string
   import_disclosure: string
+  /** The phone's tutor answered by the Mac (feedback of 6 October). */
+  relay: { available: boolean; live: boolean }
 }
 
 export interface SocraticReply {

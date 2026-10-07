@@ -399,8 +399,11 @@ export const api = {
   // Socratic question and writing an episode are the two that send; the
   // disclosure on each page says what. Rendering audio sends nothing.
   socraticOverview: () => request<unknown>('/socratic').then(normalize.socraticOverview),
-  socraticStart: (entryId?: string) =>
-    request<unknown>('/socratic', { method: 'POST', ...body(entryId ? { entry_id: entryId } : {}) }).then(normalize.socraticReply),
+  socraticStart: (entryId?: string, relay = false) =>
+    request<unknown>('/socratic', { method: 'POST', ...body({ ...(entryId ? { entry_id: entryId } : {}), ...(relay ? { relay: true } : {}) }) }).then(
+      normalize.socraticReply
+    ),
+  socraticRead: (sessionId: string) => request<unknown>(`/socratic/${sessionId}`).then(normalize.socraticReply),
   socraticAnswer: (sessionId: string, answer: string) =>
     request<unknown>(`/socratic/${sessionId}/answer`, { method: 'POST', ...body({ answer }) }).then(normalize.socraticReply),
   socraticImport: (input: { text: string; title?: string }) =>
