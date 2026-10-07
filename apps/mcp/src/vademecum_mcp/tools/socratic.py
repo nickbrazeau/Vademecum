@@ -24,6 +24,9 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     @mcp.tool(annotations=WRITE)
     async def socratic_start(
         entry_id: Annotated[str, Field(max_length=64, description="An encyclopedia page id to work from; empty for one chosen from the owner's gaps.")] = "",
+        session_id: Annotated[
+            str, Field(max_length=64, description="To carry on a session already open (begun on the phone), its id; the dialogue so far comes back.")
+        ] = "",
     ) -> dict[str, Any]:
         """Begin a Socratic session and become the tutor. The reply carries the
         page (compiled from the owner's own sources), further context already on
@@ -36,7 +39,14 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         then treatment, then the underlying knowledge. Suits voice: ask,
         listen, respond briefly, ask again. After each answer call
         socratic_turn; after about eight exchanges call socratic_finish with
-        the assessment."""
+        the assessment. With session_id, carry on a session the owner began
+        in Vademecum on the phone: the dialogue so far comes back, and you ask the
+        next question."""
+        if session_id:
+            # Carrying on a session begun elsewhere (the phone, its Mac now asleep): nothing new is opened.
+            read = await call(api.get(f"/api/socratic/{session_id}"))
+            material = await call(api.get(f"/api/socratic/{session_id}/material"))
+            return {**read, **material, "note": "Carry on from the last line of the dialogue; do not repeat what was already asked."}
         started = await call(api.post("/api/socratic", {"entry_id": entry_id} if entry_id else {}))
         session = started.get("session") or {}
         material = await call(api.get(f"/api/socratic/{session['id']}/material")) if session.get("id") else {}

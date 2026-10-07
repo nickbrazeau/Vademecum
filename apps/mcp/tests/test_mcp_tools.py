@@ -337,3 +337,26 @@ async def test_model_status_carries_no_account_identifier(mcp_client: Client) ->
     assert status["state"] == "signed_out"
     assert "email" not in str(status).lower()
     assert "@" not in str(status)
+
+
+async def test_a_session_begun_on_the_phone_is_carried_on_in_the_conversation(mcp_client: Client, api_app) -> None:
+    """Feedback of 6 October: with the Mac asleep, the phone hands an open session to
+    ChatGPT or Claude, which carries it on rather than opening a new one."""
+    from vademecum.db import connect
+    from vademecum.storage import encyclopedia as pages
+
+    connection = connect(api_app.state.database_path)
+    try:
+        pages.upsert_entry(connection, topic="sepsis", title="Sepsis", specialty_id=None, summary="Lactate matters.", sections=[], point_ids=[], points_hash_value="1")
+    finally:
+        connection.close()
+    begun = await call(mcp_client, "socratic_start", {})
+    session_id = begun["session"]["id"]
+    await call(mcp_client, "socratic_turn", {"session_id": session_id, "question": "Differential?", "answer": "Septic shock."})
+    carried = await call(mcp_client, "socratic_start", {"session_id": session_id})
+    assert carried["session"]["id"] == session_id and carried["session"]["status"] == "open"
+    assert [t["text"] for t in carried["transcript"]] == ["Differential?", "Septic shock."]
+    assert "Carry on" in carried["note"]
+    await call(mcp_client, "socratic_turn", {"session_id": session_id, "question": "Next step?", "answer": "Fluids."})
+    sessions = await call(mcp_client, "socratic_start", {"session_id": session_id})
+    assert sessions["session"]["exchanges"] == 2, "the same session, not a new one"

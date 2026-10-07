@@ -125,6 +125,26 @@ describe("the phone's tutor, answered by the Mac", () => {
     await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
     expect(await screen.findByText(/Waking your Mac to be the tutor/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start a session' })).not.toBeInTheDocument()
+    // The hand-off is there at once, one tap (feedback of 6 October).
+    expect(screen.getByRole('link', { name: 'Continue in ChatGPT' }).getAttribute('href')).toMatch(/^https:\/\/chatgpt\.com\/\?q=.*socratic_start/)
+    expect(screen.getByRole('link', { name: 'Continue in Claude' })).toBeInTheDocument()
+  })
+
+  it('offers to carry the same session on in ChatGPT or Claude when the Mac goes quiet', async () => {
+    stub({
+      '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/socratic': {
+        open: { ...OPENED, mode: 'host', waiting: false, relay_error: 'unreachable' }, recent: [], mode: 'host', can_answer_here: true, note: '', disclosure: '',
+        relay: { available: true, live: true }
+      }
+    })
+    const user = userEvent.setup()
+    render(<Tutor />)
+    await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
+    const carry = await screen.findByRole('link', { name: 'Continue in ChatGPT' })
+    expect(decodeURIComponent(carry.getAttribute('href') ?? '')).toContain('socratic_start with session_id soc_1')
+    expect(screen.getByText(/carry on this same session/i)).toBeInTheDocument()
   })
 })
 

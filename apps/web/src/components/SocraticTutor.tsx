@@ -27,6 +27,44 @@ export const LAUNCH_PROMPT =
 export const CHATGPT_LAUNCH = `https://chatgpt.com/?q=${encodeURIComponent(LAUNCH_PROMPT)}`
 export const CLAUDE_LAUNCH = `https://claude.ai/new?q=${encodeURIComponent(LAUNCH_PROMPT)}`
 
+/** Carrying on a session begun here, with the Mac gone quiet (feedback of 6 October). */
+export function resumePrompt(sessionId: string): string {
+  return (
+    `Using my Vademecum connector, carry on my open Socratic session: call socratic_start with session_id ${sessionId}, ` +
+    'then ask me the next open question, record every exchange with socratic_turn, and close with socratic_finish. ' +
+    'If you cannot call the Vademecum tools here, tell me before we begin.'
+  )
+}
+
+export function launchLinks(prompt: string): { chatgpt: string; claude: string } {
+  return {
+    chatgpt: `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`,
+    claude: `https://claude.ai/new?q=${encodeURIComponent(prompt)}`
+  }
+}
+
+/** The hand-off: one tap to the same tutor in ChatGPT or Claude, saved to Vademecum either way. */
+function HandOff({ prompt, primary, lead }: { prompt: string; primary: boolean; lead: string }) {
+  const links = launchLinks(prompt)
+  return (
+    <div className="socratic-handoff">
+      <p className="body">{lead}</p>
+      <div className="actions">
+        <a className={`button${primary ? ' primary' : ''}`} href={links.chatgpt} target="_blank" rel="noopener noreferrer">
+          Continue in ChatGPT
+        </a>
+        <a className="button" href={links.claude} target="_blank" rel="noopener noreferrer">
+          Continue in Claude
+        </a>
+      </div>
+      <p className="muted small">
+        A text chat opens with the prompt filled in; speak your answers with the keyboard’s microphone. Every exchange is saved here. If the
+        assistant says it cannot reach Vademecum, refresh the connector in its settings.
+      </p>
+    </div>
+  )
+}
+
 const ORIGIN_LABEL: Record<string, string> = { chatgpt: 'from ChatGPT', claude: 'from Claude', pasted: 'pasted in' }
 
 const PROBE_LABEL: Record<string, string> = {
@@ -101,13 +139,26 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
   useEffect(() => {
     if (!relayAvailable || relayLive || macAsleep) return undefined
     const timer = window.setInterval(() => {
-      if (Date.now() - wakingSince > 60_000) setMacAsleep(true)
+      if (Date.now() - wakingSince > 12_000) setMacAsleep(true)
       else reload()
     }, 3000)
     return () => window.clearInterval(timer)
   }, [relayAvailable, relayLive, macAsleep, reload, wakingSince])
 
-  // While the Mac writes the next turn, look for it every second and a half.
+  // While the Mac writes the next turn, look for it every second and a half; after
+  // twenty-five seconds with nothing, offer to carry on in ChatGPT or Claude.
+  const [waitingSince, setWaitingSince] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    setWaitingSince(session?.waiting ? (current) => current ?? Date.now() : null)
+  }, [session?.waiting])
+  useEffect(() => {
+    if (waitingSince === null) return undefined
+    const tick = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(tick)
+  }, [waitingSince])
+  const macQuiet = (waitingSince !== null && now - waitingSince > 25_000) || Boolean(session?.relay_error)
+
   useEffect(() => {
     if (!session?.waiting) return undefined
     const id = session.id
@@ -245,23 +296,33 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
             </div>
           </>
         ) : relayAvailable ? (
-          macAsleep ? (
-            <p className="muted small" role="status">
-              Your Mac is not answering. It needs to be on, awake and running Vademecum to be the tutor here. Meanwhile, use ChatGPT or Claude
-              below.{' '}
-              <button type="button" className="link-button" onClick={() => { setMacAsleep(false); reload() }}>
-                Try again
-              </button>
-            </p>
-          ) : (
-            <p className="muted small" role="status">
-              <span className="spinner" aria-hidden="true" /> Waking your Mac to be the tutor…
-            </p>
-          )
+          <>
+            <HandOff
+              prompt={LAUNCH_PROMPT}
+              primary
+              lead={
+                macAsleep
+                  ? 'Your Mac is asleep, so the tutor runs in ChatGPT or Claude, and the session is saved to Vademecum as you go.'
+                  : 'While your Mac wakes, you can start now in ChatGPT or Claude; the session is saved to Vademecum either way.'
+              }
+            />
+            {macAsleep ? (
+              <p className="muted small" role="status">
+                Your Mac takes over here when it is awake.{' '}
+                <button type="button" className="link-button" onClick={() => { setMacAsleep(false); reload() }}>
+                  Look again
+                </button>
+              </p>
+            ) : (
+              <p className="muted small" role="status">
+                <span className="spinner" aria-hidden="true" /> Waking your Mac to be the tutor here…
+              </p>
+            )}
+          </>
         ) : (
           <p className="muted small">{overview.note}</p>
         )}
-        <div className="socratic-launch">
+        <div className="socratic-launch" hidden={relayAvailable && !relayLive}>
           <h3>Or with ChatGPT or Claude</h3>
           <div className="actions">
             <a className="button" href={CHATGPT_LAUNCH} target="_blank" rel="noopener noreferrer">
@@ -379,6 +440,13 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
           <p className="muted socratic-waiting" role="status">
             <span className="spinner" aria-hidden="true" /> Your Mac is writing the {session.transcript.length === 0 ? 'first' : 'next'} question…
           </p>
+        ) : null}
+        {session.status === 'open' && relayAvailable && macQuiet ? (
+          <HandOff
+            prompt={resumePrompt(session.id)}
+            primary
+            lead="Your Mac has gone quiet, likely asleep. Carry on this same session in ChatGPT or Claude; it picks up from the last question."
+          />
         ) : null}
         {!session.waiting && session.relay_error ? (
           <div className="failure" role="alert">

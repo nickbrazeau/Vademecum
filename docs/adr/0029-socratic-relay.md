@@ -30,6 +30,23 @@ Vademecum. Three things stood in the way:
   flag the Mac collects turns until ten quiet minutes pass.
 - A chat host's `socratic_start` (no relay flag) is unchanged.
 
+### With the Mac asleep
+
+The owner decided (6 October) that when the Mac is asleep the tutor runs in ChatGPT or
+Claude rather than on a new model: no Workers AI, no in-browser model, no new cost, the rule
+of no API key and no server-side model call kept whole. The cloud copy serves the Socratic
+tools itself (checked from outside: all 68 tools, the Socratic ones first), so this needs
+nothing from the Mac.
+
+- Opening the tutor on the phone shows Continue in ChatGPT and Continue in Claude at once,
+  while the Mac is woken; after twelve seconds without it, the phone says it is asleep and
+  the hand-off is the way in. If the Mac wakes, it takes over.
+- Mid-session, if the Mac goes quiet for twenty-five seconds or cannot answer, the same
+  buttons carry on the same session: `socratic_start` with a `session_id` returns the
+  dialogue so far instead of opening a new session.
+- ChatGPT keeps the tool list it fetched when the connector was added; a connector added
+  before the Socratic tools must be refreshed once in ChatGPT's settings.
+
 ## Consequences
 
 - The tutor works on the phone, in text or by voice with the browser's own dictation and
