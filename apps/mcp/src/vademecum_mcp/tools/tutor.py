@@ -29,8 +29,18 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         held and why, how many answers have been recorded, where the shuffled
         cycle is, and the disclosure that says what Grade sends. Remaining is
         how many are left before the shuffle is redrawn -- a fact about the
-        shuffle, never a number owed."""
-        return await call(api.get("/api/tutor"))
+        shuffle, never a number owed.
+
+        For a Socratic session (open questions, voice or text) use socratic_start,
+        socratic_turn and socratic_finish. If those tools are not in your list,
+        the connector's tool list is out of date: tell the owner to refresh the
+        Vademecum connector in the app's settings, or remove and add it again."""
+        data = await call(api.get("/api/tutor"))
+        return {
+            **data,
+            "socratic": "Socratic sessions use socratic_start, socratic_turn and socratic_finish. If you do not have those "
+            "tools, the connector's tool list is stale: ask the owner to refresh the Vademecum connector in settings.",
+        }
 
     @mcp.tool(annotations=READ, meta=CARD)
     async def tutor_next_question() -> dict[str, Any]:

@@ -26,6 +26,9 @@ from . import app, build, dashboard, encyclopedia, folder, gaps, library, litera
 
 
 def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None = None) -> None:
+    # The Socratic tutor first: a client that reads only the head of a long tool
+    # list still finds it (feedback of 6 October).
+    socratic.register(mcp, api)
     library.register(mcp, api)
     media.register(mcp, api)
     folder.register(mcp, api, settings)
@@ -35,5 +38,4 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None = None
     build.register(mcp, api)
     tutor.register(mcp, api)
     encyclopedia.register(mcp, api)
-    socratic.register(mcp, api)
     literature.register(mcp, api)
