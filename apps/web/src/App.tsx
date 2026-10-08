@@ -10,7 +10,7 @@ import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
-import { newerBuildServed } from './lib/updateCheck'
+import { newerBuildServed, typedSomething } from './lib/updateCheck'
 import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
 import { Construction } from './pages/Construction'
 import { Encyclopedia } from './pages/Encyclopedia'
@@ -63,18 +63,26 @@ export function App() {
   const [newerBuild, setNewerBuild] = useState(false)
   useEffect(() => {
     if (inChat()) return undefined
-    const look = () => {
+    // Coming back to the app with a newer build served, it reloads itself at once, unless
+    // something typed would be lost; then it offers the reload (feedback of 8 October).
+    const look = (returning: boolean) => {
       void newerBuildServed().then((newer) => {
-        if (newer) setNewerBuild(true)
+        if (!newer) return
+        if (returning && !typedSomething()) window.location.reload()
+        else setNewerBuild(true)
       })
     }
     const onVisible = () => {
-      if (document.visibilityState === 'visible') look()
+      if (document.visibilityState === 'visible') look(true)
     }
     document.addEventListener('visibilitychange', onVisible)
-    const timer = window.setInterval(look, 10 * 60 * 1000)
+    window.addEventListener('focus', onVisible)
+    const first = window.setTimeout(() => look(true), 3000)
+    const timer = window.setInterval(() => look(document.visibilityState !== 'visible'), 10 * 60 * 1000)
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+      window.clearTimeout(first)
       window.clearInterval(timer)
     }
   }, [])

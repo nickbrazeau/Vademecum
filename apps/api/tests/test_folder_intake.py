@@ -298,3 +298,29 @@ def test_construction_shows_what_waits_what_is_read_and_how_far_it_is_built(with
         connection.close()
     last = with_folder.get("/api/construction").json()["folder"]["last_scan"]
     assert last["stored"] == 1 and last["more_waiting"] is True and last["rejected"][0]["filename"] == "x.exe"
+
+
+def test_a_second_scan_reads_no_unchanged_file(tmp_path: Path, piles: Path, folder: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Feedback of 6 October: a scan read and hashed every file each time. Unchanged files
+    (same size and modified time, contents already stored) are now recognised unread."""
+    from vademecum.db import connect
+    from vademecum.db.migrate import apply_migrations
+    from vademecum.ingest.folder import scan_folder
+
+    touch(piles / "highconfidence" / "Sepsis" / "lecture.txt", LECTURE)
+    connection = connect(tmp_path / "db.sqlite3")
+    try:
+        apply_migrations(connection)
+        cache: dict = {}
+        first = scan_folder(connection, source_dir=tmp_path / "src", folder=folder, now=lambda: 1e12, cache=cache)
+        assert len(first["stored"]) == 1 and len(cache) == 1
+        reads: list[str] = []
+        real = Path.read_bytes
+        monkeypatch.setattr(Path, "read_bytes", lambda self: reads.append(self.name) or real(self))
+        second = scan_folder(connection, source_dir=tmp_path / "src", folder=folder, now=lambda: 1e12, cache=cache)
+        assert second["already_present"] == 1 and "lecture.txt" not in reads
+        touch(piles / "highconfidence" / "Sepsis" / "lecture.txt", LECTURE + b"Changed.\n")
+        third = scan_folder(connection, source_dir=tmp_path / "src", folder=folder, now=lambda: 1e12, cache=cache)
+        assert "lecture.txt" in reads and len(third["stored"]) == 1, "a changed file is read again"
+    finally:
+        connection.close()

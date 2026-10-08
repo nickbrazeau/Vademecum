@@ -542,6 +542,8 @@ def insert_questions(connection: sqlite3.Connection, entry: Entry, drafts: list[
     """Write checked drafts. A stem already in the bank for this page is not written twice."""
     now = utc_now()
     written = held = 0
+    if connection.execute("SELECT 1 FROM encyclopedia_entries WHERE id = ?", (entry.id,)).fetchone() is None:
+        return {"written": 0, "held": 0}  # the page was deleted while its questions were written
     with transaction(connection) as tx:
         for draft in drafts:
             digest = content_hash(draft["stem"])

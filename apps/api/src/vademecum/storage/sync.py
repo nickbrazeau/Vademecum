@@ -458,6 +458,12 @@ def _apply_one(
         # overwrite.
         if change.op != "upsert" or local is not None:
             return "skipped"
+        # A page the owner deleted is not brought back by a stale copy (feedback of 6 October).
+        if change.table == "encyclopedia_entries" and change.row is not None:
+            from .encyclopedia import deleted_pages
+
+            if str(change.row.get("topic") or "").casefold() in deleted_pages(tx):
+                return "skipped"
     if change.op == "delete":
         if local is None:
             return "skipped"

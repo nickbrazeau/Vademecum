@@ -38,3 +38,11 @@ export async function newerBuildServed(fetcher: typeof fetch = fetch, doc: Docum
     return false
   }
 }
+
+/** Whether anything is typed on the page that a reload would lose. */
+export function typedSomething(doc: Document = document): boolean {
+  for (const field of Array.from(doc.querySelectorAll('textarea, input[type="text"], input[type="search"], input:not([type])'))) {
+    if ((field as HTMLInputElement | HTMLTextAreaElement).value.trim() !== '') return true
+  }
+  return Boolean(doc.querySelector('dialog[open]'))
+}

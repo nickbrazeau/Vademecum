@@ -8,6 +8,7 @@ product rules and no protocol knowledge of its own.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
@@ -194,11 +195,28 @@ def scan_sources_folder(database_path: Path, source_dir: Path, folder: Path | No
         return {"folder_present": False, "stored": [], "piles_created": [], "rejected": []}
     folder.mkdir(parents=True, exist_ok=True)
     folder_intake.scaffold(folder)
+    # What each file was at the last scan (size, modified time, contents' digest), kept on
+    # this Mac beside the records and never synced, so unchanged files are not read again.
+    cache_path = source_dir.parent.parent / "scan-cache.json"
+    try:
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+        if not isinstance(cache, dict):
+            cache = {}
+    except (OSError, ValueError):
+        cache = {}
+    before = len(cache)
     connection = connect(database_path)
     try:
-        report = folder_intake.scan_folder(connection, source_dir=source_dir, folder=folder, max_new=max_new)
+        report = folder_intake.scan_folder(connection, source_dir=source_dir, folder=folder, max_new=max_new, cache=cache)
     finally:
         connection.close()
+    if len(cache) != before or report.get("stored"):
+        try:
+            partial = cache_path.with_suffix(".partial")
+            partial.write_text(json.dumps(cache), encoding="utf-8")
+            partial.replace(cache_path)
+        except OSError:
+            pass
     if report["stored"] or report["piles_created"]:
         # Counts only. Filenames and pile names are the learner's words.
         logger.info(

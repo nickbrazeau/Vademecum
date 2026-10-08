@@ -211,6 +211,10 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any, prov
     specialty_id = owner_call.id if owner_call is not None else checked["specialty_id"]
     connection = connect(database_path)
     try:
+        # Deleted by the owner while this page was being written: it is not written back.
+        if topic.casefold() in store.deleted_pages(connection):
+            logger.info("entry_skipped reason=deleted")
+            return {"status": "skipped", "detail": "deleted"}
         entry = store.upsert_entry(
             connection,
             topic=topic,

@@ -112,6 +112,8 @@ def content_hash(front: str) -> str:
 def insert_cards(connection: sqlite3.Connection, *, entry_id: str, topic: str, entry_version: int, drafts: list[dict[str, Any]]) -> dict[str, int]:
     now = utc_now()
     written = held = 0
+    if connection.execute("SELECT 1 FROM encyclopedia_entries WHERE id = ?", (entry_id,)).fetchone() is None:
+        return {"written": 0, "held": 0}  # the page was deleted while its cards were written
     with transaction(connection) as tx:
         for draft in drafts:
             digest = content_hash(draft["front"])

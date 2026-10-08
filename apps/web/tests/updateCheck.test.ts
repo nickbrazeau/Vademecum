@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { loadedBuild, newerBuildServed, servedBuild } from '../src/lib/updateCheck'
+import { loadedBuild, newerBuildServed, servedBuild, typedSomething } from '../src/lib/updateCheck'
 
 function page(script: string | null): Document {
   const doc = document.implementation.createHTMLDocument('t')
@@ -34,5 +34,22 @@ describe('the newer-build check', () => {
     expect(await newerBuildServed(reply('<p>Sign in</p>'), doc)).toBe(false)
     expect(await newerBuildServed(reply('', false), doc)).toBe(false)
     expect(await newerBuildServed(reply('<script src="/assets/main-BBBB2222.js"></script>'), page(null))).toBe(false)
+  })
+})
+
+describe('reloading on return', () => {
+  it('holds back while something is typed or a dialog is open', () => {
+    const doc = document.implementation.createHTMLDocument('t')
+    expect(typedSomething(doc)).toBe(false)
+    const area = doc.createElement('textarea')
+    doc.body.appendChild(area)
+    expect(typedSomething(doc)).toBe(false)
+    area.value = 'half an answer'
+    expect(typedSomething(doc)).toBe(true)
+    area.value = ''
+    const dialog = doc.createElement('dialog')
+    dialog.setAttribute('open', '')
+    doc.body.appendChild(dialog)
+    expect(typedSomething(doc)).toBe(true)
   })
 })

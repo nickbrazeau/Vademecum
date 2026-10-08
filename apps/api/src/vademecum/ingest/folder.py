@@ -148,6 +148,7 @@ def scan_folder(
     now: Callable[[], float] = time.time,
     settle_seconds: float = SETTLE_SECONDS,
     max_new: int | None = None,
+    cache: dict[str, list[Any]] | None = None,
 ) -> dict[str, Any]:
     """Bring the folder's files into their piles. Idempotent; returns a report.
 
@@ -188,7 +189,10 @@ def scan_folder(
             if max_new is not None and len(report["stored"]) >= max_new:
                 report["more_waiting"] = True
                 return
-            _take(connection, report, source_dir=source_dir, path=path, pile_id=pile_id, pile_title=title, now=now, settle_seconds=settle_seconds)
+            _take(
+                connection, report, source_dir=source_dir, path=path, pile_id=pile_id, pile_title=title, now=now,
+                settle_seconds=settle_seconds, cache=cache,
+            )
 
     for entry in sorted(piles_dir.iterdir(), key=lambda path: path.name.casefold()):
         if entry.name.startswith(SKIP_PREFIXES):
@@ -224,6 +228,7 @@ def _take(
     pile_title: str,
     now: Callable[[], float],
     settle_seconds: float,
+    cache: dict[str, list[Any]] | None = None,
 ) -> None:
     if path.name.startswith(SKIP_PREFIXES):
         return
@@ -235,6 +240,14 @@ def _take(
         report["waiting"] += 1
         return
     display_name = safe_display_name(path.name)
+    # A file unchanged since the last scan (same size and modified time) whose contents
+    # are already stored is recognised without being read again: a folder of hundreds of
+    # files was read and hashed in full on every scan (feedback of 6 October).
+    key = str(path)
+    known = cache.get(key) if cache is not None else None
+    if known and known[0] == stat.st_size and known[1] == stat.st_mtime_ns and store.has_source(connection, pile_id=pile_id, sha256=known[2]):
+        report["already_present"] += 1
+        return
     if stat.st_size > MAX_UPLOAD_BYTES:
         report["rejected"].append(
             {
@@ -257,6 +270,8 @@ def _take(
         report["rejected"].append({"filename": display_name, "pile": pile_title, "message": exc.message})
         return
     sha256 = store.digest(payload)
+    if cache is not None:
+        cache[key] = [stat.st_size, stat.st_mtime_ns, sha256]
     if store.has_source(connection, pile_id=pile_id, sha256=sha256):
         report["already_present"] += 1
         return

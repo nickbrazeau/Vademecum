@@ -554,3 +554,19 @@ def test_the_phones_copy_does_not_delete_pages(tmp_path: Path) -> None:
             connection.close()
         refused = c.delete(f"/api/encyclopedia/{entry.id}")
         assert refused.status_code == 409 and "on the Mac" in refused.text
+
+
+def test_a_deleted_page_is_not_written_back_by_anything_in_flight(connection) -> None:
+    """Feedback of 6 October: questions or cards written after a delete write nothing, and a
+    stale copy of the page arriving by sync does not bring it back."""
+    from vademecum.storage import flashcards as cards
+    from vademecum.storage.sync import Change, apply_changes
+
+    entry = store.upsert_entry(connection, topic="Gone", title="Gone", specialty_id=None, summary="S.", sections=[], point_ids=["lp_a"], points_hash_value="1")
+    row = dict(connection.execute("SELECT * FROM encyclopedia_entries WHERE id = ?", (entry.id,)).fetchone())
+    store.delete_entry(connection, entry.id)
+    assert store.insert_questions(connection, entry, [{"stem": "S?", "options": ["a", "b", "c", "d", "e"], "answer_index": 0, "explanation": "x", "point_ids": ["lp_a"], "hold_reason": ""}]) == {"written": 0, "held": 0}
+    assert cards.insert_cards(connection, entry_id=entry.id, topic="Gone", entry_version=1, drafts=[{"front": "F?", "back": "B.", "point_ids": ["lp_a"]}]) == {"written": 0, "held": 0}
+    stale = Change(seq=1, table="encyclopedia_entries", key=[entry.id], op="upsert", row=row)
+    apply_changes(connection, [stale], role="domi", directories={}, fetch=None)
+    assert connection.execute("SELECT COUNT(*) FROM encyclopedia_entries WHERE id = ?", (entry.id,)).fetchone()[0] == 0
