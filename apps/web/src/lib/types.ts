@@ -901,6 +901,51 @@ export interface TopicStrength {
   label: Standing
   reasons: string[]
   evidence: { missed_questions: string[]; flags: string[]; exam_areas: { standing: string; quote: string }[] }
+  /** The learner model's reading of the topic (ADR 0031), when it has one. */
+  learner: { state: KnowledgeState; label: string; recall: number | null; next: LearnerStep } | null
+}
+
+/** The learner model (ADR 0031). */
+export type KnowledgeState = 'untried' | 'forming' | 'fading' | 'holding'
+export type LearnerStepKind = 'read' | 'board' | 'flashcards' | 'socratic' | 'add_source'
+
+export interface LearnerStep {
+  kind: LearnerStepKind
+  label: string
+  why: string
+}
+
+export interface LearnerUnit {
+  key: string
+  title: string
+  topic: string
+  entry_id: string | null
+  specialty_id: string | null
+  state: KnowledgeState
+  state_label: string
+  /** 0..1: how well it is understood, from every answer and signal. */
+  understood: number
+  /** 0..1: how well it is holding now, on the forgetting curve; null if never recalled. */
+  recall: number | null
+  half_life_days: number
+  /** 0..1: how much evidence the estimate rests on. */
+  confidence: number
+  need: number
+  open_flags: number
+  board_ready: number
+  cards_ready: number
+  evidence: string[]
+  next: LearnerStep
+}
+
+export interface LearnerModel {
+  plan: LearnerUnit[]
+  units: LearnerUnit[]
+  states: { state: KnowledgeState; label: string; count: number }[]
+  /** Topic names (lower case) to the unit that covers them. */
+  by_name: Record<string, string>
+  /** Page ids to their state, for pages with any evidence. */
+  by_entry: Record<string, KnowledgeState>
 }
 
 export interface SpecialtyStrength {

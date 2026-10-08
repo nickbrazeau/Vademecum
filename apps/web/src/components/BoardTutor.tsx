@@ -24,7 +24,18 @@ function CyclePosition({ cycle }: { cycle: Cycle }) {
   )
 }
 
-export function BoardTutor({ initial, onNavigate, entryId }: { initial: BoardNext; onNavigate?: (name: RouteName) => void; entryId?: string }) {
+export function BoardTutor({
+  initial,
+  onNavigate,
+  entryId,
+  need = false
+}: {
+  initial: BoardNext
+  onNavigate?: (name: RouteName) => void
+  entryId?: string
+  /** Each next question from the page that needs it most (ADR 0031), not the shuffled pass. */
+  need?: boolean
+}) {
   const [view, setView] = useState<BoardNext>(initial)
   const [choice, setChoice] = useState<number | null>(null)
   const [result, setResult] = useState<BoardAnswer | null>(null)
@@ -76,7 +87,7 @@ export function BoardTutor({ initial, onNavigate, entryId }: { initial: BoardNex
     setBusy(true)
     setFailure(null)
     try {
-      const next = await api.boardAdvance(question.id, entryId)
+      const next = await api.boardAdvance(question.id, entryId, need ? 'need' : undefined)
       setView(next)
       setChoice(null)
       setResult(null)

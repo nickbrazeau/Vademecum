@@ -12,10 +12,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { ExamReports } from '../components/ExamReports'
 import { StrengthsView } from '../components/StrengthsView'
+import { StudyNext, TopicKnowledge } from '../components/StudyNext'
 import { PAGE_PREFIX, TopicGraph, isShown } from '../components/TopicGraph'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
-import type { EncyclopediaEntry, Flag, MapPage, MapPosition } from '../lib/types'
+import type { EncyclopediaEntry, Flag, LearnerModel, LearnerUnit, MapPage, MapPosition } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { openPageLater, openTutorLater } from '../lib/pageLink'
 import type { RouteName } from '../lib/router'
@@ -211,6 +212,9 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
   const map = useLoad(() => api.improvementMap(), [reloadToken])
   const flags = useLoad(() => api.listFlags(), [reloadToken])
   const strengths = useLoad(() => api.strengths(), [reloadToken])
+  const learner = useLoad(() => api.learner(), [reloadToken])
+  // Colour the graph by specialty, or by what you know (ADR 0031). A view preference, not stored.
+  const [colourBy, setColourBy] = useState<'specialty' | 'knowledge'>('specialty')
   // Everything in the piles is an area to review, so the map starts with everything shown.
   // Open flags first: where the gaps are (feedback of 5 October).
   const [openOnly, setOpenOnly] = useState(true)
@@ -234,6 +238,7 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
   const reloadBoth = () => {
     map.reload()
     flags.reload()
+    learner.reload()
   }
 
   // The layout is remembered a moment after it stops changing: one write per
@@ -285,6 +290,18 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
     flags.result.state === 'ready' && selected !== null
       ? flags.result.value.filter((flag) => flag.topic === selected)
       : []
+  const known: LearnerModel | null = learner.result.state === 'ready' ? learner.result.value : null
+  const unitFor = (name: string): LearnerUnit | null => {
+    if (known === null) return null
+    const key = known.by_name[name.toLowerCase()]
+    return known.units.find((unit) => unit.key === key) ?? known.plan.find((unit) => unit.key === key) ?? null
+  }
+  const knowledgeOf = (node: { id: string; label: string; entryId?: string }) => {
+    if (known === null) return null
+    if (node.entryId) return known.by_entry[node.entryId] ?? 'untried'
+    return unitFor(node.label)?.state ?? null
+  }
+  const selectedUnit = selected === null ? null : unitFor(selected)
   const neighbours =
     selected === null
       ? []
@@ -294,6 +311,16 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
 
   return (
     <div className="stack">
+      <section className="card" aria-labelledby="next-heading">
+        <h2 id="next-heading">Where to go next</h2>
+        {learner.result.state === 'ready' ? (
+          <StudyNext model={learner.result.value} onNavigate={onNavigate} />
+        ) : learner.result.state === 'failed' ? (
+          <p className="muted small">{learner.result.error.message}</p>
+        ) : (
+          <p className="muted">Reading from this Mac…</p>
+        )}
+      </section>
       <section className="card" aria-labelledby="map-heading">
         <h2 id="map-heading">
           Where the gaps are<sup aria-hidden="true">*</sup>
@@ -322,6 +349,24 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
                 Everything covered
               </button>
             </div>
+            <div className="chips" role="group" aria-label="Colour the map by">
+              <button
+                type="button"
+                className={`chip ${colourBy === 'specialty' ? 'on' : ''}`}
+                aria-pressed={colourBy === 'specialty'}
+                onClick={() => setColourBy('specialty')}
+              >
+                By specialty
+              </button>
+              <button
+                type="button"
+                className={`chip ${colourBy === 'knowledge' ? 'on' : ''}`}
+                aria-pressed={colourBy === 'knowledge'}
+                onClick={() => setColourBy('knowledge')}
+              >
+                By what you know
+              </button>
+            </div>
             <TopicGraph
               topics={value.topics}
               covered={value.covered_topics}
@@ -342,6 +387,8 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
                 openPageLater(entryId)
                 onNavigate?.('encyclopedia')
               }}
+              colourBy={colourBy}
+              knowledgeOf={knowledgeOf}
             />
             {layoutFailure ? (
               <p className="failure small" role="status">
@@ -404,6 +451,7 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
             {selectedCovered ? ` · ${selectedCovered.point_count} learning points` : ''}
             {selectedCovered?.cluster ? ` · mostly from ${selectedCovered.cluster.title}` : ''}
           </p>
+          {selectedUnit ? <TopicKnowledge unit={selectedUnit} onNavigate={onNavigate} /> : null}
           <TopicConnections
             topic={selected}
             neighbours={neighbours.filter((name) => !name.startsWith(PAGE_PREFIX))}

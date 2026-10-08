@@ -5,6 +5,7 @@
  */
 
 import type { SpecialtyStrength, Strengths, TopicStrength } from '../lib/types'
+import { StateBadge } from './StudyNext'
 
 const LABEL: Record<TopicStrength['label'], string> = { weak: 'Weak', mixed: 'Mixed', strong: 'Strong' }
 
@@ -27,6 +28,7 @@ function Topic({ topic }: { topic: TopicStrength }) {
       <summary>
         <span className="strength-name">{topic.topic}</span>
         <span className={`badge strength-${topic.label}`}>{LABEL[topic.label]}</span>
+        {topic.learner ? <StateBadge state={topic.learner.state} label={topic.learner.label} /> : null}
         <Bar score={topic.score} />
       </summary>
       <ul className="list small">

@@ -74,6 +74,18 @@ def strengths(connection: sqlite3.Connection) -> dict[str, Any]:
         for row in connection.execute("SELECT topic, specialty_id FROM encyclopedia_entries WHERE specialty_id IS NOT NULL").fetchall()
     }
 
+    # The learner model's reading of each topic (ADR 0031): still forming, fading, holding.
+    from . import learner
+
+    known = learner.model(connection)
+    unit_state = {unit["key"]: unit for unit in known["units"]}
+
+    def learner_state(topic: str) -> dict[str, Any] | None:
+        unit = unit_state.get(known["by_name"].get(topic.casefold(), ""))
+        if unit is None:
+            return None
+        return {"state": unit["state"], "label": unit["state_label"], "recall": unit["recall"], "next": unit["next"]}
+
     shaped: list[dict[str, Any]] = []
     for topic, entry in topics.items():
         reasons: list[str] = []
@@ -112,6 +124,7 @@ def strengths(connection: sqlite3.Connection) -> dict[str, Any]:
                 "label": _label(score),
                 "reasons": reasons,
                 "evidence": {"missed_questions": entry["missed"], "flags": entry["flags"], "exam_areas": entry["areas"]},
+                "learner": learner_state(topic),
             }
         )
 

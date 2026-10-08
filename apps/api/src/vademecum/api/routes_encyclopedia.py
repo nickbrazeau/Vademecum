@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, status
 from pydantic import Field
@@ -19,6 +19,7 @@ from pydantic import Field
 from ..model.dissection import NEEDS_MODEL
 from ..model.encyclopedia import WAITING
 from ..storage import encyclopedia as store
+from ..storage import learner
 from ..storage import map as map_store
 from ..storage.sources import ConflictError
 from .deps import get_connection, get_model_mode
@@ -45,6 +46,8 @@ class BoardAdvance(Strict):
     question_id: RecordId
     # Within one page's questions (Tutor mode from the Improvement Map), not the pass.
     entry_id: RecordId | None = None
+    # "need": the page the learner model says needs it most (ADR 0031), not the pass.
+    focus: Literal["need"] | None = None
 
 
 class BoardAnswer(Strict):
@@ -278,9 +281,16 @@ def board_overview(connection: sqlite3.Connection = Depends(get_connection)) -> 
 
 
 @board_router.get("/next")
-def board_next(entry_id: str | None = None, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+def board_next(
+    entry_id: str | None = None,
+    focus: Literal["need"] | None = None,
+    connection: sqlite3.Connection = Depends(get_connection),
+) -> dict[str, Any]:
     """The question to ask now, without its key. Idempotent, so a refresh keeps your place.
-    With entry_id, one page's questions instead of the shuffled pass."""
+    With entry_id, one page's questions instead of the shuffled pass; with focus=need, the
+    page the learner model says needs it most (ADR 0031)."""
+    if not entry_id and focus == "need":
+        entry_id = learner.most_needed_entry(connection, kind="board")
     if entry_id:
         return store.next_for_page(connection, entry_id).as_dict()
     return store.next_question(connection).as_dict()
@@ -302,7 +312,11 @@ def board_answer(payload: BoardAnswer, connection: sqlite3.Connection = Depends(
 
 @board_router.post("/advance")
 def board_advance(payload: BoardAdvance, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
-    store.get_question(connection, payload.question_id)
+    asked = store.get_question(connection, payload.question_id)
+    if payload.focus == "need" and not payload.entry_id:
+        entry_id = learner.most_needed_entry(connection, kind="board", not_entry=asked.entry_id)
+        if entry_id:
+            return store.next_for_page(connection, entry_id, not_id=payload.question_id).as_dict()
     if payload.entry_id:
         return store.next_for_page(connection, payload.entry_id, not_id=payload.question_id).as_dict()
     return store.advance_question(connection, payload.question_id).as_dict()

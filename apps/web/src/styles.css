@@ -1814,3 +1814,106 @@ details[open].strength-topic > summary::before {
   white-space: nowrap;
   text-align: right;
 }
+
+/* The learner model (ADR 0031): what you know, by colour, on the map and in its badges. */
+:root {
+  --know-forming: #b5523b;
+  --know-fading: #b07d2b;
+  --know-holding: #3f8f5f;
+  --know-untried: #7b8794;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --know-forming: #e07a62;
+    --know-fading: #d9a650;
+    --know-holding: #6cc08a;
+    --know-untried: #9aa5b1;
+  }
+}
+.know-forming { --spec: var(--know-forming); }
+.know-fading { --spec: var(--know-fading); }
+.know-holding { --spec: var(--know-holding); }
+.know-untried { --spec: var(--know-untried); }
+.topic-node[class*='know-'] .topic-dot {
+  stroke: var(--spec, var(--muted));
+  fill: color-mix(in srgb, var(--spec, var(--muted)) 22%, var(--card));
+}
+.topic-node[class*='know-'] .topic-ring {
+  stroke: var(--spec, var(--muted));
+}
+.topic-node.know-none .topic-dot {
+  fill: var(--card);
+  stroke: var(--muted);
+  stroke-dasharray: 3 2;
+}
+.know-none .legend-swatch {
+  border-style: dashed;
+  background: var(--card);
+}
+.legend-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+.badge.know-badge {
+  border-color: var(--spec);
+  color: var(--spec);
+  margin-left: 0.4rem;
+}
+
+.study-next {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.study-step {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--spec, var(--line));
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+}
+.study-step p {
+  margin: 0.3rem 0;
+}
+.study-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.meter {
+  display: inline-block;
+  width: 7rem;
+  max-width: 100%;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--tag-bg);
+  overflow: hidden;
+  vertical-align: middle;
+}
+.meter-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.knowledge-figures {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0.5rem 0;
+}
+.knowledge-figures dt {
+  color: var(--muted);
+}
+.knowledge-figures dd {
+  margin: 0;
+}
+.topic-knowledge {
+  border-top: 1px solid var(--line);
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}

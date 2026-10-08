@@ -306,6 +306,10 @@ Ready for learners other than the owner only when all of the following are true:
   app's own requests going through `app_request` and its fixed route list), and mirrored by the
   named tools. Nothing the in-chat app can do removes, retires, exports, backs up, uploads or
   signs in; those stay where a confirmation exists.
+- The learner model (ADR 0031) is arithmetic on the learner's own records, recomputed and never
+  stored: what is understood, what is holding, and a suggested next step with its reason. It
+  suggests; it never sets a quota, a due count or a score, and the Tutor's shuffled pass stays
+  the default.
 - Builds may run on a timer (ADR 0018) only in codex mode and only under a standing consent
   the owner gave with the disclosure in view and can withdraw; every run is recorded per pile.
   Never add a scheduled send that is not visible on Today.

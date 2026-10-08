@@ -19,6 +19,7 @@ pytestmark = pytest.mark.anyio
 EXPECTED_TOOLS = {
     "get_today",
     "get_improvement_map",
+    "study_next",
     "list_piles",
     "get_pile",
     "create_pile",
@@ -360,3 +361,14 @@ async def test_a_session_begun_on_the_phone_is_carried_on_in_the_conversation(mc
     await call(mcp_client, "socratic_turn", {"session_id": session_id, "question": "Next step?", "answer": "Fluids."})
     sessions = await call(mcp_client, "socratic_start", {"session_id": session_id})
     assert sessions["session"]["exchanges"] == 2, "the same session, not a new one"
+
+
+async def test_study_next_suggests_the_flagged_topic_without_a_target(mcp_client: Client) -> None:
+    """ADR 0031: the learner model's plan reaches the assistant, voice included."""
+    await call(mcp_client, "flag_knowledge_gap", {"text": "Unsure when to start albumin", "topic": "hepatorenal syndrome"})
+    found = await call(mcp_client, "study_next", {})
+    first = found["plan"][0]
+    assert first["topic"] == "hepatorenal syndrome" and first["next"]["kind"] == "add_source"
+    assert {state["state"] for state in found["states"]} == {"untried", "forming", "fading", "holding"}
+    shuffled = await call(mcp_client, "board_next_question", {"where": "need"})
+    assert shuffled["question"] is None or "stem" in shuffled["question"]

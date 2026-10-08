@@ -34,6 +34,14 @@ def improvement_map(connection: sqlite3.Connection = Depends(get_connection), mo
     return data
 
 
+@router.get("/learner")
+def learner_model(connection: sqlite3.Connection = Depends(get_connection)) -> dict:
+    """The learner model (ADR 0031): each topic's estimate, and a plan for the next few minutes."""
+    from ..storage import learner
+
+    return learner.model(connection)
+
+
 @router.get("/improvement-map/strengths")
 def strengths(connection: sqlite3.Connection = Depends(get_connection)) -> dict:
     """Strong and weak, topic by topic, with the reasons and the evidence (ADR 0026)."""

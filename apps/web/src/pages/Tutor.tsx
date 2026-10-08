@@ -147,6 +147,8 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
   const [focus, setFocus] = useState<TutorFocus | null>(() => takePendingTutor())
   const [mode, setMode] = useState<'home' | 'questions' | 'socratic'>(() => focus?.mode ?? 'home')
   const card = useLoad(() => api.scorecard(), [mode])
+  // Board questions in the shuffled pass, or where the learner model says you need them most (ADR 0031).
+  const [order, setOrder] = useState<'shuffled' | 'need'>('shuffled')
 
   if (mode === 'home') {
     return (
@@ -184,6 +186,16 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
           Close
         </button>
       </div>
+      {mode === 'questions' && !focus ? (
+        <div className="chips" role="group" aria-label="Which questions">
+          <button type="button" className={`chip${order === 'shuffled' ? ' on' : ''}`} aria-pressed={order === 'shuffled'} onClick={() => setOrder('shuffled')}>
+            Shuffled through everything
+          </button>
+          <button type="button" className={`chip${order === 'need' ? ' on' : ''}`} aria-pressed={order === 'need'} onClick={() => setOrder('need')}>
+            Where you need it most
+          </button>
+        </div>
+      ) : null}
       {focus ? (
         <p className="muted small tutor-focus" role="status">
           On one page{focus.title ? `: ${focus.title}` : ''}.{' '}
@@ -195,15 +207,15 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
       {mode === 'socratic' ? (
         <SocraticTutor key={focus?.entryId ?? 'all'} onNavigate={onNavigate} entryId={focus?.entryId} />
       ) : (
-        <Questions key={focus?.entryId ?? 'all'} onNavigate={onNavigate} entryId={focus?.entryId} />
+        <Questions key={`${focus?.entryId ?? 'all'}-${order}`} onNavigate={onNavigate} entryId={focus?.entryId} need={order === 'need' && !focus} />
       )}
     </div>
   )
 }
 
 /** Board questions when there are any; otherwise the open-answer questions a Build made. */
-function Questions({ onNavigate, entryId }: { onNavigate?: (name: RouteName) => void; entryId?: string }) {
-  const board = useLoad(() => api.boardNext(entryId), [entryId])
+function Questions({ onNavigate, entryId, need = false }: { onNavigate?: (name: RouteName) => void; entryId?: string; need?: boolean }) {
+  const board = useLoad(() => api.boardNext(entryId, need ? 'need' : undefined), [entryId, need])
   if (board.result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
   // A board question is asked only when it is whole: five options and a stem.
   // Anything less is not a question, and the open-answer bank is asked instead.
@@ -218,7 +230,7 @@ function Questions({ onNavigate, entryId }: { onNavigate?: (name: RouteName) => 
     )
   }
   return whole && board.result.state === 'ready' ? (
-    <BoardTutor initial={board.result.value} onNavigate={onNavigate} entryId={entryId} />
+    <BoardTutor initial={board.result.value} onNavigate={onNavigate} entryId={entryId} need={need} />
   ) : (
     <OpenTutor onNavigate={onNavigate} boardReason={reason} />
   )

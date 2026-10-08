@@ -407,6 +407,7 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/encyclopedia/{entry_id}/edit",
         "/api/cases/{entry_id}/acknowledge",
         "/api/improvement-map/strengths",
+        "/api/learner",
         # Two Vademecums that sync (ADR 0015): served only with a peer token.
         "/api/sync/status",
         "/api/sync/changes",

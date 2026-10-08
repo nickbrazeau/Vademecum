@@ -19,7 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react'
 import { forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from 'd3-force'
 import type { Simulation, SimulationLinkDatum, SimulationNodeDatum } from 'd3-force'
-import type { CoveredTopic, MapPage, MapPosition, ReportArea, Specialty, TopicGap, TopicLink } from '../lib/types'
+import type { CoveredTopic, KnowledgeState, MapPage, MapPosition, ReportArea, Specialty, TopicGap, TopicLink } from '../lib/types'
 
 export interface GraphNode extends SimulationNodeDatum {
   id: string
@@ -315,6 +315,14 @@ function pinchDistance(points: Map<number, { x: number; y: number }>): number {
   return Math.hypot(p.x - q.x, p.y - q.y)
 }
 
+const KNOWLEDGE_LEGEND: [KnowledgeState | 'none', string][] = [
+  ['forming', 'Still forming'],
+  ['fading', 'Fading'],
+  ['holding', 'Holding'],
+  ['untried', 'Not yet tried'],
+  ['none', 'No page yet']
+]
+
 /** The CSS hook for a node's colour. Specialty ids are slugs, so they are safe in a class name. */
 export function specialtyClass(specialty: string | null): string {
   return specialty === null ? 'node-unassigned' : `spec-${specialty}`
@@ -336,7 +344,9 @@ export function TopicGraph({
   pages = NO_PAGES,
   pageLinks = NO_PAGE_LINKS,
   pageEdges = NO_LINKS,
-  onOpenPage
+  onOpenPage,
+  colourBy = 'specialty',
+  knowledgeOf
 }: {
   topics: TopicGap[]
   covered: CoveredTopic[]
@@ -358,6 +368,9 @@ export function TopicGraph({
   pageLinks?: { topic: string; entry_id: string }[]
   pageEdges?: TopicLink[]
   onOpenPage?: (entryId: string) => void
+  /** What each node is coloured by: its specialty, or what the learner model says of it (ADR 0031). */
+  colourBy?: 'specialty' | 'knowledge'
+  knowledgeOf?: (node: { id: string; label: string; entryId?: string }) => KnowledgeState | null
 }) {
   const width = 720
   const height = 480
@@ -607,7 +620,7 @@ export function TopicGraph({
             return (
               <g
                 key={node.id}
-                className={`topic-node ${node.kind === 'page' ? 'page-node' : ''} ${specialtyClass(node.specialty)} ${node.standing ? `standing-${node.standing}` : ''} ${isSelected ? 'selected' : ''} ${dim ? 'dim' : ''}`}
+                className={`topic-node ${node.kind === 'page' ? 'page-node' : ''} ${colourBy === 'knowledge' ? `know-${knowledgeOf?.(node) ?? 'none'}` : specialtyClass(node.specialty)} ${node.standing ? `standing-${node.standing}` : ''} ${isSelected ? 'selected' : ''} ${dim ? 'dim' : ''}`}
                 transform={`translate(${node.x ?? 0} ${node.y ?? 0})`}
                 role="button"
                 tabIndex={0}
@@ -641,6 +654,18 @@ export function TopicGraph({
           })}
         </g>
       </svg>
+      {colourBy === 'knowledge' ? (
+        <ul className="graph-legend" aria-label="What the colours mean">
+          {KNOWLEDGE_LEGEND.map(([state, label]) => (
+            <li key={state} className={`know-${state}`}>
+              <span className="legend-key">
+                <span className="legend-swatch" aria-hidden="true" />
+                {label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <ul className="graph-legend" aria-label="Specialties shown">
         {present.map((entry) => (
           <li key={entry.id} className={`spec-${entry.id}`}>

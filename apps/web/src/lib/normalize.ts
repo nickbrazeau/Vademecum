@@ -12,6 +12,11 @@
  */
 
 import type {
+  KnowledgeState,
+  LearnerModel,
+  LearnerStep,
+  LearnerStepKind,
+  LearnerUnit,
   MapPage,
   Anchor,
   Attempt,
@@ -1461,10 +1466,73 @@ export function strengths(raw: unknown): Strengths {
                 const a = obj(area)
                 return { standing: str(a.standing), quote: str(a.quote) }
               })
-            }
+            },
+            learner:
+              topic.learner && typeof topic.learner === 'object'
+                ? (() => {
+                    const l = obj(topic.learner)
+                    return { state: knowledgeState(l.state), label: str(l.label), recall: typeof l.recall === 'number' ? l.recall : null, next: learnerStep(l.next) }
+                  })()
+                : null
           }
         })
       }
     })
+  }
+}
+
+// --- the learner model (ADR 0031) ---------------------------------------------------
+
+const STATES: KnowledgeState[] = ['untried', 'forming', 'fading', 'holding']
+const STEPS: LearnerStepKind[] = ['read', 'board', 'flashcards', 'socratic', 'add_source']
+
+function knowledgeState(value: unknown): KnowledgeState {
+  return STATES.includes(value as KnowledgeState) ? (value as KnowledgeState) : 'untried'
+}
+
+function learnerStep(raw: unknown): LearnerStep {
+  const step = obj(raw)
+  const kind = STEPS.includes(step.kind as LearnerStepKind) ? (step.kind as LearnerStepKind) : 'read'
+  return { kind, label: str(step.label), why: str(step.why) }
+}
+
+function learnerUnit(raw: unknown): LearnerUnit {
+  const unit = obj(raw)
+  return {
+    key: str(unit.key),
+    title: str(unit.title),
+    topic: str(unit.topic),
+    entry_id: nullableStr(unit.entry_id),
+    specialty_id: nullableStr(unit.specialty_id),
+    state: knowledgeState(unit.state),
+    state_label: str(unit.state_label),
+    understood: num(unit.understood),
+    recall: typeof unit.recall === 'number' ? unit.recall : null,
+    half_life_days: num(unit.half_life_days),
+    confidence: num(unit.confidence),
+    need: num(unit.need),
+    open_flags: num(unit.open_flags),
+    board_ready: num(unit.board_ready),
+    cards_ready: num(unit.cards_ready),
+    evidence: strings(unit.evidence),
+    next: learnerStep(unit.next)
+  }
+}
+
+export function learnerModel(raw: unknown): LearnerModel {
+  const data = obj(raw)
+  const byName: Record<string, string> = {}
+  for (const [name, key] of Object.entries(obj(data.by_name))) if (typeof key === 'string') byName[name] = key
+  const byEntry: Record<string, KnowledgeState> = {}
+  for (const [id, state] of Object.entries(obj(data.by_entry))) byEntry[id] = knowledgeState(state)
+  return {
+    plan: arr(data.plan).map(learnerUnit),
+    units: arr(data.units).map(learnerUnit),
+    states: arr(data.states).map((item) => {
+      const entry = obj(item)
+      return { state: knowledgeState(entry.state), label: str(entry.label), count: num(entry.count) }
+    }),
+    by_name: byName,
+    by_entry: byEntry
   }
 }

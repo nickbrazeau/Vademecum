@@ -15,6 +15,12 @@ BoardId = Annotated[str, Field(max_length=64, description="The question's id fro
 Choice = Annotated[int, Field(ge=0, le=4, description="The chosen option, 0 for A through 4 for E.")]
 
 
+Where = Annotated[
+    Literal["shuffled", "need"],
+    Field(description='"shuffled": the pass through every question; "need": where the learner model says it helps most.'),
+]
+
+
 def register(mcp: MCPServer, api: ApiClient) -> None:
     @mcp.tool(annotations=READ)
     async def encyclopedia_page(
@@ -41,12 +47,13 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         return await call(api.get(f"/api/encyclopedia/{entry_id}"))
 
     @mcp.tool(annotations=READ)
-    async def board_next_question() -> dict[str, Any]:
+    async def board_next_question(where: Where = "shuffled") -> dict[str, Any]:
         """The board-style question to ask now: a vignette and five options,
         without the key. Idempotent until board_advance. Put the stem and the
         options to the owner and let them choose; do not reveal or hint at the
-        answer. If question is null, empty_reason says why."""
-        return await call(api.get("/api/tutor/board/next"))
+        answer. If question is null, empty_reason says why. where="need" asks
+        from the page the owner's learner model says needs it most (ADR 0031)."""
+        return await call(api.get("/api/tutor/board/next", params={"focus": "need"} if where == "need" else None))
 
     @mcp.tool(annotations=WRITE)
     async def board_answer(question_id: BoardId, choice: Choice) -> dict[str, Any]:
@@ -56,9 +63,13 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         return await call(api.post("/api/tutor/board/answer", {"question_id": question_id, "choice": choice}))
 
     @mcp.tool(annotations=WRITE)
-    async def board_advance(question_id: BoardId) -> dict[str, Any]:
-        """Mark the current board question served and move to the next one."""
-        return await call(api.post("/api/tutor/board/advance", {"question_id": question_id}))
+    async def board_advance(question_id: BoardId, where: Where = "shuffled") -> dict[str, Any]:
+        """Mark the current board question served and move to the next one. Pass the
+        same where as board_next_question: "need" moves to the next page that needs it."""
+        payload: dict[str, Any] = {"question_id": question_id}
+        if where == "need":
+            payload["focus"] = "need"
+        return await call(api.post("/api/tutor/board/advance", payload))
 
     @mcp.tool(annotations=READ)
     async def flashcard_next(

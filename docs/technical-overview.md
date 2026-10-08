@@ -75,6 +75,12 @@ in Safari; those device checks remain a human acceptance step.
 - **Settings.** Choose which tabs the app shows; Today and Settings always stay. The choice
   follows you to the phone.
 - **Knowledge Gap Flags.** `⌘K` from anywhere. One textarea, one required field.
+- **Learner model and Where to go next** ([ADR 0031](adr/0031-learner-model-and-what-to-study-next.md)).
+  Each page's understanding (a recency-weighted estimate over board answers, flashcards,
+  Socratic sessions, flags and exam areas) and how well it is holding (a forgetting curve whose
+  half-life grows with spaced recall). Up to five suggested steps, interleaved across
+  specialties, steer the map, the flashcard draw, the Tutor's "Where you need it most" and the
+  `study_next` tool.
 - **Improvement Map.** Where the gaps are, drawn as a graph: a node per topic, sized by open
   flags, coloured by specialty (your assignment, or a match on the topic's own name), and linked
   where one learning point was filed under both topics. Drag, tap, pinch. Where things sit is

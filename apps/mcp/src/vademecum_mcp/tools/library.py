@@ -43,6 +43,18 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         return await call(api.get("/api/improvement-map"))
 
     @mcp.tool(annotations=READ)
+    async def study_next() -> dict[str, Any]:
+        """What to study next, from the owner's learner model (ADR 0031): up to five
+        topics, interleaved across specialties, each with its state (not yet tried,
+        still forming, fading, holding), why it was chosen, what the estimate rests
+        on, and one suggested step (read the page, board questions, flashcards, a
+        Socratic session, or add a source). Use it when the owner asks what to work on,
+        for example on a drive home, and offer the first step. These are suggestions to
+        take or leave: present no number as a target, and do not call anything due or owed."""
+        found = await call(api.get("/api/learner"))
+        return {"plan": found.get("plan", []), "states": found.get("states", [])}
+
+    @mcp.tool(annotations=READ)
     async def list_piles() -> dict[str, Any]:
         """The source library: every pile with its tier-confidence rating
         (Low/Medium/High -- the owner's judgment of the material, never a

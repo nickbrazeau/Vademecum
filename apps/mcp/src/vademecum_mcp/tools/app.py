@@ -91,7 +91,7 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     ("POST", r"/api/encyclopedia/dissection"),
     ("POST", r"/api/encyclopedia/dissection/stop"),
     ("GET", r"/api/tutor/board"),
-    ("GET", r"/api/tutor/board/next"),
+    ("GET", rf"/api/tutor/board/next{QUERY}"),
     ("POST", r"/api/tutor/board/answer"),
     ("POST", r"/api/tutor/board/advance"),
     ("GET", rf"/api/tutor/board/history{QUERY}"),
@@ -106,6 +106,8 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     ("GET", r"/api/activity"),
     ("POST", r"/api/activity/page"),
     ("GET", r"/api/improvement-map/strengths"),
+    # The learner model (ADR 0031).
+    ("GET", r"/api/learner"),
     ("POST", rf"/api/cases/{ID}/acknowledge"),
     # The Socratic tutor and the podcast (ADR 0025).
     ("GET", r"/api/socratic"),

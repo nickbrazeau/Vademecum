@@ -222,6 +222,12 @@ def weigh(card: Flashcard, *, weights: dict[str, Any], last: tuple[str, str] | N
     if card.entry_id in weights["missed"]:
         weight += 2.0
         reasons.append("A board question from this page was missed recently.")
+    retention = weights.get("retention", {}).get(card.entry_id)
+    if retention is not None:
+        factor, why = retention
+        weight *= factor
+        if why:
+            reasons.append(why)
     if last is None:
         weight += 1.0
         reasons.append("New card.")
@@ -254,7 +260,9 @@ def next_card(
         return None
     moment = now or srs.now_utc()
     plans = srs.schedules(connection)
-    weights = improvement_weights(connection)
+    from . import learner
+
+    weights = {**improvement_weights(connection), "retention": learner.factor_for_entry(connection, now=moment)}
     latest = _last_reviews(connection)
     randomizer = rng or random.SystemRandom()
     eligible = set(all_ids)

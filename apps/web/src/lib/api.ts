@@ -421,6 +421,8 @@ export const api = {
   markPageReviewed: (entryId: string) =>
     request<unknown>('/activity/page', { method: 'POST', ...body({ entry_id: entryId }) }).then(normalize.dashboard),
   strengths: () => request<unknown>('/improvement-map/strengths').then(normalize.strengths),
+  /** The learner model and the plan for the next few minutes (ADR 0031). */
+  learner: () => request<unknown>('/learner').then(normalize.learnerModel),
   editPage: (entryId: string, bodyMd: string) =>
     request<unknown>(`/encyclopedia/${entryId}`, { method: 'PUT', ...body({ body_md: bodyMd }) }).then(normalize.encyclopediaEntry),
   revertPage: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}/edit`, { method: 'DELETE' }).then(normalize.encyclopediaEntry),
@@ -446,11 +448,15 @@ export const api = {
   startDissection: (pileId: string) =>
     request<unknown>('/encyclopedia/dissection', { method: 'POST', ...body({ pile_id: pileId }) }).then(normalize.dissection),
   stopDissection: () => request<unknown>('/encyclopedia/dissection/stop', { method: 'POST' }).then(normalize.dissection),
-  boardNext: (entryId?: string) => request<unknown>(`/tutor/board/next${query({ entry_id: entryId })}`).then(normalize.boardNext),
+  boardNext: (entryId?: string, focus?: 'need') =>
+    request<unknown>(`/tutor/board/next${query({ entry_id: entryId, focus: entryId ? undefined : focus })}`).then(normalize.boardNext),
   boardAnswer: (questionId: string, choice: number) =>
     request<unknown>('/tutor/board/answer', { method: 'POST', ...body({ question_id: questionId, choice }) }).then(normalize.boardAnswer),
-  boardAdvance: (questionId: string, entryId?: string) =>
-    request<unknown>('/tutor/board/advance', { method: 'POST', ...body(entryId ? { question_id: questionId, entry_id: entryId } : { question_id: questionId }) }).then(
+  boardAdvance: (questionId: string, entryId?: string, focus?: 'need') =>
+    request<unknown>('/tutor/board/advance', {
+      method: 'POST',
+      ...body({ question_id: questionId, ...(entryId ? { entry_id: entryId } : {}), ...(focus && !entryId ? { focus } : {}) })
+    }).then(
       normalize.boardNext
     ),
 
