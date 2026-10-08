@@ -399,7 +399,12 @@ async def _sync_loop(database_path: Path, source_dir: Path, settings: Settings, 
         await asyncio.sleep(settings.sync_interval)
         await _remember_model(app, database_path, settings)
         try:
-            await asyncio.to_thread(sync_with_peer, database_path, source_dir, settings)
+            result = await asyncio.to_thread(sync_with_peer, database_path, source_dir, settings)
+            # A source added on the phone arrived (feedback of 6 October): the encyclopedia
+            # agent builds from it now rather than at its next look.
+            dissector = getattr(getattr(app, "state", None), "dissector", None) if app is not None else None
+            if dissector is not None and int((result or {}).get("applied") or 0) > 0:
+                dissector.kick()
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the loop reports and continues

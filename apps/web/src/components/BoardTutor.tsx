@@ -159,7 +159,10 @@ export function BoardTutor({ initial, onNavigate }: { initial: BoardNext; onNavi
           ) : null}
           {result.citations.length > 0 ? (
             <div className="provenance">
-              <h4>What this rests on</h4>
+              <h4>
+                Where this comes from: {result.citations.length} learning point{result.citations.length === 1 ? '' : 's'}, each with the passage
+                in your sources it was taken from
+              </h4>
               <ul className="list small">
                 {result.citations.map((citation) => (
                   <li key={citation.id}>

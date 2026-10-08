@@ -4,11 +4,13 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { AddSourceDialog } from './components/AddSourceDialog'
 import { Mark } from './components/Mark'
 import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
+import { newerBuildServed } from './lib/updateCheck'
 import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
 import { Construction } from './pages/Construction'
 import { Encyclopedia } from './pages/Encyclopedia'
@@ -55,6 +57,27 @@ export function isQuickFlagShortcut(event: {
 export function App() {
   const [route, navigate] = useRoute()
   const [flagOpen, setFlagOpen] = useState(false)
+  const [sourceOpen, setSourceOpen] = useState(false)
+  // A tab left open across an update keeps the old app while its data comes from the new
+  // server (feedback of 6 October): look for a newer build on return and every ten minutes.
+  const [newerBuild, setNewerBuild] = useState(false)
+  useEffect(() => {
+    if (inChat()) return undefined
+    const look = () => {
+      void newerBuildServed().then((newer) => {
+        if (newer) setNewerBuild(true)
+      })
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') look()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = window.setInterval(look, 10 * 60 * 1000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.clearInterval(timer)
+    }
+  }, [])
   const [reloadToken, setReloadToken] = useState(0)
   const [online, setOnline] = useState(() => navigator.onLine)
   // Behind the gateway (ADR 0011) the desk belongs to one learner among many:
@@ -147,12 +170,26 @@ export function App() {
 
   return (
     <div className="app">
+      {newerBuild ? (
+        <div className="update-banner" role="status">
+          <span>A newer Vademecum is ready.</span>
+          <button type="button" className="button small primary" onClick={() => window.location.reload()}>
+            Reload
+          </button>
+        </div>
+      ) : null}
       <header className="header">
         <div className="header-row">
           <h1 className="brand">
             <Mark />
             <span>Vademecum</span>
           </h1>
+          {/* Beside Flag a gap: add a source from anywhere (feedback of 6 October). */}
+          {!inChat() ? (
+            <button type="button" className="button add-source-button" onClick={() => setSourceOpen(true)}>
+              Add source
+            </button>
+          ) : null}
           <button
             type="button"
             className="button primary flag-button"
@@ -203,12 +240,13 @@ export function App() {
 
       <footer className="footer">
         <p className="muted small">
-          A personal learning workspace, augmented by AI. Educational only — not a substitute
+          A personal tutor and learning workspace, augmented by AI. Educational only — not a substitute
           for clinical judgment.
         </p>
       </footer>
 
       <QuickFlagDialog open={flagOpen} onClose={() => setFlagOpen(false)} onSaved={onSaved} />
+      <AddSourceDialog open={sourceOpen} onClose={() => setSourceOpen(false)} onPhone={hostMode} />
     </div>
   )
 }
