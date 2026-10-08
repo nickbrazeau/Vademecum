@@ -19,11 +19,3 @@ export function ConfidenceBadge({ tier, label }: { tier: Tier; label?: string })
   )
 }
 
-/** The sentence itself, for the top of any section that sorts by tier. */
-export function ConfidenceMeaning() {
-  return (
-    <p className="muted small">
-      <strong>Tier confidence</strong> — {CONFIDENCE_MEANING}
-    </p>
-  )
-}

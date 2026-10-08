@@ -147,8 +147,6 @@ export interface Segment {
   fully_covered: boolean
 }
 
-export type SourceDetail = Source & { segments_preview: Segment[] }
-
 export type TopicSuggestion = {
   topic: string
   query: string
@@ -267,7 +265,7 @@ export interface BuildState {
   mode: ModelMode
   /**
    * True while the run is parked on work only the learner's ChatGPT can do.
-   * The desk says so instead of showing a spinner that never stops.
+   * The web app says so instead of showing a spinner that never stops.
    */
   awaiting_host: boolean
   pending_kinds: string[]
@@ -337,10 +335,6 @@ export interface LearningPoint {
   updated_at: string
 }
 
-export interface RetiredMaterial {
-  retired: { points: number; questions: number; attempts_kept: number }
-}
-
 // --- tutor ---
 
 export interface Cycle {
@@ -404,15 +398,6 @@ export interface Attempt {
   created_at: string
   question_version: number
   asked_prompt: string
-}
-
-export interface TutorSummary {
-  eligible: number
-  held: number
-  answered_total: number
-  cycle: Cycle
-  reasons: string[]
-  disclosure: BuildDisclosure
 }
 
 export interface TutorNext {
@@ -618,7 +603,7 @@ export interface EncyclopediaEntry {
   edited_at: string | null
 }
 
-/** The Socratic tutor and the podcast generator (ADR 0025). */
+/** The Socratic tutor and the podcast (ADR 0025). */
 export interface SocraticTurn {
   role: 'tutor' | 'learner'
   text: string
@@ -758,15 +743,6 @@ export interface FlashcardDraw {
   intervals: Record<string, string>
 }
 
-export interface FlashcardOverview {
-  eligible: number
-  held: number
-  total: number
-  reviews_total: number
-  reviews_again: number
-  improvement: { flagged_topics: number; areas_below: number; pages_missed: number }
-}
-
 export interface TabChoice {
   name: string
   label: string
@@ -882,16 +858,6 @@ export interface BoardAnswer {
   attempt: BoardAttempt
   question: BoardQuestion
   citations: PageCitation[]
-}
-
-export interface BoardOverview {
-  eligible: number
-  held: number
-  total: number
-  pages: number
-  answered_total: number
-  answered_correct: number
-  cycle: Cycle
 }
 
 /** The feedback of 4 October (ADR 0026). */
@@ -1132,11 +1098,6 @@ export interface WrittenFile {
   byte_size: number
 }
 
-export interface BackupCheck {
-  ok: boolean
-  problems: string[]
-}
-
 export interface Health {
   status: string
   version: string
@@ -1234,7 +1195,6 @@ export const PLAN_LABEL: Record<string, string> = {
   edu: 'Education',
   unknown: 'Unknown plan'
 }
-
 
 /** Builds on a timer (ADR 0018): the Mac working through the piles by itself. */
 export interface ScheduledPileOutcome {

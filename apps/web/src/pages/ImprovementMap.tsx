@@ -226,6 +226,8 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
     })
   const [layoutFailure, setLayoutFailure] = useState<ApiError | null>(null)
   const [filing, setFiling] = useState(false)
+  const filingTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(filingTimer.current), [])
   const [filingFailure, setFilingFailure] = useState<ApiError | null>(null)
   const [specialtyFailure, setSpecialtyFailure] = useState<ApiError | null>(null)
 
@@ -370,7 +372,7 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
                   setFilingFailure(null)
                   api.fileFlags().then(
                     () => {
-                      setTimeout(() => {
+                      filingTimer.current = window.setTimeout(() => {
                         setFiling(false)
                         reloadBoth()
                       }, 4000)

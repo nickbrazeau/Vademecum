@@ -13,7 +13,6 @@ Three stages, each answered cheaply:
 
 from __future__ import annotations
 
-import json
 import os
 import sqlite3
 from pathlib import Path
@@ -22,6 +21,7 @@ from typing import Any
 from ..db import transaction
 from ..ingest.detect import safe_display_name
 from ..ingest.folder import PILES_DIRNAME, SKIP_PREFIXES, TIER_TITLES, UNSORTED, tier_of
+from . import app_state
 from .common import utc_now
 
 SCAN_KEY = "ingest_scan"
@@ -44,19 +44,11 @@ def record_scan(connection: sqlite3.Connection, report: dict[str, Any]) -> None:
         "rejected": rejected,
     }
     with transaction(connection) as tx:
-        tx.execute(
-            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
-            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-            (SCAN_KEY, json.dumps(record, separators=(",", ":")), record["at"]),
-        )
+        app_state.write_json(tx, SCAN_KEY, record, at=record["at"])
 
 
 def last_scan(connection: sqlite3.Connection) -> dict[str, Any] | None:
-    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (SCAN_KEY,)).fetchone()
-    try:
-        return json.loads(row["value"]) if row else None
-    except ValueError:
-        return None
+    return app_state.read_dict(connection, SCAN_KEY)
 
 
 def _pile_for(relative_parts: tuple[str, ...]) -> str | None:

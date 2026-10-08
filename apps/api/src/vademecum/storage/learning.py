@@ -33,7 +33,6 @@ asked.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -1349,13 +1348,6 @@ def flag_points_for_record(
     return ids
 
 
-def pile_has_generated_material(connection: sqlite3.Connection, pile_id: str) -> bool:
-    row = connection.execute(
-        "SELECT 1 FROM learning_points WHERE pile_id = ? LIMIT 1", (pile_id,)
-    ).fetchone()
-    return row is not None
-
-
 def retire_pile_material(
     connection: sqlite3.Connection,
     pile_id: str,
@@ -1437,16 +1429,3 @@ def topic_suggestions(
         )
     return suggestions
 
-
-def topics_in_use(connection: sqlite3.Connection, limit: int = 40) -> list[str]:
-    """Topic tags across the bank, most-used first. Used to suggest watches."""
-    rows = connection.execute(
-        "SELECT topic, COUNT(*) AS n FROM learning_point_topics"
-        " GROUP BY topic ORDER BY n DESC, topic LIMIT ?",
-        (limit,),
-    ).fetchall()
-    return [row["topic"] for row in rows]
-
-
-def as_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))

@@ -1,4 +1,4 @@
-"""The Socratic tutor and the podcast generator (ADR 0025), from a chat host.
+"""The Socratic tutor and the podcast (ADR 0025), from a chat host.
 
 In a chat host -- in voice or in text -- the assistant IS the Socratic tutor:
 socratic_start hands it the page and the rules, it asks and listens, records
@@ -99,7 +99,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         origin: Annotated[str, Field(max_length=10, description="chatgpt or claude: which assistant was the tutor.")] = "chatgpt",
     ) -> dict[str, Any]:
         """Save a Socratic or teaching session already held in this conversation
-        -- in voice mode, say, where no tool was called -- into Vademecum, with
+        -- one where the exchanges were not recorded as they happened -- into Vademecum, with
         your assessment. Use it whenever the owner asks to save, log or bring
         a session into Vademecum, or at the end of any tutoring dialogue that
         was not recorded with socratic_turn. Put the questions you asked and

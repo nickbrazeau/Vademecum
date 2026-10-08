@@ -20,18 +20,12 @@ from ..db import connect
 from ..storage import map as map_store
 from ..storage import reports as store
 from ..storage.learning import quote_in
+from .runner import runner_for
 from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.reports")
 
 WAITING = "Waiting for the Mac's own model connection (codex or claude mode) to read it."
-
-
-def _runner(turn_factory: Any, report_id: str):
-    scoped = getattr(turn_factory, "scoped", None)
-    if callable(scoped):
-        return scoped("report", report_id)()
-    return turn_factory()
 
 
 def check_areas(payload: dict[str, Any], text: str, specialty_ids: set[str]) -> list[dict[str, Any]]:
@@ -67,7 +61,7 @@ async def parse_report(database_path: Path, report_id: str, turn_factory: Any) -
         connection.close()
     ids = {identifier for identifier, _ in specialties}
     try:
-        runner = _runner(turn_factory, report_id)
+        runner = runner_for(turn_factory, "report", report_id)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.REPORT_DEVELOPER,

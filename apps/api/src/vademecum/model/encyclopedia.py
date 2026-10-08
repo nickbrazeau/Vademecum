@@ -24,6 +24,7 @@ from ..storage import flags as flag_store
 from ..storage import map as map_store
 from ..storage.common import drop_disclaimers, utc_now
 from ..storage.learning import SUPPORT_LABEL, points_for_topic
+from .runner import runner_for
 from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.encyclopedia")
@@ -43,11 +44,6 @@ _LEANS_ON_TEXT = re.compile(
 )
 
 
-def _runner(turn_factory: Any, kind: str, scope_id: str):
-    scoped = getattr(turn_factory, "scoped", None)
-    if callable(scoped):
-        return scoped(kind, scope_id)()
-    return turn_factory()
 
 
 # --- pages ----------------------------------------------------------------------
@@ -170,7 +166,7 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any, prov
     ]
     ids = {identifier for identifier, _ in specialties}
     try:
-        runner = _runner(turn_factory, "entry", topic)
+        runner = runner_for(turn_factory, "entry", topic)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.ENTRY_DEVELOPER,
@@ -354,7 +350,7 @@ async def generate_for_entry(database_path: Path, entry_id: str, turn_factory: A
     handles = {f"p{index + 1}": point_id for index, point_id in enumerate(entry.point_ids)}
     page = f"{_page_text(entry, handles)}\n\nTHE POINTS THE PAGE RESTS ON:\n{_points_text(cited, handles)}"
     try:
-        runner = _runner(turn_factory, "board", entry_id)
+        runner = runner_for(turn_factory, "board", entry_id)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.BOARD_DEVELOPER,
@@ -430,7 +426,7 @@ async def generate_cards_for_entry(database_path: Path, entry_id: str, turn_fact
     handles = {f"p{index + 1}": point_id for index, point_id in enumerate(entry.point_ids)}
     page = f"{_page_text(entry, handles)}\n\nTHE POINTS THE PAGE RESTS ON:\n{_points_text(cited, handles)}"
     try:
-        runner = _runner(turn_factory, "flashcards", entry_id)
+        runner = runner_for(turn_factory, "flashcards", entry_id)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.FLASHCARD_DEVELOPER,

@@ -29,16 +29,13 @@ import type {
   ConstructionProgress,
   ModelStatus,
   Pile,
-  RetiredMaterial,
   Run,
   SelfAssessedOutcome,
   Source,
-  SourceDetail,
   Tier,
   Topic,
   TutorNext,
   TutorQuestion,
-  TutorSummary,
   Update,
   UpdateState,
   UploadReport,
@@ -60,7 +57,7 @@ export interface FieldProblem {
 /** Why a call failed, in terms the interface can be honest about. */
 export type FailureKind =
   | 'unreachable'
-  /** 401: no desk session. The gateway's sign-in page is the answer (ADR 0011). */
+  /** 401: no app session. The gateway's sign-in page is the answer (ADR 0011). */
   | 'unauthenticated'
   | 'invalid'
   | 'not_found'
@@ -204,7 +201,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       /* a non-JSON error body is still an error */
     }
     if (response.status === 401 && window.location.pathname !== LOGIN_PATH) {
-      // Behind the gateway a 401 means the desk session ended. The sign-in
+      // Behind the gateway a 401 means the app session ended. The sign-in
       // page is a server-rendered page, so this is a navigation, not a route.
       window.location.assign(LOGIN_PATH)
     }
@@ -280,7 +277,6 @@ export const api = {
       body: form
     })
   },
-  getSource: (sourceId: string) => request<SourceDetail>(`/sources/${sourceId}`).then(normalize.sourceDetail),
   updateSource: (sourceId: string, input: { confidence?: Tier; excluded?: boolean }) =>
     request<Source>(`/sources/${sourceId}`, { method: 'PATCH', ...body(input) }).then(normalize.source),
   // May refuse with 409 `source_in_use`.
@@ -321,11 +317,8 @@ export const api = {
 
   listPoints: (params: { pile_id?: string; held?: boolean } = {}) =>
     request<LearningPoint[]>(`/points${query(params)}`).then(normalize.points),
-  retireMaterial: (pileId: string) =>
-    request<RetiredMaterial>(`/piles/${pileId}/material`, { method: 'DELETE' }).then(normalize.retiredMaterial),
 
   // --- tutor ---
-  tutorSummary: () => request<TutorSummary>('/tutor').then(normalize.tutorSummary),
   /** Idempotent: refreshing the page gives back the same question. */
   tutorNext: () => request<TutorNext>('/tutor/next').then(normalize.tutorNext),
   tutorAdvance: (questionId: string) =>
@@ -346,7 +339,6 @@ export const api = {
       method: 'POST',
       ...body({ question_id: questionId, answer, outcome })
     }).then(normalize.recordedAttempt),
-  tutorHistory: (limit?: number) => request<Attempt[]>(`/tutor/history${query({ limit })}`).then(normalize.attempts),
 
   // --- literature ---
   literatureTopics: () => request<Topic[]>('/literature/topics').then(normalize.topics),
@@ -365,8 +357,6 @@ export const api = {
       method: 'POST',
       ...body(topicId === undefined ? {} : { topic_id: topicId })
     }).then(normalize.checkReport),
-  literatureUpdates: (state?: UpdateState) =>
-    request<Update[]>(`/literature/updates${query({ state })}`).then(normalize.updates),
   setUpdateState: (updateId: string, state: UpdateState) =>
     request<Update>(`/literature/updates/${updateId}`, { method: 'PATCH', ...body({ state }) }).then(normalize.update),
   literatureSettings: () => request<LiteratureSettings>('/literature/settings').then(normalize.literatureSettings),
@@ -400,7 +390,7 @@ export const api = {
     request<unknown>(`/encyclopedia/page${query(options)}`).then(normalize.encyclopediaPage),
   encyclopediaEntry: (entryId: string) => request<unknown>(`/encyclopedia/${entryId}`).then(normalize.encyclopediaEntry),
   compileEncyclopedia: () => request<unknown>('/encyclopedia/compile', { method: 'POST' }).then(normalize.encyclopediaList),
-  // The Socratic tutor and the podcast generator (ADR 0025). Answering a
+  // The Socratic tutor and the podcast (ADR 0025). Answering a
   // Socratic question and writing an episode are the two that send; the
   // disclosure on each page says what. Rendering audio sends nothing.
   socraticOverview: () => request<unknown>('/socratic').then(normalize.socraticOverview),
@@ -419,7 +409,6 @@ export const api = {
   podcastVoices: () => request<unknown>('/podcasts/voices').then(normalize.podcastVoices),
   createPodcast: (input: { entry_ids?: string[]; pick: 'chosen' | 'today' | 'improvement' | 'request'; title?: string; request?: string }) =>
     request<unknown>('/podcasts', { method: 'POST', ...body(input) }).then(normalize.podcastEpisode),
-  podcast: (episodeId: string) => request<unknown>(`/podcasts/${episodeId}`).then(normalize.podcastEpisode),
   rewritePodcast: (episodeId: string) => request<{ started: boolean }>(`/podcasts/${episodeId}/script`, { method: 'POST' }),
   renderPodcast: (episodeId: string, voices: { voice_a: string; voice_b: string }) =>
     request<unknown>(`/podcasts/${episodeId}/render`, { method: 'POST', ...body(voices) }).then(normalize.podcastEpisode),
@@ -438,7 +427,6 @@ export const api = {
   acknowledgeCase: (caseId: string) => request<{ acknowledged: boolean }>(`/cases/${caseId}/acknowledge`, { method: 'POST' }),
 
   // Flashcards and preferences (ADR 0024): local, no model turn.
-  flashcardsOverview: () => request<unknown>('/flashcards').then(normalize.flashcardOverview),
   flashcardNext: (notId?: string, practise = false) =>
     request<unknown>(`/flashcards/next${query({ not_id: notId, practise: practise ? 'true' : undefined })}`).then(normalize.flashcardDraw),
   flashcardReview: (cardId: string, rating: 'again' | 'good', practise = false) =>
@@ -458,7 +446,6 @@ export const api = {
   startDissection: (pileId: string) =>
     request<unknown>('/encyclopedia/dissection', { method: 'POST', ...body({ pile_id: pileId }) }).then(normalize.dissection),
   stopDissection: () => request<unknown>('/encyclopedia/dissection/stop', { method: 'POST' }).then(normalize.dissection),
-  boardOverview: () => request<unknown>('/tutor/board').then(normalize.boardOverview),
   boardNext: (entryId?: string) => request<unknown>(`/tutor/board/next${query({ entry_id: entryId })}`).then(normalize.boardNext),
   boardAnswer: (questionId: string, choice: number) =>
     request<unknown>('/tutor/board/answer', { method: 'POST', ...body({ question_id: questionId, choice }) }).then(normalize.boardAnswer),

@@ -64,12 +64,6 @@ class HostTurnExpired(BridgeError):
     category = "host_expired"
 
 
-class HostTurnAbandoned(BridgeError):
-    """The waiting task was cancelled or the process stopped."""
-
-    category = "host_abandoned"
-
-
 class SubmissionRefused(Exception):
     """A submission that cannot be accepted. ``code`` is a closed set."""
 
@@ -327,19 +321,6 @@ class HostTurns:
             if asyncio.get_running_loop().time() >= deadline:
                 return []
             await asyncio.sleep(0.05)
-
-    def abandon_scope(self, scope_kind: str, scope_id: str) -> int:
-        connection = self._open()
-        try:
-            with transaction(connection) as tx:
-                cursor = tx.execute(
-                    "UPDATE pending_turns SET status = 'abandoned' WHERE scope_kind = ?"
-                    " AND scope_id = ? AND status = 'pending'",
-                    (scope_kind, scope_id),
-                )
-                return cursor.rowcount
-        finally:
-            connection.close()
 
     def sweep(self) -> int:
         """At startup: every pending turn belonged to a task that is gone."""

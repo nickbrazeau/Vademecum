@@ -1,6 +1,6 @@
 # ADR 0028 — The owner's feedback of 5 October
 
-- Status: accepted
+- Status: accepted; amended by ADR 0029 (ChatGPT voice now calls the Socratic tools)
 - Date: 2026-10-06
 - Extends: [0024](0024-flashcards-and-chosen-tabs.md), [0026](0026-feedback-october.md), [0027](0027-podcast-audio-in-the-cloud-copy.md)
 - Amends: [0024](0024-flashcards-and-chosen-tabs.md) on scheduling: the owner asked for spaced repetition, so "nothing is due" no longer holds for flashcards.

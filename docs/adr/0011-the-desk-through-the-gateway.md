@@ -1,6 +1,6 @@
 # ADR 0011 — The desk through the gateway
 
-- Status: accepted
+- Status: accepted; superseded by ADR 0012 (a local install each learner owns), kept for hosted mode
 - Date: 2026-09-28
 - Amends: [0009](0009-hosted-personal-workspaces-chatgpt-is-the-model.md) (phase 3),
   [0008](0008-mcp-server-for-chat-hosts.md), [0010](0010-tenancy-by-workspace-per-learner.md)

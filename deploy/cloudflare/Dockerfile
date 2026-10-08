@@ -1,8 +1,8 @@
 # The seat: Vademecum's away node as one container image (ADR 0017).
 #
 # Stage 1 builds the web app (the dashboard the gateway serves). Stage 2 is
-# the runtime: the API and the MCP gateway in one virtualenv, rclone for the
-# snapshots, and seat.py supervising. No macOS frameworks here, so there is
+# the runtime: the API and the MCP gateway in one virtualenv, and seat.py
+# supervising (snapshots go to the Worker's bucket). No macOS frameworks here, so there is
 # no on-device page reading on the seat; that stays the Mac's.
 
 FROM node:22-slim AS web

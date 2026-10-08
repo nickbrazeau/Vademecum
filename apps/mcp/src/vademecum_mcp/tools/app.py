@@ -107,7 +107,7 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     ("POST", r"/api/activity/page"),
     ("GET", r"/api/improvement-map/strengths"),
     ("POST", rf"/api/cases/{ID}/acknowledge"),
-    # The Socratic tutor and the podcast generator (ADR 0025).
+    # The Socratic tutor and the podcast (ADR 0025).
     ("GET", r"/api/socratic"),
     ("POST", r"/api/socratic"),
     ("GET", rf"/api/socratic/{ID}"),

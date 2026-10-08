@@ -88,7 +88,7 @@ export function App() {
   }, [])
   const [reloadToken, setReloadToken] = useState(0)
   const [online, setOnline] = useState(() => navigator.onLine)
-  // Behind the gateway (ADR 0011) the desk belongs to one learner among many:
+  // Behind the gateway (ADR 0011) the web app belongs to one learner among many:
   // there is a sign-out, and no Model page, because there is no model
   // connection of the learner's own to show. Until health answers, and on the
   // owner's Mac, nothing changes.

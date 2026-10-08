@@ -433,7 +433,7 @@ SOCRATIC_REVIEW_SCHEMA = {
 }
 
 
-# --- the podcast generator (ADR 0025) --------------------------------------------------
+# --- the podcast (ADR 0025) --------------------------------------------------
 
 MAX_PODCAST_LINES = 80
 

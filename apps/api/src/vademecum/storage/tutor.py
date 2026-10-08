@@ -329,15 +329,6 @@ def advance_question(
         return _next_question(connection, rng=rng)
 
 
-def reset_cycle(connection: sqlite3.Connection) -> CycleState:
-    """Start a fresh shuffle now, rather than at the end of this one."""
-    eligible = eligible_question_ids(connection)
-    if not eligible:
-        return CycleState(_current_cycle(connection), 0, 0, 0)
-    number = _draw_cycle(connection, eligible)
-    return _cycle_state(connection, number)
-
-
 def record_attempt(
     connection: sqlite3.Connection,
     *,

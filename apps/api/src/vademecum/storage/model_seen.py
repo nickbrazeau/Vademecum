@@ -9,11 +9,11 @@ as of when it was seen. No account name, address or token is kept.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from typing import Any
 
 from ..db import transaction
+from . import app_state
 from .common import utc_now
 
 KEY = "model_seen"
@@ -38,19 +38,8 @@ def record(connection: sqlite3.Connection, provider: str, status: Any) -> None:
         "seen_at": utc_now(),
     }
     with transaction(connection) as tx:
-        tx.execute(
-            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
-            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-            (KEY, json.dumps(summary, separators=(",", ":")), summary["seen_at"]),
-        )
+        app_state.write_json(tx, KEY, summary, at=summary["seen_at"])
 
 
 def read(connection: sqlite3.Connection) -> dict[str, Any] | None:
-    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (KEY,)).fetchone()
-    if row is None:
-        return None
-    try:
-        data = json.loads(row["value"])
-    except ValueError:
-        return None
-    return data if isinstance(data, dict) else None
+    return app_state.read_dict(connection, KEY)

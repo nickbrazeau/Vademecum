@@ -1018,12 +1018,10 @@ kbd {
 }
 
 /* A drop-down inside a card: closed by default, one line to open. */
-details.support-details,
-details.settings-details {
+details.support-details {
   margin-top: 0.5rem;
 }
-details.support-details > summary,
-details.settings-details > summary {
+details.support-details > summary {
   cursor: pointer;
   color: var(--muted);
   font-size: 0.9rem;
@@ -1031,8 +1029,7 @@ details.settings-details > summary {
   display: flex;
   align-items: center;
 }
-details.support-details[open] > summary,
-details.settings-details[open] > summary {
+details.support-details[open] > summary {
   color: var(--ink);
 }
 
@@ -1164,7 +1161,7 @@ details.card-details[open] > summary {
   min-width: 1.25rem;
 }
 
-/* The Socratic tutor and the podcast generator (ADR 0025). */
+/* The Socratic tutor and the podcast (ADR 0025). */
 .socratic-dialogue {
   list-style: none;
   padding: 0;
@@ -1175,10 +1172,6 @@ details.card-details[open] > summary {
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid var(--line);
-}
-.socratic-tutor {
-  background: var(--accent-tint);
-  border-color: var(--accent-line);
 }
 .socratic-who {
   display: block;
@@ -1267,10 +1260,6 @@ details.card-details[open] > summary {
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
   margin: 0.75rem 0;
-}
-.case-series-option {
-  display: block;
-  margin: 0.25rem 0;
 }
 .case-search {
   margin: 0.75rem 0;
@@ -1619,7 +1608,6 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 details.support-details > summary::before,
-details.settings-details > summary::before,
 details.toggle-card > summary::before,
 details.watch-group > summary::before,
 details.card-details > summary::before,
@@ -1633,7 +1621,6 @@ details.strength-topic > summary::before {
   transition: transform 0.15s;
 }
 details[open].support-details > summary::before,
-details[open].settings-details > summary::before,
 details[open].toggle-card > summary::before,
 details[open].watch-group > summary::before,
 details[open].card-details > summary::before,

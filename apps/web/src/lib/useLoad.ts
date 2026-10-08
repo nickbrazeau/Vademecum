@@ -4,7 +4,7 @@
  * instead (ADR 0001).
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError } from './api'
 
 export type Loaded<T> =
@@ -21,9 +21,17 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[] = []): {
 
   const reload = useCallback(() => setNonce((value) => value + 1), [])
 
+  // A reload of the same thing keeps what is on screen until the fresh value arrives:
+  // blanking it to "loading" every few seconds unmounted whole pages, and stopped a
+  // podcast mid-play while another episode was being written. Loading something
+  // different (new dependencies) still says it is loading.
+  const lastDeps = useRef<unknown[] | null>(null)
   useEffect(() => {
     let live = true
-    setResult({ state: 'loading' })
+    const sameThing =
+      lastDeps.current !== null && lastDeps.current.length === deps.length && lastDeps.current.every((value, index) => Object.is(value, deps[index]))
+    lastDeps.current = deps
+    if (!sameThing) setResult({ state: 'loading' })
     load()
       .then((value) => {
         if (live) setResult({ state: 'ready', value })

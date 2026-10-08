@@ -1,4 +1,4 @@
-"""The podcast generator (ADR 0025): a script from pages, audio made on this Mac.
+"""The podcast (ADR 0025): a script from pages, audio made on this Mac.
 
 The script is one model turn on the Mac's own connection: the chosen pages
 go in, two hosts' lines come out, saying only what the pages say. The audio
@@ -25,6 +25,7 @@ from ..appserver.errors import BridgeError
 from ..db import connect
 from ..storage import encyclopedia as pages
 from ..storage import podcasts as store
+from .runner import runner_for
 from . import kokoro, prompts, schemas
 from .speakable import speakable
 from .socratic import further_context, page_material
@@ -40,13 +41,6 @@ NEEDS_MAC = "Rendering audio happens on the Mac, with its own speech voices; thi
 
 Synth = Callable[[str, str, Path], None]
 Encode = Callable[[Path, Path], None]
-
-
-def _runner(turn_factory: Any, episode_id: str):
-    scoped = getattr(turn_factory, "scoped", None)
-    if callable(scoped):
-        return scoped("podcast", episode_id)()
-    return turn_factory()
 
 
 # --- the script ----------------------------------------------------------------------
@@ -104,7 +98,7 @@ async def write_script(database_path: Path, episode_id: str, turn_factory: Any) 
         finally:
             connection.close()
     try:
-        runner = _runner(turn_factory, episode_id)
+        runner = runner_for(turn_factory, "podcast", episode_id)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.PODCAST_DEVELOPER,

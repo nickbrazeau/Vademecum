@@ -19,18 +19,12 @@ from ..appserver.errors import BridgeError
 from ..db import connect
 from ..storage import flags as flag_store
 from ..storage import map as map_store
+from .runner import runner_for
 from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.flags")
 
 WAITING = "Filing flags needs the Mac's own model connection (codex or claude mode)."
-
-
-def _runner(turn_factory: Any, scope_id: str):
-    scoped = getattr(turn_factory, "scoped", None)
-    if callable(scoped):
-        return scoped("flags", scope_id)()
-    return turn_factory()
 
 
 async def file_unfiled(database_path: Path, turn_factory: Any) -> dict[str, Any]:
@@ -45,7 +39,7 @@ async def file_unfiled(database_path: Path, turn_factory: Any) -> dict[str, Any]
         return {"filed": 0, "unfiled": 0, "note": "Nothing to file."}
     ids = {identifier for identifier, _ in specialties}
     try:
-        runner = _runner(turn_factory, "unfiled")
+        runner = runner_for(turn_factory, "flags", "unfiled")
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.FLAGS_DEVELOPER,

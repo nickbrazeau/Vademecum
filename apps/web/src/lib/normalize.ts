@@ -42,13 +42,11 @@ import type {
   LiteratureSettings,
   Pile,
   RecheckResult,
-  RetiredMaterial,
   Run,
   RunStatus,
   Segment,
   Source,
   SourceAttention,
-  SourceDetail,
   SourceStatus,
   SourceSummary,
   Support,
@@ -58,7 +56,6 @@ import type {
   TopicGap,
   TutorNext,
   TutorQuestion,
-  TutorSummary,
   Update,
   UpdateState,
   UploadReport,
@@ -77,7 +74,6 @@ import type {
   BoardAnswer,
   BoardAttempt,
   BoardNext,
-  BoardOverview,
   BoardQuestion,
   Dashboard,
   Scorecard,
@@ -86,7 +82,6 @@ import type {
   TopicTally,
   Dissection,
   FlashcardDraw,
-  FlashcardOverview,
   Preferences,
   PodcastEpisode,
   PodcastList,
@@ -294,11 +289,6 @@ export function segment(value: unknown): Segment {
 
 export const segments = (value: unknown): Segment[] => list(value, segment)
 
-export function sourceDetail(value: unknown): SourceDetail {
-  const raw = obj(value)
-  return { ...source(raw), segments_preview: segments(raw['segments_preview']) }
-}
-
 export function uploadReport(value: unknown): UploadReport {
   const raw = obj(value)
   return {
@@ -461,17 +451,6 @@ export function recheckResult(value: unknown): RecheckResult {
   }
 }
 
-export function retiredMaterial(value: unknown): RetiredMaterial {
-  const retired = obj(obj(value)['retired'])
-  return {
-    retired: {
-      points: num(retired['points']),
-      questions: num(retired['questions']),
-      attempts_kept: num(retired['attempts_kept'])
-    }
-  }
-}
-
 // --- generated material ------------------------------------------------------
 
 function citation(raw: Dict): Citation {
@@ -603,20 +582,6 @@ export function attempt(value: unknown): Attempt {
     created_at: str(raw['created_at']),
     question_version: num(raw['question_version'], 1),
     asked_prompt: str(raw['asked_prompt'])
-  }
-}
-
-export const attempts = (value: unknown): Attempt[] => list(value, attempt)
-
-export function tutorSummary(value: unknown): TutorSummary {
-  const raw = obj(value)
-  return {
-    eligible: num(raw['eligible']),
-    held: num(raw['held']),
-    answered_total: num(raw['answered_total']),
-    cycle: cycle(raw['cycle']),
-    reasons: strings(raw['reasons']),
-    disclosure: disclosure(raw['disclosure'])
   }
 }
 
@@ -918,12 +883,6 @@ export function writtenFile(value: unknown): WrittenFile {
   }
 }
 
-export function backupCheck(value: unknown): { ok: boolean; problems: string[] } {
-  const raw = obj(value)
-  return { ok: bool(raw['ok']), problems: strings(raw['problems']) }
-}
-
-
 /** Builds on a timer (ADR 0018): a reply that lacks a field reads as "off, nothing known". */
 export function buildSchedule(raw: unknown): import('./types').BuildSchedule {
   const data = (raw ?? {}) as Record<string, unknown>
@@ -1032,7 +991,7 @@ export function encyclopediaEntry(raw: unknown): EncyclopediaEntry {
   }
 }
 
-/** The Socratic tutor and the podcast generator (ADR 0025). */
+/** The Socratic tutor and the podcast (ADR 0025). */
 function socraticSession(raw: unknown): SocraticSession {
   const data = obj(raw)
   const assessment = obj(data.assessment)
@@ -1193,19 +1152,6 @@ export function flashcardDraw(raw: unknown): FlashcardDraw {
   }
 }
 
-export function flashcardOverview(raw: unknown): FlashcardOverview {
-  const data = obj(raw)
-  const improvement = obj(data.improvement)
-  return {
-    eligible: num(data.eligible),
-    held: num(data.held),
-    total: num(data.total),
-    reviews_total: num(data.reviews_total),
-    reviews_again: num(data.reviews_again),
-    improvement: { flagged_topics: num(improvement.flagged_topics), areas_below: num(improvement.areas_below), pages_missed: num(improvement.pages_missed) }
-  }
-}
-
 export function preferencesPayload(raw: unknown): Preferences {
   const data = obj(raw)
   return {
@@ -1343,19 +1289,6 @@ export function boardAnswer(raw: unknown): BoardAnswer {
   }
 }
 
-export function boardOverview(raw: unknown): BoardOverview {
-  const data = obj(raw)
-  return {
-    eligible: num(data.eligible),
-    held: num(data.held),
-    total: num(data.total),
-    pages: num(data.pages),
-    answered_total: num(data.answered_total),
-    answered_correct: num(data.answered_correct),
-    cycle: cycle(data.cycle)
-  }
-}
-
 /** The Case Series hub (ADR 0022). */
 function caseCatalogue(raw: unknown): CaseCatalogueEntry[] {
   return arr(raw).map((item) => {
@@ -1447,7 +1380,6 @@ export function caseSettings(raw: unknown): CaseSettings {
     credit: str(data.credit)
   }
 }
-
 
 /** The feedback of 4 October (ADR 0026). */
 export function dashboard(raw: unknown): Dashboard {

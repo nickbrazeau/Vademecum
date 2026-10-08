@@ -23,7 +23,6 @@ upstream error body is not.
 from __future__ import annotations
 
 import http.client
-import ssl
 import threading
 import time
 from collections.abc import Callable

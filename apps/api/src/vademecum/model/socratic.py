@@ -20,6 +20,7 @@ from ..db import connect
 from ..storage import encyclopedia as pages
 from ..storage import flags as flag_store
 from ..storage import socratic as store
+from .runner import runner_for
 from . import prompts, schemas
 from .encyclopedia import _page_text, _points_text
 
@@ -32,13 +33,6 @@ HOST_MODE = (
     "and the session is recorded here."
 )
 GAP_PREFIX = "From a Socratic session: "
-
-
-def _runner(turn_factory: Any, session_id: str):
-    scoped = getattr(turn_factory, "scoped", None)
-    if callable(scoped):
-        return scoped("socratic", session_id)()
-    return turn_factory()
 
 
 def page_material(connection, entry: pages.Entry) -> str:
@@ -173,7 +167,7 @@ async def review(database_path: Path, session_id: str, turn_factory: Any) -> dic
     finally:
         connection.close()
     try:
-        runner = _runner(turn_factory, session_id)
+        runner = runner_for(turn_factory, "socratic", session_id)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.SOCRATIC_REVIEW_DEVELOPER,
@@ -238,7 +232,7 @@ async def compute_turn(
     finally:
         connection.close()
     try:
-        runner = _runner(turn_factory, scope_id)
+        runner = runner_for(turn_factory, "socratic", scope_id)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.SOCRATIC_DEVELOPER,

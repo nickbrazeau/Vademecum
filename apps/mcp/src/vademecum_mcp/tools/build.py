@@ -119,7 +119,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         Build would. Called with no arguments it reports the schedule, the next
         run, the last run and the disclosure. Turning it on is a standing
         consent to what each run sends; show the owner the `disclosure` first
-        and wait for an explicit yes. Needs the Mac's own Codex connection
+        and wait for an explicit yes. Needs the Mac's own model connection (Codex or Claude)
         (`can_run`); in host mode the reply says so."""
         current = await call(api.get("/api/build/schedule"))
         if enabled is None and times is None and batches_per_run is None:

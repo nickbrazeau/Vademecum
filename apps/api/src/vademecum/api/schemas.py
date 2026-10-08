@@ -131,14 +131,6 @@ class TierSummary(BaseModel):
     item_count: int
 
 
-class CoverSheet(BaseModel):
-    curated: CuratedArticles
-    worth_a_look: list[LearningItem]
-    recent_flags: list[Flag]
-    tiers: list[TierSummary]
-    open_flag_count: int
-
-
 class TopicGap(BaseModel):
     topic: str | None
     open_flags: int
@@ -163,12 +155,6 @@ class MapPositionsUpdate(Strict):
     """Every node the client drew. A topic left out has left the map."""
 
     positions: list[MapPosition] = Field(max_length=2000)
-
-
-class ImprovementMap(BaseModel):
-    topics: list[TopicGap]
-    tiers: list[TierSummary]
-    unfiled_flag_count: int
 
 
 class WrittenFile(BaseModel):
@@ -407,6 +393,3 @@ class ErrorBody(BaseModel):
     correlation_id: str | None = None
     fields: list[ErrorDetail] = []
 
-
-class ErrorResponse(BaseModel):
-    error: ErrorBody

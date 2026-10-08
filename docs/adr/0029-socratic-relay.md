@@ -12,8 +12,8 @@ Vademecum. Three things stood in the way:
 1. ChatGPT reached the connector but offered only the tool list it fetched when the
    connector was added: the older Tutor tools, none of the Socratic ones. ChatGPT does
    not refetch a connector's tool list by itself.
-2. ChatGPT's voice mode calls no tools at all, so a voice conversation there never
-   reaches Vademecum.
+2. ChatGPT's voice mode appeared to call no tools, so a voice conversation there never
+   reached Vademecum. (Later in this ADR: it does, once the connector is refreshed.)
 3. The phone's copy has no model of its own, so its own tutor could not run.
 
 ## Decision

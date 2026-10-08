@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -194,7 +193,6 @@ def sync_once(
     source_dir: Path,
     role: sync_store.Role = "domi",
     scope: sync_store.Scope = "full",
-    on_file: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     """One round: pull the peer's changes and apply them, then push ours.
 

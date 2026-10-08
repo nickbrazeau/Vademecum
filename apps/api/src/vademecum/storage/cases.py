@@ -19,6 +19,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from ..db import transaction
+from . import app_state
 from .common import NotFoundError, new_id, utc_now
 
 CATALOGUE: tuple[dict[str, str], ...] = (
@@ -327,23 +328,8 @@ def counts(connection: sqlite3.Connection) -> dict[str, Any]:
 # --- settings and the record of refreshes -------------------------------------
 
 
-def _read(connection: sqlite3.Connection, key: str) -> dict[str, Any] | None:
-    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (key,)).fetchone()
-    if row is None:
-        return None
-    try:
-        data = json.loads(row["value"])
-    except ValueError:
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _write(tx: sqlite3.Connection, key: str, data: dict[str, Any]) -> None:
-    tx.execute(
-        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
-        " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-        (key, json.dumps(data, separators=(",", ":")), utc_now()),
-    )
+_read = app_state.read_dict
+_write = app_state.write_json
 
 
 def clamp_interval(hours: float) -> float:

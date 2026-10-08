@@ -23,6 +23,7 @@ from ..db import connect
 from ..storage import cases as store
 from ..storage import map as map_store
 from ..storage.learning import quote_in
+from .runner import runner_for
 from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.cases")
@@ -32,13 +33,6 @@ WAITING = (
     "Until then each case shows its title, who made it and the link to the original."
 )
 MAX_SYNTHESES_PER_REFRESH = 40
-
-
-def _runner(turn_factory: Any, entry_id: str):
-    scoped = getattr(turn_factory, "scoped", None)
-    if callable(scoped):
-        return scoped("case", entry_id)()
-    return turn_factory()
 
 
 def _names_in(credit: str, text: str) -> str:
@@ -136,7 +130,7 @@ async def synthesise_entry(database_path: Path, entry_id: str, turn_factory: Any
         connection.close()
     ids = {identifier for identifier, _ in specialties}
     try:
-        runner = _runner(turn_factory, entry_id)
+        runner = runner_for(turn_factory, "case", entry_id)
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.CASE_DEVELOPER,

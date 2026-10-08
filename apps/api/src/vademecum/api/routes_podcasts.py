@@ -1,4 +1,4 @@
-"""The podcast generator (ADR 0025): episodes, scripts, voices, audio.
+"""The podcast (ADR 0025): episodes, scripts, voices, audio.
 
 Writing a script is a model turn on the Mac's own connection, with the
 disclosure beside the button. Rendering is on-device speech; nothing of the
@@ -75,22 +75,8 @@ def _here(data: dict[str, Any], source_dir: Path, episode: store.Episode) -> dic
 
 
 def _pages_for_request(connection: sqlite3.Connection, request: str, limit: int = 3) -> list[str]:
-    """The encyclopedia pages whose title or topic share the most words with the request."""
-    import re
-
-    stop = {"the", "and", "for", "with", "about", "episode", "podcast", "on", "of", "in", "a", "an", "to", "how", "what", "approach"}
-    wanted = {w for w in re.findall(r"[a-z0-9]+", request.lower()) if len(w) > 2 and w not in stop}
-    if not wanted:
-        return []
-    scored = []
-    for entry in pages.list_entries(connection):
-        if entry.status != "current":
-            continue
-        words = set(re.findall(r"[a-z0-9]+", f"{entry.title} {entry.topic}".lower()))
-        overlap = len(wanted & words)
-        if overlap:
-            scored.append((overlap / len(words | wanted), entry.id))
-    return [entry_id for _score, entry_id in sorted(scored, reverse=True)[:limit]]
+    """The encyclopedia pages a request names, matched as the Improvement Map matches topics."""
+    return [page["id"] for page in pages.pages_matching(pages.current_page_index(connection), request, limit=limit)]
 
 
 def _choose(connection: sqlite3.Connection, payload: EpisodeIn) -> list[str]:

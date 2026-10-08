@@ -3,7 +3,7 @@
  * text, with the browser's dictation and speech where it offers them. Each
  * answer is one model turn on your own sign-in, and the disclosure says so.
  * In a chat host the assistant is the tutor instead, and this card says how.
- * A session held elsewhere -- ChatGPT's voice mode keeps its conversation to
+ * A session held elsewhere without its exchanges recorded keeps its conversation to
  * itself -- is brought in by the assistant's socratic_save or by pasting the
  * transcript here (ADR 0026); past sessions open to their whole dialogue.
  */
@@ -19,7 +19,7 @@ import { PhiWarning } from './PhiWarning'
 
 // Launching the tutor in ChatGPT or Claude from here (feedback of 5 October). The prompt
 // names the tools, so the assistant records each exchange, and asks it to say so plainly
-// when it cannot reach them (voice mode, or a connector not yet refreshed).
+// when it cannot reach them (a connector not yet refreshed).
 export const LAUNCH_PROMPT =
   'Using my Vademecum connector, start a Socratic session: call socratic_start, then ask me one open question at a time, ' +
   'record every exchange with socratic_turn, and close with socratic_finish. If you do not have socratic_start, tell me ' +
@@ -375,9 +375,8 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
           </div>
           <p className="muted small">
             This opens a text chat with the prompt filled in, and every exchange is saved here as you go. Speak your answers with the
-            microphone’s dictation in that chat. Voice mode in those apps calls no tools, so a voice conversation does not reach Vademecum;
-            after one, say “Save that Socratic session to Vademecum” in a text chat, or paste the transcript below. If the assistant says it
-            cannot reach Vademecum, refresh the connector in its settings.
+            microphone’s dictation, or in ChatGPT’s voice mode. If a session was not saved as it went, say “Save that Socratic session to
+            Vademecum”, or paste the transcript below. If the assistant says it cannot reach Vademecum, refresh the connector in its settings.
           </p>
         </div>
         <details className="support-details">

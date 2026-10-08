@@ -16,7 +16,7 @@ T = TypeVar("T")
 READ = ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False)
 # Writes a record on the Mac. Nothing leaves the machine.
 WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
-# Starts something that transmits: a model turn through Codex, or a PubMed
+# Starts something that transmits: a model turn on the Mac's own connection (Codex or Claude), or a PubMed
 # lookup. The host shows these differently, which is the point of saying so.
 TRANSMITS = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=True)
 

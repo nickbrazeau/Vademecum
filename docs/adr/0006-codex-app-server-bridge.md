@@ -1,6 +1,6 @@
 # ADR 0006 — The Codex App Server bridge
 
-Status: accepted
+Status: accepted; superseded in part by ADR 0009 and ADR 0019 (other model connections)
 Date: 2026-08-30
 Supersedes nothing. Extends [ADR 0002](0002-local-first-boundary.md).
 

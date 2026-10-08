@@ -1,6 +1,6 @@
 # ADR 0008 — An MCP server, so ChatGPT and Claude can use the workspace
 
-- Status: accepted
+- Status: accepted; amended by ADR 0017 (the phone reaches the cloud copy, not a tunnel)
 - Date: 2026-09-28
 - Related: [0002](0002-local-first-boundary.md), [0004](0004-supported-platforms.md),
   [0006](0006-codex-app-server-bridge.md), [0007](0007-source-intake-verification-and-public-literature.md)

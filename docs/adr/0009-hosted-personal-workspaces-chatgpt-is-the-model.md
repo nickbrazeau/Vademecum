@@ -1,6 +1,6 @@
 # ADR 0009 — A hosted product for other learners: ChatGPT is the model, Vademecum is the memory
 
-- Status: accepted, with one precondition (see *Verification before building*)
+- Status: accepted, with one precondition (see *Verification before building*); superseded by ADR 0012 (a local install each learner owns), kept for hosted mode
 - Date: 2026-09-28
 - Amends: [0002](0002-local-first-boundary.md), [0007](0007-source-intake-verification-and-public-literature.md),
   [0008](0008-mcp-server-for-chat-hosts.md)

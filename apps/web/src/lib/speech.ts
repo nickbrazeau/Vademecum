@@ -120,14 +120,6 @@ export function speak(text: string, options: { voice?: string; rate?: number; on
   return () => synth.cancel()
 }
 
-export function speechVoices(): string[] {
-  if (!canSpeak()) return []
-  return window.speechSynthesis
-    .getVoices()
-    .filter((voice) => voice.lang.toLowerCase().startsWith('en'))
-    .map((voice) => voice.name)
-}
-
 // Some browsers fill the voice list only after a first request: warm the voice list early.
 if (canSpeak()) {
   try {

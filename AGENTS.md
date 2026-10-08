@@ -309,9 +309,10 @@ Ready for learners other than the owner only when all of the following are true:
 - Builds may run on a timer (ADR 0018) only in codex mode and only under a standing consent
   the owner gave with the disclosure in view and can withdraw; every run is recorded per pile.
   Never add a scheduled send that is not visible on Today.
-- The phone pack (ADR 0016) is the no-hosting route: the bank as one file in a Project, the
-  assistant there grading directly, the session log back through the source folder's inbox.
-  A grade from the phone is recorded as given outside a checked turn, and says so.
+- The phone reaches Vademecum through the cloud copy, Foris (ADR 0017), which syncs with the
+  Mac and has no model of its own: in ChatGPT or Claude the assistant is the model (host mode);
+  the Mac answers the phone's own Socratic tutor through the relay while it is awake (ADR 0029).
+  The phone pack (ADR 0016) is gone.
 - Two Vademecums may sync (ADR 0015): Domi (the Mac) owns what is made from files;
   shared records merge by later write or by union; Domi initiates; nothing applied from a peer is
   logged again. Never add a sync path that bypasses the change log or the ownership rules.

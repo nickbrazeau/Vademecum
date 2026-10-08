@@ -691,15 +691,6 @@ def _check_database(archive: zipfile.ZipFile, bundle_path: Path) -> _BundleDatab
             connection.close()
 
 
-def write_text_file(directory: Path, stem: str, suffix: str, text: str, label: str) -> WrittenFile:
-    """A readable file in *directory*, named by stem and time; the label is what the reply says."""
-    now = utc_now()
-    path = _unique_path(directory, f"{stem}-{_timestamp_slug(now)}", suffix)
-    data = text.encode("utf-8")
-    path.write_bytes(data)
-    return WrittenFile(path=path, directory=label, created_at=now, byte_size=len(data), detail={})
-
-
 def list_written(directory: Path, suffix: str) -> list[dict[str, Any]]:
     """What is already in ``exports/`` or ``backups/``, newest first."""
     if not directory.exists():
