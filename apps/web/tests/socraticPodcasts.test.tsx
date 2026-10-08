@@ -125,6 +125,10 @@ describe("the phone's tutor, answered by the Mac", () => {
     await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
     expect(await screen.findByText(/Waking your Mac to be the tutor/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start a session' })).not.toBeInTheDocument()
+    // ChatGPT's own voice is the phone's way in (feedback of 7 October); the Mac's tutor is the typed option.
+    expect(screen.getByRole('link', { name: 'Continue in ChatGPT' })).toHaveClass('primary')
+    expect(screen.getByText(/ChatGPT’s own voice/)).toBeInTheDocument()
+    expect(screen.getByText('Or here, typed, with your Mac as the tutor')).toBeInTheDocument()
     // The hand-off is there at once, one tap (feedback of 6 October).
     expect(screen.getByRole('link', { name: 'Continue in ChatGPT' }).getAttribute('href')).toMatch(/^https:\/\/chatgpt\.com\/\?q=.*socratic_start/)
     expect(screen.getByRole('link', { name: 'Continue in Claude' })).toBeInTheDocument()

@@ -47,6 +47,14 @@ nothing from the Mac.
 - ChatGPT keeps the tool list it fetched when the connector was added; a connector added
   before the Socratic tools must be refreshed once in ChatGPT's settings.
 
+### ChatGPT's voice as the phone's tutor (7 October)
+
+With the connector refreshed, ChatGPT's voice calls the Socratic tools and the session lands
+in Vademecum. On the phone that is now the main way in: Continue in ChatGPT, then its voice
+button. The Mac-answered tutor stays, as the typed option underneath. Where Vademecum itself
+speaks (its own tutor, a podcast read aloud), it picks the most natural English voice the
+device has (Premium, Enhanced, Siri) rather than the browser's default.
+
 ## Consequences
 
 - The tutor works on the phone, in text or by voice with the browser's own dictation and

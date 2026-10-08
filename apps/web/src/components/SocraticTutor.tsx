@@ -58,7 +58,7 @@ function HandOff({ prompt, primary, lead }: { prompt: string; primary: boolean; 
         </a>
       </div>
       <p className="muted small">
-        A text chat opens with the prompt filled in; speak your answers with the keyboard’s microphone. Every exchange is saved here. If
+        ChatGPT opens with the session ready; tap its voice button to talk, or type. Every exchange is saved here. If
         ChatGPT says it has no socratic_start, its list of Vademecum’s tools is out of date: in a browser, open chatgpt.com/plugins, open
         Vademecum, choose Refresh, and start a new chat.
       </p>
@@ -274,11 +274,58 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
           literature reviewed for it, related pages, and its own knowledge, saying which is which. At the end, how you reasoned and
           what to revisit; each gap becomes a flag.
         </p>
-        {overview.can_answer_here ? (
+        {relayAvailable ? (
+          <>
+            {/* On the phone, ChatGPT's own voice is the tutor (feedback of 7 October): it calls the Socratic
+                tools, so the session is saved here as it goes, with the Mac awake or asleep. */}
+            <HandOff
+              prompt={LAUNCH_PROMPT}
+              primary
+              lead="The tutor in ChatGPT’s own voice: tap Continue in ChatGPT, then its voice button, and talk it through. The session is saved to Vademecum as you go, whether or not your Mac is awake."
+            />
+            <details className="support-details">
+              <summary>Or here, typed, with your Mac as the tutor</summary>
+              {overview.can_answer_here ? (
+                <>
+            <p className="muted small">{overview.disclosure}</p>
+            <div className="actions">
+              <button type="button" className={`button${relayAvailable ? '' : ' primary'}`} disabled={busy} onClick={() => void start()}>
+                {busy ? 'Starting…' : 'Start a session'}
+              </button>
+              {canSpeak() && canDictate() ? (
+                <button
+                  type="button"
+                  className="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setVoiceOn(true)
+                    void start()
+                  }}
+                >
+                  Start with voice
+                </button>
+              ) : null}
+            </div>
+                </>
+              ) : macAsleep ? (
+                <p className="muted small" role="status">
+                  Your Mac is asleep; it can be the tutor here when it is awake.{' '}
+                  <button type="button" className="link-button" onClick={() => { setMacAsleep(false); reload() }}>
+                    Look again
+                  </button>
+                </p>
+              ) : (
+                <p className="muted small" role="status">
+                  <span className="spinner" aria-hidden="true" /> Waking your Mac to be the tutor here…
+                </p>
+              )}
+            </details>
+          </>
+        ) : overview.can_answer_here ? (
           <>
             <p className="muted small">{overview.disclosure}</p>
             <div className="actions">
-              <button type="button" className="button primary" disabled={busy} onClick={() => void start()}>
+              <button type="button" className={`button${relayAvailable ? '' : ' primary'}`} disabled={busy} onClick={() => void start()}>
                 {busy ? 'Starting…' : 'Start a session'}
               </button>
               {canSpeak() && canDictate() ? (
@@ -296,34 +343,10 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
               ) : null}
             </div>
           </>
-        ) : relayAvailable ? (
-          <>
-            <HandOff
-              prompt={LAUNCH_PROMPT}
-              primary
-              lead={
-                macAsleep
-                  ? 'Your Mac is asleep, so the tutor runs in ChatGPT or Claude, and the session is saved to Vademecum as you go.'
-                  : 'While your Mac wakes, you can start now in ChatGPT or Claude; the session is saved to Vademecum either way.'
-              }
-            />
-            {macAsleep ? (
-              <p className="muted small" role="status">
-                Your Mac takes over here when it is awake.{' '}
-                <button type="button" className="link-button" onClick={() => { setMacAsleep(false); reload() }}>
-                  Look again
-                </button>
-              </p>
-            ) : (
-              <p className="muted small" role="status">
-                <span className="spinner" aria-hidden="true" /> Waking your Mac to be the tutor here…
-              </p>
-            )}
-          </>
         ) : (
           <p className="muted small">{overview.note}</p>
         )}
-        <div className="socratic-launch" hidden={relayAvailable && !relayLive}>
+        <div className="socratic-launch" hidden={relayAvailable}>
           <h3>Or with ChatGPT or Claude</h3>
           <div className="actions">
             <a className="button" href={CHATGPT_LAUNCH} target="_blank" rel="noopener noreferrer">

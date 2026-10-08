@@ -74,7 +74,32 @@ export function dictate(onText: (text: string, final: boolean) => void, onDone: 
   }
 }
 
-/** Say it, in the browser's own voice. Returns a stop function. */
+/**
+ * The most natural English voice this device offers (feedback of 7 October): the
+ * browser's default is often its flattest. Apple's Premium and Enhanced voices, then
+ * Siri's, then any marked natural or neural, then Google's, then whatever is local.
+ * Nothing is downloaded or sent; these are the device's own voices.
+ */
+export function bestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const english = voices.filter((voice) => voice.lang.toLowerCase().startsWith('en'))
+  if (english.length === 0) return null
+  const score = (voice: SpeechSynthesisVoice): number => {
+    const name = voice.name.toLowerCase()
+    let points = 0
+    if (name.includes('premium')) points += 60
+    if (name.includes('enhanced')) points += 50
+    if (name.includes('siri')) points += 40
+    if (name.includes('natural') || name.includes('neural')) points += 35
+    if (name.includes('google')) points += 20
+    if (voice.localService) points += 5
+    if (voice.lang.toLowerCase() === 'en-us' || voice.lang.toLowerCase() === 'en_us') points += 3
+    if (/(compact|novelty|whisper|zarvox|bells|bubbles|cellos|trinoids|bad news|good news|jester|organ|superstar|wobble|boing|bahh)/.test(name)) points -= 100
+    return points
+  }
+  return [...english].sort((a, b) => score(b) - score(a))[0] ?? null
+}
+
+/** Say it, in the best voice the device offers. Returns a stop function. */
 export function speak(text: string, options: { voice?: string; rate?: number; onEnd?: () => void } = {}): () => void {
   if (!canSpeak() || !text.trim()) {
     options.onEnd?.()
@@ -84,9 +109,11 @@ export function speak(text: string, options: { voice?: string; rate?: number; on
   synth.cancel()
   const utterance = new window.SpeechSynthesisUtterance(text)
   utterance.rate = options.rate ?? 1
-  if (options.voice) {
-    const match = synth.getVoices().find((voice) => voice.name === options.voice)
-    if (match) utterance.voice = match
+  const voices = synth.getVoices()
+  const chosen = (options.voice ? voices.find((voice) => voice.name === options.voice) : undefined) ?? bestVoice(voices)
+  if (chosen) {
+    utterance.voice = chosen
+    utterance.lang = chosen.lang
   }
   if (options.onEnd) utterance.onend = options.onEnd
   synth.speak(utterance)
@@ -99,4 +126,13 @@ export function speechVoices(): string[] {
     .getVoices()
     .filter((voice) => voice.lang.toLowerCase().startsWith('en'))
     .map((voice) => voice.name)
+}
+
+// Some browsers fill the voice list only after a first request: warm the voice list early.
+if (canSpeak()) {
+  try {
+    window.speechSynthesis.getVoices()
+  } catch {
+    /* a browser without a voice list */
+  }
 }
