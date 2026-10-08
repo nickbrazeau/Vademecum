@@ -25,18 +25,36 @@ export function servedBuild(html: string): string | null {
   return match ? match[0] : null
 }
 
-/** True when the server is serving a different build from the one on screen. */
-export async function newerBuildServed(fetcher: typeof fetch = fetch, doc: Document = document): Promise<boolean> {
+/** The build the server serves now when it differs from the one on screen, else null. */
+export async function newerBuild(fetcher: typeof fetch = fetch, doc: Document = document): Promise<string | null> {
   const loaded = loadedBuild(doc)
-  if (loaded === null) return false
+  if (loaded === null) return null
   try {
     const response = await fetcher('/', { cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'text/html' } })
-    if (!response.ok) return false
+    if (!response.ok) return null
     const served = servedBuild(await response.text())
-    return served !== null && served !== loaded
+    return served !== null && served !== loaded ? served : null
   } catch {
-    return false
+    return null
   }
+}
+
+/** True when the server is serving a different build from the one on screen. */
+export async function newerBuildServed(fetcher: typeof fetch = fetch, doc: Document = document): Promise<boolean> {
+  return (await newerBuild(fetcher, doc)) !== null
+}
+
+/**
+ * The address to reload to for a build, or null when a reload for that build was already
+ * tried (feedback of 8 October). The build is marked in the address, so a reload that
+ * still shows the old app (a cache, a proxy) is tried once, never again in a loop.
+ */
+export function reloadTarget(served: string, href: string = window.location.href): string | null {
+  const mark = (served.match(/main-([A-Za-z0-9_-]+)\.js/) ?? [])[1] ?? served
+  const url = new URL(href)
+  if (url.searchParams.get('build') === mark) return null
+  url.searchParams.set('build', mark)
+  return url.toString()
 }
 
 /** Whether anything is typed on the page that a reload would lose. */

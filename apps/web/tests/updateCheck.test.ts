@@ -53,3 +53,13 @@ describe('reloading on return', () => {
     expect(typedSomething(doc)).toBe(true)
   })
 })
+
+describe('reloading for a newer build', () => {
+  it('tries one reload per build, marked in the address, and never loops', async () => {
+    const { reloadTarget } = await import('../src/lib/updateCheck')
+    const first = reloadTarget('/assets/main-abc12345.js', 'https://x.test/tutor?mode=socratic&page=p1')
+    expect(first).toBe('https://x.test/tutor?mode=socratic&page=p1&build=abc12345')
+    expect(reloadTarget('/assets/main-abc12345.js', first!)).toBeNull()
+    expect(reloadTarget('/assets/main-def67890.js', first!)).toContain('build=def67890')
+  })
+})

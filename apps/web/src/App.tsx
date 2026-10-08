@@ -10,7 +10,7 @@ import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
-import { newerBuildServed, typedSomething } from './lib/updateCheck'
+import { newerBuild as servedNewerBuild, reloadTarget, typedSomething } from './lib/updateCheck'
 import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
 import { Construction } from './pages/Construction'
 import { Encyclopedia } from './pages/Encyclopedia'
@@ -65,10 +65,16 @@ export function App() {
     if (inChat()) return undefined
     // Coming back to the app with a newer build served, it reloads itself at once, unless
     // something typed would be lost; then it offers the reload (feedback of 8 October).
+    // At most one look a minute: focus comes and goes (a microphone prompt, a dialog), and
+    // each look is a request to the server.
+    let lastLook = 0
     const look = (returning: boolean) => {
-      void newerBuildServed().then((newer) => {
-        if (!newer) return
-        if (returning && !typedSomething()) window.location.reload()
+      if (Date.now() - lastLook < 60_000) return
+      lastLook = Date.now()
+      void servedNewerBuild().then((served) => {
+        if (served === null) return
+        const target = returning && !typedSomething() ? reloadTarget(served) : null
+        if (target !== null) window.location.replace(target)
         else setNewerBuild(true)
       })
     }
