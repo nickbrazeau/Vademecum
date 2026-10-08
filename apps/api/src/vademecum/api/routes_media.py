@@ -52,7 +52,17 @@ def get_image(
     connection: sqlite3.Connection = Depends(get_connection),
     source_dir: Path = Depends(get_source_dir),
 ) -> FileResponse:
-    image = image_store.get_image(connection, image_id)
+    try:
+        image = image_store.get_image(connection, image_id)
+    except NotFoundError:
+        # The phone's copy has no picture records, only the figures its pages place,
+        # sent by the Mac (feedback of 6 October).
+        from ..storage import figure_copies
+
+        found = figure_copies.path_for(figure_copies.figures_dir(source_dir), image_id)
+        if found is None:
+            raise
+        return FileResponse(found[0], media_type=found[1], headers={"Cache-Control": "no-store"})
     path = _served(source_dir.parent / "images", image.stored_name)
     return FileResponse(path, media_type=image.media_type, headers={"Cache-Control": "no-store"})
 

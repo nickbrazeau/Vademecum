@@ -40,7 +40,7 @@ DATABASES = (("vademecum.sqlite3", "db"), ("mcp/access.sqlite3", "mcp"))
 FILES = ("attachments",)
 # Stored files that are retired, not kept forever: podcast audio is deleted
 # once listened to (ADR 0027), so the copy in the store follows the disk.
-PRUNED = ("attachments/podcasts/",)
+PRUNED = ("attachments/podcasts/", "attachments/figures/")
 # Pruning waits for the boot restore: until then the disk is not the truth.
 _files_restored = threading.Event()
 # The Worker in front carries about 100 MB in one request; anything larger

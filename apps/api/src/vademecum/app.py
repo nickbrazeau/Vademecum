@@ -319,6 +319,9 @@ def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) ->
         # episodes' audio goes to the cloud copy, so the phone plays them (ADR 0027).
         podcasts.retire_audio(connection, podcasts.podcasts_dir(source_dir), role=settings.sync_role_name)
         result["podcast_audio_sent"] = push_podcast_audio(connection, peer, source_dir)
+        from .sync import push_figures
+
+        result["figures_sent"] = push_figures(connection, peer, source_dir)
         return result
     finally:
         connection.close()

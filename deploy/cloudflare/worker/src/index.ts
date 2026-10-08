@@ -106,8 +106,11 @@ async function store(request: Request, env: Env, url: URL): Promise<Response> {
     return Response.json({ stored: key })
   }
   if (request.method === 'DELETE') {
-    // Only retired podcast audio is ever deleted (ADR 0027); the records are not.
-    if (!key.startsWith('attachments/podcasts/')) return new Response('not deletable', { status: 403 })
+    // Only retired podcast audio (ADR 0027) and page figures no page places any more are
+    // ever deleted; the records are not.
+    if (!key.startsWith('attachments/podcasts/') && !key.startsWith('attachments/figures/')) {
+      return new Response('not deletable', { status: 403 })
+    }
     await env.BUCKET.delete(key)
     return Response.json({ deleted: key })
   }

@@ -154,4 +154,16 @@ def test_retired_podcast_audio_leaves_the_store_but_nothing_else_does(tmp_path: 
         seat._files_restored.clear()
     assert "attachments/podcasts/pod_a.m4a" not in store.objects
     assert "attachments/podcasts/pod_b.m4a" in store.objects
-    assert "attachments/sources/x.pdf" in store.objects, "only podcast audio is ever pruned"
+    assert "attachments/sources/x.pdf" in store.objects, "only podcast audio and page figures are ever pruned"
+    # A page figure no page places any more leaves the store the same way (feedback of 6 October).
+    (data / "attachments" / "figures").mkdir(parents=True)
+    (data / "attachments" / "figures" / "img_abcdef12.png").write_bytes(b"f" * 10)
+    seat.snapshot(data, store)
+    assert "attachments/figures/img_abcdef12.png" in store.objects
+    (data / "attachments" / "figures" / "img_abcdef12.png").unlink()
+    seat._files_restored.set()
+    try:
+        seat.snapshot(data, store)
+    finally:
+        seat._files_restored.clear()
+    assert "attachments/figures/img_abcdef12.png" not in store.objects

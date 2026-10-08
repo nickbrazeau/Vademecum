@@ -145,6 +145,48 @@ def push_podcast_audio(connection: sqlite3.Connection, peer: "Peer", source_dir:
     return sent
 
 
+def push_figures(connection: sqlite3.Connection, peer: "Peer", source_dir: Path) -> int:
+    """The pictures the cloud copy's pages place and it lacks (feedback of 6 October), a
+    round's worth at a time. Read from the Mac's own picture store; nothing else is sent."""
+    import hashlib
+
+    from ..storage import figure_copies
+
+    try:
+        offer = peer._json("GET", "/api/sync/figures")
+    except SyncError:
+        return 0  # an older peer, without the route
+    held = offer.get("held") if isinstance(offer.get("held"), dict) else {}
+    budget = int(offer.get("per_round") or figure_copies.PER_ROUND)
+    images_dir = source_dir.parent / "images"
+    sent = 0
+    for image_id in figure_copies.referenced(connection):
+        if sent >= budget:
+            break
+        if image_id in held:
+            continue
+        row = connection.execute("SELECT stored_name, media_type FROM source_images WHERE id = ?", (image_id,)).fetchone()
+        if row is None:
+            continue
+        extension = {"image/png": "png", "image/jpeg": "jpg", "image/svg+xml": "svg"}.get(row["media_type"])
+        path = images_dir / row["stored_name"]
+        if extension is None or not path.is_file():
+            continue
+        data = path.read_bytes()
+        headers = dict(peer._headers)
+        headers["Content-Type"] = "application/octet-stream"
+        headers["X-Content-SHA256"] = hashlib.sha256(data).hexdigest()
+        status, raw = peer._transport.request("PUT", f"/api/sync/figures/{image_id}?ext={extension}", headers=headers, body=data)
+        try:
+            if status == 200 and json.loads(raw.decode("utf-8")).get("stored"):
+                sent += 1
+        except (ValueError, AttributeError):
+            continue
+    if sent:
+        logger.info("figures_sent count=%d", sent)
+    return sent
+
+
 def sync_once(
     connection: sqlite3.Connection,
     *,

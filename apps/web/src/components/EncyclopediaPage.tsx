@@ -5,6 +5,7 @@
  * rather than by claiming to be verified.
  */
 
+import { useState } from 'react'
 import { dateLabel, momentLabel } from '../lib/format'
 import { API_ROOT } from '../lib/api'
 import type { EncyclopediaEntry, PageCitation, PageFigure } from '../lib/types'
@@ -27,6 +28,10 @@ function sourceLabels(pointIds: string[], citations: Map<string, PageCitation>):
 
 /** A picture from the owner's source, with where it came from. Served by this Mac; never generated. */
 export function Figure({ figure }: { figure: PageFigure }) {
+  // A figure not here yet (the phone's copy receives them from the Mac a few at a sync)
+  // is left out rather than shown as a broken image.
+  const [missing, setMissing] = useState(false)
+  if (missing) return null
   return (
     <figure className="page-figure">
       <img
@@ -35,6 +40,7 @@ export function Figure({ figure }: { figure: PageFigure }) {
         loading="lazy"
         width={figure.width}
         height={figure.height}
+        onError={() => setMissing(true)}
       />
       <figcaption className="muted small">
         From {figure.source}, {figure.locator}

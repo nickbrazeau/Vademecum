@@ -367,3 +367,50 @@ def test_podcast_audio_goes_to_the_cloud_copy_and_is_retired_once_heard(pair) ->
     finally:
         connection.close()
     assert away.get(f"/api/podcasts/{newest_first[1]}/audio").content == b"new voices" * 500
+
+
+def test_page_figures_reach_the_phones_copy_and_leave_when_unused(pair) -> None:
+    """Feedback of 6 October: figures were broken images on the phone. The Mac sends the
+    pictures its pages place, the cloud copy serves them, and drops them when no page does."""
+    from test_images_and_schematics import pdf_with_picture
+    from vademecum.storage import encyclopedia as pages
+    from vademecum.sync import push_figures
+
+    home, home_app, away, away_app = pair
+    pile = home.post("/api/piles", json={"title": "Figures", "tier": "high"}).json()
+    uploaded = home.post(
+        f"/api/piles/{pile['id']}/sources",
+        files=[("files", ("figure.pdf", pdf_with_picture("A labelled figure, in words."), "application/pdf"))],
+        data={"confidence": "high"},
+    )
+    source_id = uploaded.json()["results"][0]["source"]["id"]
+    image = home.get(f"/api/sources/{source_id}/images").json()[0]
+    connection = db(home_app)
+    try:
+        entry = pages.upsert_entry(
+            connection, topic="figures", title="Figures", specialty_id=None, summary="S.",
+            sections=[{"heading": "H", "paragraphs": [{"text": "See the figure.", "point_ids": [], "figures": [{"image_id": image["id"], "source": "figure.pdf", "locator": "page 1", "width": 120, "height": 120}]}]}],
+            point_ids=[], points_hash_value="1",
+        )
+    finally:
+        connection.close()
+    run_sync(home_app, away, scope="lean")
+    assert away.get(f"/api/images/{image['id']}").status_code == 404, "lean: no pictures until sent"
+    connection = db(home_app)
+    try:
+        assert push_figures(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 1
+        assert push_figures(connection, Peer(ClientTransport(away), TOKEN), home_app.state.source_dir) == 0, "only what is missing"
+    finally:
+        connection.close()
+    served = away.get(f"/api/images/{image['id']}")
+    assert served.status_code == 200 and served.headers["content-type"].startswith("image/")
+    refused = away.put("/api/sync/figures/img_notplaced1?ext=png", content=b"x", headers={"X-Vademecum-Sync": TOKEN})
+    assert refused.json()["stored"] is False, "only a picture a page places"
+    # The page is rewritten without its figure: the next sync drops it on the phone's copy.
+    connection = db(home_app)
+    try:
+        pages.upsert_entry(connection, topic="figures", title="Figures", specialty_id=None, summary="S.", sections=[{"heading": "H", "paragraphs": [{"text": "No figure now.", "point_ids": []}]}], point_ids=[], points_hash_value="2")
+    finally:
+        connection.close()
+    run_sync(home_app, away, scope="lean")
+    assert away.get(f"/api/images/{image['id']}").status_code == 404

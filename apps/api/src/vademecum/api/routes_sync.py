@@ -108,6 +108,11 @@ def sync_apply(
     from ..storage import podcasts
 
     podcasts.retire_audio(connection, podcasts.podcasts_dir(source_dir), role=settings.sync_role_name)
+    # A page rewritten or deleted on the Mac: its old figures go too.
+    from ..storage import figure_copies
+
+    if settings.sync_role_name == "foris":
+        figure_copies.prune(connection, figure_copies.figures_dir(source_dir))
     return {"node_id": sync_store.node_id(connection), **result.as_dict()}
 
 
@@ -186,6 +191,37 @@ def relay_reply(request_id: str, payload: RelayReplyIn, request: Request, connec
     except Exception:  # noqa: BLE001 - a session deleted meanwhile
         return {"applied": False}
     return {"applied": True, "gaps_filed": result.get("gaps_filed", 0)}
+
+
+@router.get("/figures", dependencies=[Depends(require_peer)])
+def figures_held(source_dir: Path = Depends(get_source_dir)) -> dict:
+    """Which page figures this copy holds (feedback of 6 October), so the Mac sends only the rest."""
+    from ..storage import figure_copies
+
+    return {"held": figure_copies.held(figure_copies.figures_dir(source_dir)), "per_round": figure_copies.PER_ROUND}
+
+
+@router.put("/figures/{image_id}", dependencies=[Depends(require_peer)])
+async def figure_put(
+    image_id: str,
+    request: Request,
+    ext: str = Query(pattern="^(png|jpg|svg)$"),
+    connection: sqlite3.Connection = Depends(get_connection),
+    source_dir: Path = Depends(get_source_dir),
+) -> dict:
+    """A figure one of this copy's pages places, from the Mac, checked against its digest.
+    A picture no current page places is refused."""
+    from ..storage import figure_copies
+
+    if image_id not in set(figure_copies.referenced(connection)):
+        return {"stored": False, "reason": "not placed"}
+    data = await request.body()
+    if not data or len(data) > 12 * 1024 * 1024:
+        return {"stored": False, "reason": "size"}
+    digest = request.headers.get("x-content-sha256", "")
+    if digest and not hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest):
+        return {"stored": False, "reason": "digest"}
+    return {"stored": figure_copies.store(figure_copies.figures_dir(source_dir), image_id, ext, data)}
 
 
 @router.put("/file/{kind}/{name}", dependencies=[Depends(require_peer)])
