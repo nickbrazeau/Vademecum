@@ -27,7 +27,9 @@ CALLABLE_FROM_CARD = {"tutor_reveal", "tutor_advance"}
 async def test_the_cards_are_resources_with_the_apps_mime_type(mcp_client: Client) -> None:
     listed = (await mcp_client.list_resources()).resources
     by_uri = {str(resource.uri): resource for resource in listed}
-    assert set(by_uri) == {TUTOR_URI, APP_URI}
+    # Each build's own address, plus the fixed names a host may still hold (feedback of 7 October).
+    assert set(by_uri) == {TUTOR_URI, APP_URI, "ui://vademecum/tutor.html", "ui://vademecum/app.html"}
+    assert re.fullmatch(r"ui://vademecum/app-[0-9a-f]{10}\.html", APP_URI) and re.fullmatch(r"ui://vademecum/tutor-[0-9a-f]{10}\.html", TUTOR_URI)
     for uri, resource in by_uri.items():
         assert resource.mime_type == MIME_TYPE, uri
         meta = resource.meta or {}
@@ -100,3 +102,12 @@ async def test_a_card_result_carries_what_the_card_draws(mcp_client: Client) -> 
     question = await call(mcp_client, "tutor_next_question", {})
     for key in ("question", "cycle", "empty_reason"):
         assert key in question
+
+
+
+async def test_an_earlier_builds_address_still_draws_the_current_card(mcp_client: Client) -> None:
+    """A host that saved the card under an older build's address still gets the current one."""
+    current = await mcp_client.read_resource(APP_URI)
+    older = await mcp_client.read_resource("ui://vademecum/app-0123456789.html")
+    fixed = await mcp_client.read_resource("ui://vademecum/app.html")
+    assert current.contents[0].text == older.contents[0].text == fixed.contents[0].text and len(current.contents[0].text) > 1000

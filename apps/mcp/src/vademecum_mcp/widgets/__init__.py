@@ -23,9 +23,27 @@ from typing import Any
 from mcp.server import MCPServer
 
 MIME_TYPE = "text/html;profile=mcp-app"
-TUTOR_URI = "ui://vademecum/tutor.html"
+
+
+def _version(name: str) -> str:
+    """A short fingerprint of a card's contents. ChatGPT keeps a card by its address,
+    so each build gets its own address and a refreshed connector draws the current one
+    (feedback of 7 October); older addresses still answer, with the current card."""
+    import hashlib
+
+    try:
+        data = resources.files(__package__).joinpath(name).read_bytes()
+    except (FileNotFoundError, OSError):
+        return "0"
+    return hashlib.sha256(data).hexdigest()[:10]
+
+
+TUTOR_URI = f"ui://vademecum/tutor-{_version('tutor.html')}.html"
 # The whole web app, built into one document (ADR 0014; apps/web `build:app`).
-APP_URI = "ui://vademecum/app.html"
+APP_URI = f"ui://vademecum/app-{_version('app.html')}.html"
+# Addresses a host may still hold from before: the fixed names, and any earlier build.
+LEGACY_TUTOR_URI = "ui://vademecum/tutor.html"
+LEGACY_APP_URI = "ui://vademecum/app.html"
 
 TUTOR_DESCRIPTION = (
     "One Tutor question with where the cycle stands; after grading, the reference "
@@ -92,3 +110,25 @@ def register(mcp: MCPServer, *, domain: str | None = None) -> None:
     )
     def app_document() -> str:
         return _read("app.html")
+
+    # A host holding an older address (a connector not refreshed since) still gets
+    # the current card rather than nothing.
+    @mcp.resource(LEGACY_APP_URI, name="Vademecum dashboard (earlier address)", description=APP_DESCRIPTION, mime_type=MIME_TYPE,
+                  meta=_resource_meta(domain, APP_DESCRIPTION))
+    def app_document_legacy() -> str:
+        return _read("app.html")
+
+    @mcp.resource("ui://vademecum/app-{version}.html", name="Vademecum dashboard (any build)", description=APP_DESCRIPTION,
+                  mime_type=MIME_TYPE, meta=_resource_meta(domain, APP_DESCRIPTION))
+    def app_document_any(version: str) -> str:
+        return _read("app.html")
+
+    @mcp.resource(LEGACY_TUTOR_URI, name="Tutor card (earlier address)", description=TUTOR_DESCRIPTION, mime_type=MIME_TYPE,
+                  meta=_resource_meta(domain, TUTOR_DESCRIPTION))
+    def tutor_card_legacy() -> str:
+        return _read("tutor.html")
+
+    @mcp.resource("ui://vademecum/tutor-{version}.html", name="Tutor card (any build)", description=TUTOR_DESCRIPTION,
+                  mime_type=MIME_TYPE, meta=_resource_meta(domain, TUTOR_DESCRIPTION))
+    def tutor_card_any(version: str) -> str:
+        return _read("tutor.html")
