@@ -23,7 +23,6 @@ STATUSES = ("draft", "scripted", "rendered", "failed")
 MAX_LINES = 80
 MAX_LINE_CHARS = 700
 SPEAKERS = ("A", "B")
-PODCASTS_DIRNAME = "attachments/podcasts"
 
 
 @dataclass(frozen=True)

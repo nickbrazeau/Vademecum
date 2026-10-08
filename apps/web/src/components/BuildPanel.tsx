@@ -84,16 +84,23 @@ export function BuildPanel({ pileId, onChanged }: { pileId: string; onChanged: (
   // guesses at progress it has not been told about.
   useEffect(() => {
     if (run?.status !== 'running') return
+    let failures = 0
     const timer = window.setInterval(() => {
       void api
         .buildStatus(pileId)
         .then((state) => {
+          failures = 0
           setRun(state.run)
           setCoverage(state.coverage)
           setAwaitingHost(state.awaiting_host)
           if (state.run !== null && state.run.status !== 'running') onChanged()
         })
-        .catch((error: unknown) => setFailure(asApiError(error)))
+        .catch((error: unknown) => {
+          setFailure(asApiError(error))
+          // Three failures in a row: stop asking; the failure stays on screen.
+          failures += 1
+          if (failures >= 3) window.clearInterval(timer)
+        })
     }, POLL_MS)
     return () => window.clearInterval(timer)
   }, [run?.status, pileId, onChanged])

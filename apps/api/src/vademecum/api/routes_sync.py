@@ -11,6 +11,7 @@ Rows go both ways through `changes` and `apply`; a file goes by name through
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import re
@@ -147,14 +148,10 @@ async def podcast_audio_put(
     data = await request.body()
     if not data or len(data) > 80 * 1024 * 1024:
         return {"stored": False, "reason": "size"}
-    digest = request.headers.get("x-content-sha256", "")
-    if digest and not hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest):
+    if not await asyncio.to_thread(_digest_matches, data, request.headers.get("x-content-sha256", "")):
         return {"stored": False, "reason": "digest"}
     directory = podcasts.podcasts_dir(source_dir)
-    directory.mkdir(parents=True, exist_ok=True)
-    partial = directory / f".{episode.audio_name}.partial"
-    partial.write_bytes(data)
-    partial.replace(directory / episode.audio_name)
+    await asyncio.to_thread(_write_whole, directory, episode.audio_name, data)
     podcasts.retire_audio(connection, directory, role=get_settings_dep(request).sync_role_name)
     return {"stored": (directory / episode.audio_name).is_file()}
 
@@ -218,10 +215,23 @@ async def figure_put(
     data = await request.body()
     if not data or len(data) > 12 * 1024 * 1024:
         return {"stored": False, "reason": "size"}
-    digest = request.headers.get("x-content-sha256", "")
-    if digest and not hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest):
+    if not await asyncio.to_thread(_digest_matches, data, request.headers.get("x-content-sha256", "")):
         return {"stored": False, "reason": "digest"}
-    return {"stored": figure_copies.store(figure_copies.figures_dir(source_dir), image_id, ext, data)}
+    stored = await asyncio.to_thread(figure_copies.store, figure_copies.figures_dir(source_dir), image_id, ext, data)
+    return {"stored": stored}
+
+
+# Hashing and writing up to 80 MB happen off the event loop, so a large upload from the
+# Mac never stalls the requests the phone is making at the same moment.
+def _digest_matches(data: bytes, digest: str) -> bool:
+    return not digest or hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest)
+
+
+def _write_whole(directory: Path, name: str, data: bytes) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    partial = directory / f".{name}.partial"
+    partial.write_bytes(data)
+    partial.replace(directory / name)
 
 
 @router.put("/file/{kind}/{name}", dependencies=[Depends(require_peer)])
@@ -238,10 +248,11 @@ async def sync_put_file(kind: str, name: str, request: Request, source_dir: Path
         body.extend(chunk)
         if len(body) > MAX_UPLOAD_BYTES:
             return {"stored": False, "reason": "too_large"}
-    if hashlib.sha256(bytes(body)).hexdigest() != name.split(".", 1)[0]:
+    data = bytes(body)
+    if await asyncio.to_thread(lambda: hashlib.sha256(data).hexdigest()) != name.split(".", 1)[0]:
         return {"stored": False, "reason": "digest_mismatch"}
     if not (directories[kind] / name).is_file():
-        store_file(directories, kind, name, bytes(body))
+        await asyncio.to_thread(store_file, directories, kind, name, data)
     return {"stored": True}
 
 

@@ -38,7 +38,7 @@ from xml.etree.ElementTree import Element, ParseError
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
 
-from .http import CATEGORIES, Fetcher, ProviderError
+from .http import Fetcher, ProviderError
 
 HOST = "eutils.ncbi.nlm.nih.gov"
 ESEARCH_PATH = "/entrez/eutils/esearch.fcgi"
@@ -48,7 +48,6 @@ EFETCH_PATH = "/entrez/eutils/efetch.fcgi"
 # purpose: "the provider is down" and "the provider sent something we refuse to
 # parse" are different facts for whoever is looking at a failed check.
 MALFORMED = "malformed_response"
-PROVIDER_CATEGORIES = CATEGORIES | {MALFORMED}
 
 MAX_QUERY_CHARS = 200
 

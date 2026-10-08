@@ -202,3 +202,26 @@ def test_the_route_and_the_board_focus(tmp_path: Path, monkeypatch) -> None:
         body = client.get("/api/learner").text.lower()
         for forbidden in ("streak", "due count", "review queue", "items due", "overdue"):
             assert forbidden not in body
+
+
+def test_need_moves_across_pages_rather_than_alternating_two(connection, eligible_everything) -> None:
+    """Review of ADR 0031: two pages missed over and over must not hold the turn between them."""
+    a, (qa,) = _page(connection, "blastomycosis")
+    b, (qb,) = _page(connection, "candidemia")
+    c, _ = _page(connection, "histoplasmosis")
+    for topic in ("blastomycosis", "candidemia"):
+        _flag(connection, topic)
+        _flag(connection, topic, "again")
+    _answer(connection, qa, correct=False, at=NOW - timedelta(minutes=5))
+    _answer(connection, qb, correct=False, at=NOW - timedelta(minutes=2))
+    assert learner.most_needed_entry(connection, kind="board", not_entry=b.id, now=NOW) == c.id
+    later = NOW + timedelta(hours=2)
+    assert learner.most_needed_entry(connection, kind="board", now=later) in {a.id, b.id}, "after a rest, need leads again"
+
+
+def test_a_deleted_page_is_not_suggested_back(connection, eligible_everything) -> None:
+    entry, _ = _page(connection, "sarcoidosis")
+    _flag(connection, "sarcoidosis")
+    pages.delete_entry(connection, entry.id)
+    found = learner.model(connection, now=NOW)
+    assert all("sarcoidosis" not in unit["names"] for unit in found["units"])

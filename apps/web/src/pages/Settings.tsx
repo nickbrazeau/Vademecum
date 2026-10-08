@@ -107,6 +107,8 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [saved, setSaved] = useState(false)
   const [order, setOrder] = useState<TabChoice[] | null>(null)
+  // A change to the case settings reloads the case list beneath them.
+  const [casesToken, setCasesToken] = useState(0)
 
   useEffect(() => {
     if (result.state === 'ready') {
@@ -226,10 +228,10 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
       <section className="card" aria-labelledby="case-settings-heading">
         <h2 id="case-settings-heading">Case Series</h2>
         <p className="muted small">New cases from the series you follow appear on Today with their teaching points.</p>
-        <HubSettings onChanged={() => undefined} />
+        <HubSettings onChanged={() => setCasesToken((value) => value + 1)} />
         <details className="support-details">
           <summary>Browse every case</summary>
-          <CaseSeries embedded />
+          <CaseSeries embedded reloadToken={casesToken} />
         </details>
       </section>
 

@@ -206,14 +206,14 @@ export function HubSettings({ onChanged }: { onChanged: () => void }) {
   )
 }
 
-export function CaseSeries({ embedded = false }: { embedded?: boolean } = {}) {
+export function CaseSeries({ embedded = false, reloadToken: outside = 0 }: { embedded?: boolean; reloadToken?: number } = {}) {
   const [series, setSeries] = useState('')
   const [typed, setTyped] = useState('')
   const [q, setQ] = useState('')
   const [reloadToken, setReloadToken] = useState(0)
   const { result, reload } = useLoad(
     () => api.listCases({ series: series || undefined, q: q || undefined }),
-    [series, q, reloadToken]
+    [series, q, reloadToken, outside]
   )
 
   const search = (event: FormEvent) => {

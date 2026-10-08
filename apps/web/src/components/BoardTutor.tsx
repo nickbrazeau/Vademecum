@@ -105,7 +105,7 @@ export function BoardTutor({
     <div className="stack">
       <section className="card" aria-labelledby="board-question-heading">
         <h2 id="board-question-heading">Question</h2>
-        <CyclePosition cycle={view.cycle} />
+        {need || entryId ? null : <CyclePosition cycle={view.cycle} />}
         {/* The page is named only after answering: its title can give the answer away (feedback of 5 October). */}
         <p className="muted small">
           {answered ? (

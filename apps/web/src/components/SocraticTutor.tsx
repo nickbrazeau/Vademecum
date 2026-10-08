@@ -168,7 +168,13 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
   useEffect(() => {
     if (!session?.waiting) return undefined
     const id = session.id
+    const started = Date.now()
     const timer = window.setInterval(() => {
+      // A Mac asleep for good stops being asked after ten minutes; the session stays open.
+      if (Date.now() - started > 10 * 60_000) {
+        window.clearInterval(timer)
+        return
+      }
       api.socraticRead(id).then(
         (reply) => setSession(reply.session),
         () => undefined

@@ -22,7 +22,6 @@ from defusedxml import ElementTree
 from ..db import transaction
 from .common import NotFoundError, new_id, utc_now
 
-SCHEMATICS_DIRNAME = "attachments/schematics"
 MAX_SVG_BYTES = 512 * 1024
 SVG_NS = "{http://www.w3.org/2000/svg}"
 FORBIDDEN_TAGS = {"script", "foreignObject", "iframe", "object", "embed", "animate", "set", "image"}

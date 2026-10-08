@@ -31,6 +31,10 @@ async def file_flags(request: Request, workspace=Depends(get_workspace)) -> dict
 
     if request.app.state.model_mode not in ("codex", "claude"):
         raise ConflictError("needs_model", flags_filing.WAITING)
+    # One filing at a time: a second press while one runs joins it rather than filing twice.
+    running = getattr(request.app.state, "flag_filing_task", None)
+    if running is not None and not running.done():
+        return {"started": False, "running": True}
     task = asyncio.create_task(flags_filing.file_unfiled(workspace.database_path, workspace.turn_factory))
     request.app.state.flag_filing_task = task
     return {"started": True}

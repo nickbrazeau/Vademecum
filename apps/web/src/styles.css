@@ -1858,7 +1858,8 @@ details[open].strength-topic > summary::before {
 }
 .badge.know-badge {
   border-color: var(--spec);
-  color: var(--spec);
+  /* Darkened toward the ink so small text reads (WCAG AA) in light and dark. */
+  color: color-mix(in srgb, var(--spec) 60%, var(--ink));
   margin-left: 0.4rem;
 }
 

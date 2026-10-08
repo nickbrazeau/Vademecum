@@ -49,7 +49,8 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     @mcp.tool(annotations=READ)
     async def board_next_question(where: Where = "shuffled") -> dict[str, Any]:
         """The board-style question to ask now: a vignette and five options,
-        without the key. Idempotent until board_advance. Put the stem and the
+        without the key. Idempotent until board_advance (with where="need", ask once and
+        keep the question until board_advance: the choice can change after an answer). Put the stem and the
         options to the owner and let them choose; do not reveal or hint at the
         answer. If question is null, empty_reason says why. where="need" asks
         from the page the owner's learner model says needs it most (ADR 0031)."""

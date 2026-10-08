@@ -27,8 +27,6 @@ KEY_CYCLE = "board.cycle_number"
 KEY_LAST_QUESTION = "board.last_advanced_question"
 KEY_LAST_REFRESH = "encyclopedia_last_refresh"
 
-MAX_SECTIONS = 6
-MAX_PARAGRAPHS = 4
 OPTION_COUNT = 5
 LETTERS = ("A", "B", "C", "D", "E")
 

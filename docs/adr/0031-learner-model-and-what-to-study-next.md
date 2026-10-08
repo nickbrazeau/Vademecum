@@ -57,10 +57,13 @@ on the owner's 680 pages.
    *n / (n + 3)*. This is a simplified knowledge-tracing estimate; with so little data a fuller
    model would only be guessing its own parameters.
 2. **How well it is holding now.** A forgetting curve, *recall = 2^(−days / h)*, in the spirit
-   of half-life regression. *h* starts at one day and is replayed from the retrievals in order:
+   of half-life regression. *h* is 2.5 days after a first retrieval, so one right answer reads
+   as holding for about a day, like a new flashcard's first gap. It is then replayed from the
+   retrievals in order:
    - a success multiplies *h* by *1 + 1.5 × min(1, gap / h)*, at least 1.1, so retrieval spaced
      out to about the half-life gains the most and massed repetition gains little;
-   - a failure halves *h*, down to a floor of half a day.
+   - a failure (an outcome below 0.4) halves *h*, down to a floor of half a day;
+   - an outcome in between, such as a Socratic session naming three gaps, leaves *h* where it was.
 
    Reading a page is study, not retrieval. It is recorded, and it decides whether "read it
    first" is still the right step, but it does not move the curve.
@@ -83,7 +86,10 @@ Each unit gets a state:
   the mark, or 0.3 if it is at the mark.
 - Units nothing points to (no flags, no exam area, no attempts) are weighted down to a fifth,
   so seven hundred untried pages do not drown the twenty that matter. They still surface
-  when nothing else does.
+  when nothing else does, with a small floor for exploring.
+- A gap with no page is discounted by a fifth, so a page you can open now comes first.
+- A flag or exam area that matches two pages counts on both. The map draws it that way too,
+  and a flag about two pages usually concerns both.
 
 The **step** is chosen for the state, and each comes with its reason in a sentence:
 
@@ -109,11 +115,12 @@ It orders them so that no two steps in a row share a specialty where another is 
   - The selected topic shows its estimate as words and meters, never as a score.
 - **Strong and weak:** each topic carries its state badge.
 - **Flashcards:** the draw multiplies a card's weight by its page's state (fading 1.8,
-  forming 1.4, holding 0.7) and says so ("Fading: recalling it now helps it last"). Flags and
-  exam areas were already weighed there, so only retention is added.
+  forming 1.4, holding 0.7) and says so ("Fading: recalling it now helps it last"). The factor
+  scales the draw's own boosts for flags and exam areas, on purpose.
 - **Tutor:** board questions can be taken "Where you need it most". Each question comes from
-  the page that needs it most, never the same page twice in a row while another has questions
-  (interleaving). "Shuffled through everything" remains the default, and its pass is untouched
+  the page that needs it most. A page practised in the last 30 minutes waits while another has
+  questions (interleaving). The pass counter is hidden in this mode, and in single-page mode,
+  because neither is a pass. "Shuffled through everything" remains the default, and its pass is untouched
   (ADR 0023).
 - **Assistants:** the MCP tool `study_next` gives ChatGPT or Claude the plan, for "what should I
   study on the drive home?". `board_next_question` and `board_advance` take
@@ -127,6 +134,7 @@ Product rules, AGENTS.md:
 - No percentage or score is shown. A meter is described in words (low, middling, high).
 - No model call: the learner model is arithmetic on the learner's own records, on the device.
 - No stored mastery: delete an answer or a flag and the estimate follows.
+- A page the owner deleted is never suggested back, even as "add a source".
 
 ## Consequences
 

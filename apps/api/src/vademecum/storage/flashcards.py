@@ -222,6 +222,8 @@ def weigh(card: Flashcard, *, weights: dict[str, Any], last: tuple[str, str] | N
     if card.entry_id in weights["missed"]:
         weight += 2.0
         reasons.append("A board question from this page was missed recently.")
+    # The learner model's state for the page (ADR 0031) scales the flag and exam boosts above,
+    # which is intended: a page still forming because of them should come up more.
     retention = weights.get("retention", {}).get(card.entry_id)
     if retention is not None:
         factor, why = retention

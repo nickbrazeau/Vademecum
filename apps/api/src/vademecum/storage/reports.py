@@ -18,7 +18,6 @@ from .common import NotFoundError, new_id, utc_now
 
 MAX_REPORT_TEXT = 200_000
 STANDINGS = ("below", "at", "above")
-REPORTS_DIRNAME = "attachments/reports"
 
 
 @dataclass(frozen=True)

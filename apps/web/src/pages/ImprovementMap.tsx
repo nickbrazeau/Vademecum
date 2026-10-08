@@ -8,7 +8,7 @@
  * underneath it: the graph is a view of the same facts, never the only view.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { ExamReports } from '../components/ExamReports'
 import { StrengthsView } from '../components/StrengthsView'
@@ -16,7 +16,7 @@ import { StudyNext, TopicKnowledge } from '../components/StudyNext'
 import { PAGE_PREFIX, TopicGraph, isShown } from '../components/TopicGraph'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
-import type { EncyclopediaEntry, Flag, LearnerModel, LearnerUnit, MapPage, MapPosition } from '../lib/types'
+import type { EncyclopediaEntry, Flag, KnowledgeState, LearnerModel, LearnerUnit, MapPage, MapPosition } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { openPageLater, openTutorLater } from '../lib/pageLink'
 import type { RouteName } from '../lib/router'
@@ -269,6 +269,13 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
     }
   }
 
+  const known: LearnerModel | null = learner.result.state === 'ready' ? learner.result.value : null
+  // Units by key, built once per load: the graph asks for a colour on every node, every tick.
+  const unitsByKey = useMemo(() => {
+    const found = new Map<string, LearnerUnit>()
+    if (known) for (const unit of [...known.units, ...known.plan]) found.set(unit.key, unit)
+    return found
+  }, [known])
   if (map.result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
   if (map.result.state === 'failed') {
     return <Unavailable error={map.result.error} onRetry={reloadBoth} />
@@ -290,16 +297,16 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
     flags.result.state === 'ready' && selected !== null
       ? flags.result.value.filter((flag) => flag.topic === selected)
       : []
-  const known: LearnerModel | null = learner.result.state === 'ready' ? learner.result.value : null
   const unitFor = (name: string): LearnerUnit | null => {
-    if (known === null) return null
-    const key = known.by_name[name.toLowerCase()]
-    return known.units.find((unit) => unit.key === key) ?? known.plan.find((unit) => unit.key === key) ?? null
+    const key = known?.by_name[name.toLowerCase()]
+    return key ? unitsByKey.get(key) ?? null : null
   }
-  const knowledgeOf = (node: { id: string; label: string; entryId?: string }) => {
+  const knowledgeOf = (node: { id: string; label: string; entryId?: string }): KnowledgeState | null => {
     if (known === null) return null
     if (node.entryId) return known.by_entry[node.entryId] ?? 'untried'
-    return unitFor(node.label)?.state ?? null
+    const key = known.by_name[node.label.toLowerCase()]
+    if (!key || !key.startsWith('page:')) return null // no page yet
+    return known.by_entry[key.slice('page:'.length)] ?? 'untried'
   }
   const selectedUnit = selected === null ? null : unitFor(selected)
   const neighbours =

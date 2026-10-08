@@ -11,8 +11,6 @@ from ..db import transaction
 from ..ingest.images import ExtractedImage
 from .common import NotFoundError, new_id, utc_now
 
-IMAGES_DIRNAME = "attachments/images"
-
 
 @dataclass(frozen=True)
 class SourceImage:

@@ -48,8 +48,9 @@ from .srs import parse
 WEIGHT = {"board": 1.0, "card": 0.5, "socratic": 1.5, "flag": 0.75, "exam": 2.0}
 # Older evidence counts for less: its weight halves every EVIDENCE_HALF_LIFE_DAYS.
 EVIDENCE_HALF_LIFE_DAYS = 60.0
-# The forgetting curve's half-life, in days, before any retrieval and its floor.
-START_HALF_LIFE = 1.0
+# The forgetting curve's half-life, in days, after a first retrieval, and its floor. At 2.5
+# days, one right answer reads as holding for about a day, as a new flashcard's first gap does.
+START_HALF_LIFE = 2.5
 MIN_HALF_LIFE = 0.5
 # A success multiplies the half-life by 1 + SPACING_GAIN x min(1, gap / half-life),
 # and at least by MIN_GROWTH. Retrieval spaced out to about the half-life gains the most;
@@ -62,6 +63,15 @@ LAPSE_FACTOR = 0.5
 EXAM_OUTCOME = {"below": 0.2, "at": 0.6, "above": 0.9}
 # At most this many open flags count towards a unit.
 MAX_FLAGS = 3
+
+# An outcome at or above SUCCESS lengthens the half-life; below MISS it is a miss that
+# shortens it (and asks for a Socratic session); in between (a session naming three gaps)
+# leaves it where it was.
+SUCCESS = 0.6
+MISS = 0.4
+# A page asked about in the last COOL_DOWN_MINUTES waits while another page has questions,
+# so "where you need it most" moves across topics instead of alternating two.
+COOL_DOWN_MINUTES = 30
 
 UNDERSTOOD = 0.6  # mastery at or above this: understood, given the evidence
 HOLDING = 0.75  # recall now at or above this: holding
@@ -151,18 +161,21 @@ def _gather(connection: sqlite3.Connection) -> dict[str, Unit]:
 
     assigned = map_store.topic_specialties(connection)
     specialties = map_store.list_specialties(connection)
+    deleted = set(pages_store.deleted_pages(connection))
 
     def unit_for_topic(topic: str) -> list[Unit]:
         """The pages a flagged topic or exam area names, or a unit of its own if none."""
         name = topic.strip().casefold()
-        if not name or name == UNSORTED_TOPIC:
-            return []
+        if not name or name == UNSORTED_TOPIC or name in deleted:
+            return []  # a page the owner deleted is not suggested back
+
         if name in by_name:
             return [by_name[name]]
         matched = [by_entry[page["id"]] for page in pages_store.pages_matching(index, topic, limit=2) if page["id"] in by_entry]
         if matched:
             for unit in matched:
                 unit.names.add(name)
+            by_name.setdefault(name, matched[0])
             return matched
         key = f"topic:{name}"
         if key not in units:
@@ -277,9 +290,9 @@ def half_life(evidence: list[Evidence]) -> tuple[float, datetime | None]:
     last: datetime | None = None
     for item in sorted((e for e in evidence if e.kind in RETRIEVAL and e.outcome is not None), key=lambda e: e.at):
         gap = 0.0 if last is None else max(0.0, (item.at - last).total_seconds() / 86400)
-        if item.outcome >= 0.6:  # type: ignore[operator]
+        if item.outcome >= SUCCESS:  # type: ignore[operator]
             h *= max(MIN_GROWTH, 1.0 + SPACING_GAIN * min(1.0, gap / h)) if last is not None else 1.0
-        elif item.outcome < 0.4:  # type: ignore[operator]
+        elif item.outcome < MISS:  # type: ignore[operator]
             h = max(MIN_HALF_LIFE, h * LAPSE_FACTOR)
         last = item.at
     return h, last
@@ -320,7 +333,7 @@ def _step(unit: Unit, state: str) -> dict[str, str]:
             "why": "There is no page on this yet. Add a source and Vademecum will build one.",
         }
     read = any(item.kind == "read" for item in unit.evidence)
-    missed = any(item.kind in ("board", "socratic") and (item.outcome or 0) < 0.5 for item in unit.evidence)
+    missed = any(item.kind in ("board", "socratic") and (item.outcome or 0) < MISS for item in unit.evidence)
     if state == "untried" and not read:
         return {"kind": "read", "label": "Read the page", "why": "Read it once first, then test yourself."}
     if state == "forming" and missed:
@@ -463,14 +476,14 @@ def model(connection: sqlite3.Connection, *, now: datetime | None = None) -> dic
         "units": tracked,
         "states": [{"state": state, "label": STATE_LABEL[state], "count": counts[state]} for state in STATE_LABEL],
         "by_name": by_name,
-        "by_entry": {item["entry_id"]: item["state"] for item in assessed if item["entry_id"] and item["state"] != "untried"},
+        "by_entry": {item["entry_id"]: item["state"] for item in assessed if item["entry_id"]},
     }
 
 
 def factor_for_entry(connection: sqlite3.Connection, *, now: datetime | None = None) -> dict[str, tuple[float, str | None]]:
     """For the flashcard draw: a multiplier per page from its state, and a reason to show.
-    Fading pages come forward; holding ones step back. Flags and exam areas are already
-    weighed by the draw itself, so only retention is added here."""
+    Fading and forming pages come forward; holding ones step back. The draw adds its own
+    boosts for flags and exam areas, and this factor scales them."""
     moment = now or datetime.now(timezone.utc)
     out: dict[str, tuple[float, str | None]] = {}
     reasons = {
@@ -489,21 +502,17 @@ def factor_for_entry(connection: sqlite3.Connection, *, now: datetime | None = N
 def most_needed_entry(connection: sqlite3.Connection, *, kind: str, not_entry: str | None = None, now: datetime | None = None) -> str | None:
     """The page that needs it most among those with board questions (kind "board") or
     flashcards (kind "cards") ready: what "where you need it most" asks next. The page
-    just practised is passed over while another qualifies, so topics interleave."""
+    just practised, and any asked about in the last COOL_DOWN_MINUTES, are passed over
+    while another qualifies, so the questions move across topics."""
     moment = now or datetime.now(timezone.utc)
-    best: tuple[float, str, str] | None = None
+    best: tuple[int, float, str, str] | None = None
     for unit in _gather(connection).values():
         ready = unit.board_ready if kind == "board" else unit.cards_ready
         if unit.entry_id is None or not ready:
             continue
-        if unit.entry_id == not_entry:
-            need = assess(unit, moment)["need"] - 1000.0  # last resort only
-            candidate = (-need, _daily_order(unit.key, moment), unit.entry_id)
-            if best is None or candidate < best:
-                best = candidate
-            continue
-        need = assess(unit, moment)["need"]
-        candidate = (-need, _daily_order(unit.key, moment), unit.entry_id)
+        asked = [e.at for e in unit.evidence if e.kind in RETRIEVAL]
+        resting = unit.entry_id == not_entry or bool(asked and (moment - max(asked)).total_seconds() < COOL_DOWN_MINUTES * 60)
+        candidate = (1 if resting else 0, -assess(unit, moment)["need"], _daily_order(unit.key, moment), unit.entry_id)
         if best is None or candidate < best:
             best = candidate
-    return None if best is None else best[2]
+    return None if best is None else best[3]

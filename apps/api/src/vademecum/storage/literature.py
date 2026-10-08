@@ -62,7 +62,6 @@ from ..db import transaction
 from .common import NotFoundError, new_id, utc_now
 
 TRIGGERS: tuple[str, ...] = ("manual", "scheduled", "catch_up")
-CHECK_STATUSES: tuple[str, ...] = ("running", "ok", "failed")
 UPDATE_STATES: tuple[str, ...] = ("unread", "acknowledged", "dismissed")
 
 # "Recently published" is a window on the calendar, nothing more.

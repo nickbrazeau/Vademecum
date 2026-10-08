@@ -323,6 +323,8 @@ const KNOWLEDGE_LEGEND: [KnowledgeState | 'none', string][] = [
   ['none', 'No page yet']
 ]
 
+const KNOWLEDGE_WORDS: Record<KnowledgeState | 'none', string> = Object.fromEntries(KNOWLEDGE_LEGEND) as Record<KnowledgeState | 'none', string>
+
 /** The CSS hook for a node's colour. Specialty ids are slugs, so they are safe in a class name. */
 export function specialtyClass(specialty: string | null): string {
   return specialty === null ? 'node-unassigned' : `spec-${specialty}`
@@ -628,7 +630,7 @@ export function TopicGraph({
                 aria-label={
                   node.kind === 'page'
                     ? `Encyclopedia page ${node.label}: open it`
-                    : `${node.label}: ${node.open} open, ${node.addressed} addressed, ${node.points} points${node.standing ? `, exam standing ${node.standing}` : ''}`
+                    : `${node.label}: ${node.open} open, ${node.addressed} addressed, ${node.points} points${node.standing ? `, exam standing ${node.standing}` : ''}${colourBy === 'knowledge' ? `, ${KNOWLEDGE_WORDS[knowledgeOf?.(node) ?? 'none']}` : ''}`
                 }
                 onPointerDown={(event) => onNodePointerDown(event, node)}
                 onKeyDown={(event) => {
