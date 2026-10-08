@@ -146,9 +146,11 @@ describe("the phone's tutor, answered by the Mac", () => {
     const user = userEvent.setup()
     render(<Tutor />)
     await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
-    const carry = await screen.findByRole('link', { name: 'Continue in ChatGPT' })
-    expect(decodeURIComponent(carry.getAttribute('href') ?? '')).toContain('socratic_start with session_id soc_1')
-    expect(screen.getByText(/carry on this same session/i)).toBeInTheDocument()
+    // Wait for the open session to replace the start screen, then the hand-off carries it on.
+    expect(await screen.findByText(/carry on this same session/i)).toBeInTheDocument()
+    const hrefs = screen.getAllByRole('link', { name: 'Continue in ChatGPT' }).map((link) => decodeURIComponent(link.getAttribute('href') ?? ''))
+    expect(hrefs.length).toBe(1)
+    expect(hrefs[0]).toContain('socratic_start with session_id soc_1')
   })
 })
 
@@ -302,5 +304,25 @@ describe('the Podcast tab', () => {
     render(<Podcasts />)
     await screen.findByText('Lactate, two ways')
     await waitFor(() => expect((document.querySelector('audio') as HTMLAudioElement).playbackRate).toBe(2))
+  })
+
+  it("leads an open session on the phone with ChatGPT's voice, the typed box folded away", async () => {
+    stub({
+      '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/socratic': {
+        open: { ...OPENED, mode: 'host', waiting: false, relay_error: '' }, recent: [], mode: 'host', can_answer_here: true, note: '', disclosure: '',
+        relay: { available: true, live: true }
+      }
+    })
+    const user = userEvent.setup()
+    render(<Tutor />)
+    await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
+    expect(await screen.findByText(/Carry this session on in ChatGPT’s own voice/)).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'Continue in ChatGPT' })
+    expect(link).toHaveClass('primary')
+    expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain('session_id soc_1')
+    expect(screen.getByText('Or answer here, typed, with your Mac as the tutor')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'End session' })).toBeInTheDocument()
   })
 })

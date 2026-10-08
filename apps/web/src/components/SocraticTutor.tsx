@@ -480,8 +480,65 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
             </button>
           </div>
         ) : null}
+        {!done && relayAvailable && !session.waiting && !macQuiet ? (
+          // On the phone, ChatGPT's own voice carries an open session on (feedback of 7 October).
+          <HandOff
+            prompt={resumePrompt(session.id)}
+            primary
+            lead="Carry this session on in ChatGPT’s own voice: it picks up from the last line, and every exchange is saved here."
+          />
+        ) : null}
         {!done && (overview.can_answer_here || relayAvailable) ? (
-          <>
+          relayAvailable ? (
+            <>
+              <details className="support-details">
+                <summary>Or answer here, typed, with your Mac as the tutor</summary>
+            <label className="field">
+              <span>Your answer</span>
+              <textarea
+                name="socratic-answer"
+                rows={5}
+                value={answer}
+                maxLength={8000}
+                placeholder={listening ? 'Listening…' : 'Answer in your own words, or dictate.'}
+                onChange={(event) => setAnswer(event.target.value)}
+              />
+            </label>
+            <PhiWarning />
+            <div className="actions">
+              <button type="button" className="button primary" disabled={busy || session.waiting || answer.trim() === ''} onClick={() => void act(() => api.socraticAnswer(session.id, answer))}>
+                {busy ? 'Thinking…' : 'Answer'}
+              </button>
+              {canDictate() ? (
+                <button type="button" className={`button${listening ? ' primary' : ''}`} disabled={busy} onClick={toggleListening}>
+                  {listening ? 'Stop listening' : 'Dictate'}
+                </button>
+              ) : null}
+              {canSpeak() ? (
+                <button
+                  type="button"
+                  className={`button${voiceOn ? ' primary' : ''}`}
+                  onClick={() => {
+                    if (voiceOn) {
+                      stopSpeaking.current()
+                      stopListening.current()
+                    }
+                    setVoiceOn((on) => !on)
+                  }}
+                >
+                  {voiceOn ? 'Voice mode on' : 'Voice mode'}
+                </button>
+              ) : null}
+            </div>
+              </details>
+              <div className="actions">
+              <button type="button" className="button ghost" disabled={busy} onClick={() => void act(() => api.socraticAbandon(session.id))}>
+                End session
+              </button>
+              </div>
+            </>
+          ) : (
+            <>
             <label className="field">
               <span>Your answer</span>
               <textarea
@@ -522,7 +579,8 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
                 End session
               </button>
             </div>
-          </>
+            </>
+          )
         ) : null}
         {!done && !overview.can_answer_here ? <p className="muted small">{overview.note}</p> : null}
         {note && !session.waiting ? (
