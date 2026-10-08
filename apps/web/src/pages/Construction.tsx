@@ -8,6 +8,8 @@
 
 import { useState } from 'react'
 import type { MouseEvent } from 'react'
+import { ConstructionProgress } from '../components/ConstructionProgress'
+import { DeletedPages } from '../components/DeletedPages'
 import { FolderDrop } from '../components/FolderDrop'
 import { Unavailable } from '../components/Unavailable'
 import { api } from '../lib/api'
@@ -29,6 +31,7 @@ export function Construction({ onNavigate }: { onNavigate?: (name: RouteName) =>
 
   return (
     <div className="stack">
+      <ConstructionProgress reloadToken={token} />
       {/* On the Mac, where the source folder is. */}
       {pages.result.state === 'ready' && pages.result.value.can_compile ? <FolderDrop onPlaced={changed} /> : null}
       <DissectionCard onChanged={changed} />
@@ -72,6 +75,7 @@ export function Construction({ onNavigate }: { onNavigate?: (name: RouteName) =>
           </>
         ) : null}
       </section>
+      {pages.result.state === 'ready' && pages.result.value.can_compile ? <DeletedPages onChanged={changed} /> : null}
     </div>
   )
 }

@@ -273,3 +273,28 @@ def test_files_dropped_on_the_web_app_are_filed_in_the_folder(with_folder: TestC
     while time.time() < deadline and "Sepsis lectures" not in [p["title"] for p in with_folder.get("/api/piles").json()]:
         time.sleep(0.25)
     assert "Sepsis lectures" in [p["title"] for p in with_folder.get("/api/piles").json()]
+
+
+def test_construction_shows_what_waits_what_is_read_and_how_far_it_is_built(with_folder: TestClient, piles: Path, folder: Path) -> None:
+    """Feedback of 6 October: what is being processed and what has been, by file name."""
+    from vademecum.db import connect
+    from vademecum.storage import construction
+
+    touch(piles / "highconfidence" / "Sepsis" / "lecture.txt", LECTURE)
+    touch(piles / "highconfidence" / "Sepsis" / ".hidden.txt", LECTURE)
+    with_folder.post("/api/sources/scan")
+    touch(piles / "mediumconfidence" / "loose.txt", LECTURE + b"More.\n")
+    touch(piles / "Renal" / "kidney.txt", LECTURE + b"Kidney.\n")
+    report = with_folder.get("/api/construction").json()
+    folder_part = report["folder"]
+    assert folder_part["present"] is True and folder_part["files"] == 3, "hidden files are not counted"
+    assert {(w["pile"], w["filename"]) for w in folder_part["waiting"]} == {("Medium confidence", "loose.txt"), ("Renal", "kidney.txt")}
+    assert report["sources"]["total"] == 1 and report["sources"]["items"][0]["state"] == "not_started"
+    assert str(folder) not in str(report), "names, never a path"
+    connection = connect(with_folder.app.state.database_path)
+    try:
+        construction.record_scan(connection, {"stored": [{"filename": "a"}], "rejected": [{"filename": "x.exe", "pile": "Sepsis", "message": "Not a kind Vademecum reads."}], "more_waiting": True})
+    finally:
+        connection.close()
+    last = with_folder.get("/api/construction").json()["folder"]["last_scan"]
+    assert last["stored"] == 1 and last["more_waiting"] is True and last["rejected"][0]["filename"] == "x.exe"

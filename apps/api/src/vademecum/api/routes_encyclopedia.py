@@ -189,6 +189,24 @@ async def stop_dissection(request: Request, connection: sqlite3.Connection = Dep
     return {"stopped": True, **dissector.describe(connection), "disclosure": DISSECTION_DISCLOSURE}
 
 
+@router.get("/deleted")
+def list_deleted(connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Pages the owner deleted, which the encyclopedia does not write again."""
+    return {"deleted": sorted(store.deleted_pages(connection).values(), key=lambda d: d.get("deleted_at", ""), reverse=True)}
+
+
+class RestoreIn(Strict):
+    topic: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/deleted/restore")
+def restore_deleted(payload: RestoreIn, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
+    """Bring a deleted page back: it is written again at the next compile, on the Mac."""
+    if mode not in ("codex", "claude"):
+        raise ConflictError("on_the_mac", "Pages are brought back on the Mac, where the encyclopedia is written.")
+    return {"restored": store.restore_page(connection, payload.topic)}
+
+
 @router.get("/{entry_id}")
 def read_entry(entry_id: str, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
     return _page_payload(connection, store.get_entry(connection, entry_id))
@@ -213,6 +231,20 @@ def reveal_file(entry_id: str, request: Request, open_it: bool = False, connecti
         raise ConflictError("no_file", "The file is not there yet; it is written at the next folder scan.")
     subprocess.run(["open", str(path)] if open_it else ["open", "-R", str(path)], check=False, timeout=10, capture_output=True)
     return {"path": relative}
+
+
+@router.delete("/{entry_id}")
+def delete_page(entry_id: str, request: Request, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
+    """Delete a page, its questions, cards and Markdown file, and never write it again
+    (feedback of 6 October). On the Mac, whose copy is the page's; the deletion reaches
+    the phone at the next sync. Learning points and sources stay."""
+    from ..storage import page_files
+
+    if mode not in ("codex", "claude"):
+        raise ConflictError("on_the_mac", "Pages are deleted on the Mac, where the encyclopedia is written; the phone follows at the next sync.")
+    gone = store.delete_entry(connection, entry_id)
+    page_files.remove_file(connection, getattr(request.app.state, "sources_folder", None), entry_id)
+    return {"deleted": gone}
 
 
 @router.put("/{entry_id}")

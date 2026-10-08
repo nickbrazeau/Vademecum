@@ -26,6 +26,7 @@ import type {
   LiteratureSettings,
   LoginCancelled,
   ModelSeen,
+  ConstructionProgress,
   ModelStatus,
   Pile,
   RetiredMaterial,
@@ -389,6 +390,10 @@ export const api = {
   // The encyclopedia and the board bank (ADR 0023). Reading and answering are
   // local; Compile now starts the two model turns the page's disclosure names.
   encyclopediaList: (q?: string) => request<unknown>(`/encyclopedia${query({ q })}`).then(normalize.encyclopediaList),
+  construction: () => request<ConstructionProgress>('/construction'),
+  deletePage: (entryId: string) => request<{ deleted: { topic: string; title: string } }>(`/encyclopedia/${entryId}`, { method: 'DELETE' }),
+  deletedPages: () => request<{ deleted: { topic: string; title: string; deleted_at: string }[] }>('/encyclopedia/deleted'),
+  restorePage: (topic: string) => request<{ restored: boolean }>('/encyclopedia/deleted/restore', { method: 'POST', ...body({ topic }) }),
   revealPageFile: (entryId: string, openIt = false) =>
     request<{ path: string }>(`/encyclopedia/${entryId}/reveal${openIt ? '?open_it=true' : ''}`, { method: 'POST' }),
   encyclopediaPage: (options: { random?: boolean; not_id?: string } = {}) =>

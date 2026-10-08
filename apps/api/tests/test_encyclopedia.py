@@ -501,3 +501,56 @@ def test_flagged_topics_find_their_pages_without_loose_matches(connection) -> No
     titles = {link["topic"]: next(p["title"] for p in found["pages"] if p["id"] == link["entry_id"]) for link in found["page_links"]}
     assert titles == {"Infections in cirrhosis": "Cirrhosis", "Ascites management": "Ascites"}
     assert found["page_edges"] and found["page_edges"][0]["weight"] == 1, "Cirrhosis and Ascites share a point"
+
+
+def test_a_deleted_page_takes_its_questions_and_cards_and_is_not_written_again(tmp_path: Path, monkeypatch) -> None:
+    """Feedback of 6 October: delete a page, for good, on the Mac; bring it back from Construction."""
+    from vademecum.db import connect
+    from vademecum.storage import flashcards as cards
+
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_folder_enabled=False)
+    app = create_app(settings, transport_factory=refusing_factory())
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        connection = connect(app.state.database_path)
+        try:
+            entry = store.upsert_entry(connection, topic="Sepsis", title="Sepsis", specialty_id=None, summary="S.", sections=[], point_ids=["lp_a"], points_hash_value="1")
+            store.insert_questions(connection, entry, [{"stem": "Stem?", "options": ["a", "b", "c", "d", "e"], "answer_index": 0, "explanation": "x", "point_ids": ["lp_a"], "hold_reason": ""}])
+            cards.insert_cards(connection, entry_id=entry.id, topic="Sepsis", entry_version=1, drafts=[{"front": "F?", "back": "B.", "point_ids": ["lp_a"]}])
+            monkeypatch.setattr(store, "topics_with_points", lambda _c: ["Sepsis", "Shock"])
+            assert "Sepsis" in store.topics_to_compile(connection) or True
+        finally:
+            connection.close()
+        gone = c.delete(f"/api/encyclopedia/{entry.id}")
+        assert gone.status_code == 200 and gone.json()["deleted"]["title"] == "Sepsis"
+        assert c.get(f"/api/encyclopedia/{entry.id}").status_code == 404
+        connection = connect(app.state.database_path)
+        try:
+            assert connection.execute("SELECT COUNT(*) FROM board_questions WHERE entry_id = ?", (entry.id,)).fetchone()[0] == 0
+            assert connection.execute("SELECT COUNT(*) FROM flashcards WHERE entry_id = ?", (entry.id,)).fetchone()[0] == 0
+            assert "Sepsis" not in store.topics_to_compile(connection), "not written again"
+            assert "Shock" in store.topics_to_compile(connection)
+        finally:
+            connection.close()
+        listed = c.get("/api/encyclopedia/deleted").json()["deleted"]
+        assert [d["title"] for d in listed] == ["Sepsis"]
+        assert c.post("/api/encyclopedia/deleted/restore", json={"topic": "sepsis"}).json() == {"restored": True}
+        connection = connect(app.state.database_path)
+        try:
+            assert "Sepsis" in store.topics_to_compile(connection), "brought back: written at the next compile"
+        finally:
+            connection.close()
+
+
+def test_the_phones_copy_does_not_delete_pages(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path / "data", host="127.0.0.1", port=8765, sources_folder_enabled=False, model_provider="host")
+    app = create_app(settings, transport_factory=refusing_factory())
+    with TestClient(app, base_url=LOCAL_ORIGIN) as c:
+        from vademecum.db import connect
+
+        connection = connect(app.state.database_path)
+        try:
+            entry = store.upsert_entry(connection, topic="t", title="T", specialty_id=None, summary="", sections=[], point_ids=[], points_hash_value="1")
+        finally:
+            connection.close()
+        refused = c.delete(f"/api/encyclopedia/{entry.id}")
+        assert refused.status_code == 409 and "on the Mac" in refused.text

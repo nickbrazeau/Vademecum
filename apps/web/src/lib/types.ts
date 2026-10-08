@@ -1031,6 +1031,36 @@ export interface TopicLink {
 }
 
 /** An encyclopedia page a flagged topic is about (feedback of 6 October). */
+/** What is waiting, read in and built (feedback of 6 October). */
+export interface ConstructionSource {
+  id: string
+  filename: string
+  pile: string
+  status: string
+  state: 'not_started' | 'partly' | 'built' | 'unreadable'
+  percent: number
+  points: number
+  added_at: string
+}
+
+export interface ConstructionProgress {
+  folder: {
+    present: boolean
+    files: number
+    waiting_count: number
+    waiting: { pile: string; filename: string }[]
+    scanning: boolean
+    last_scan: {
+      at: string
+      stored: number
+      already_present: number
+      more_waiting: boolean
+      rejected: { filename: string; pile: string; message: string }[]
+    } | null
+  }
+  sources: { counts: Record<'not_started' | 'partly' | 'built' | 'unreadable', number>; total: number; items: ConstructionSource[] }
+}
+
 export interface MapPage {
   id: string
   title: string

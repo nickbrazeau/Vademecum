@@ -183,7 +183,17 @@ export function DissectionCard({ onChanged }: { onChanged: () => void }) {
  * the compiled text and written to the page's file in the source folder, where
  * any editor can change it too; the next scan reads that change back.
  */
-function EditablePage({ page, onSaved, canEdit }: { page: EncyclopediaEntry; onSaved: (page: EncyclopediaEntry) => void; canEdit: boolean }) {
+function EditablePage({
+  page,
+  onSaved,
+  canEdit,
+  onDeleted
+}: {
+  page: EncyclopediaEntry
+  onSaved: (page: EncyclopediaEntry) => void
+  canEdit: boolean
+  onDeleted?: () => void
+}) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(page.markdown)
   const [busy, setBusy] = useState(false)
@@ -197,6 +207,25 @@ function EditablePage({ page, onSaved, canEdit }: { page: EncyclopediaEntry; onS
       onSaved(next)
       setDraft(next.markdown)
       setEditing(false)
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Delete, for good (feedback of 6 October): its questions, cards and file go too, and the
+  // encyclopedia does not write it again; it can be brought back from Construction.
+  const remove = async () => {
+    const sure = window.confirm(
+      `Delete “${page.title}”? Its board questions, flashcards and Markdown file go too, and it is not written again. Your learning points and sources stay, and you can bring it back from Construction.`
+    )
+    if (!sure) return
+    setBusy(true)
+    setFailure(null)
+    try {
+      await api.deletePage(page.id)
+      onDeleted?.()
     } catch (error) {
       setFailure(asApiError(error))
     } finally {
@@ -259,6 +288,9 @@ function EditablePage({ page, onSaved, canEdit }: { page: EncyclopediaEntry; onS
                     Go back to the compiled page
                   </button>
                 ) : null}
+                <button type="button" className="button ghost danger" disabled={busy} onClick={() => void remove()}>
+                  Delete this page
+                </button>
               </div>
               {page.file_path ? (
                 <p className="muted small">
@@ -344,7 +376,15 @@ export function Encyclopedia() {
               ← All pages
             </button>
           </div>
-          <EditablePage page={open} onSaved={setOpen} canEdit={result.state === 'ready' && result.value.can_compile} />
+          <EditablePage
+            page={open}
+            onSaved={setOpen}
+            canEdit={result.state === 'ready' && result.value.can_compile}
+            onDeleted={() => {
+              setOpen(null)
+              reload()
+            }}
+          />
         </section>
       </div>
     )

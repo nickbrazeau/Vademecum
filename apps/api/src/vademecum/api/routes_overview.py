@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from . import schemas
 from ..storage import map as map_store
@@ -61,3 +62,16 @@ def save_map_positions(
         connection, [(entry.topic, entry.x, entry.y) for entry in payload.positions]
     )
     return {"saved": count}
+
+
+
+@router.get("/construction")
+def construction(request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """What is waiting in the source folder, what is read in, and how far each source is
+    built (feedback of 6 October). Names files and piles, never a path."""
+    from ..storage import construction as progress
+
+    folder = getattr(request.app.state, "sources_folder", None)
+    data = progress.progress(connection, folder)
+    data["folder"]["scanning"] = bool(getattr(request.app.state, "scanning", False))
+    return data

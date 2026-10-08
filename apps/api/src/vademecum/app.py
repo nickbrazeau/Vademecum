@@ -213,6 +213,16 @@ def scan_sources_folder(database_path: Path, source_dir: Path, folder: Path | No
 SCAN_BATCH = 8
 
 
+def _record_scan(database_path: Path, report: dict) -> None:
+    from .storage import construction
+
+    connection = connect(database_path)
+    try:
+        construction.record_scan(connection, report)
+    finally:
+        connection.close()
+
+
 async def _scan_elsewhere(app: FastAPI, database_path: Path, source_dir: Path, folder: Path | None) -> dict:
     """A scan in a process of its own: reading a long PDF is pure Python, and in
     a thread it holds the interpreter lock long enough to starve every request.
@@ -252,8 +262,15 @@ async def _watch_folder(app: FastAPI, database_path: Path, source_dir: Path, int
         try:
             folder = current_sources_dir(app.state.settings)
             app.state.sources_folder = folder
-            report = await _scan_elsewhere(app, database_path, source_dir, folder)
+            app.state.scanning = True
+            try:
+                report = await _scan_elsewhere(app, database_path, source_dir, folder)
+            finally:
+                app.state.scanning = False
             more = bool(report.get("more_waiting"))
+            # Recorded for Construction, which shows what is waiting and what was turned away.
+            if report.get("stored") or report.get("rejected") or report.get("more_waiting"):
+                await asyncio.to_thread(_record_scan, database_path, report)
             # Encyclopedia pages as Markdown files beside the piles, both ways (ADR 0026).
             await asyncio.to_thread(sync_page_files, database_path, folder, source_dir)
             if report.get("stored") or report.get("piles_created"):

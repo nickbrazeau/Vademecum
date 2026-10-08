@@ -1,0 +1,150 @@
+"""What is being processed, and what has been (feedback of 6 October).
+
+Three stages, each answered cheaply:
+
+- **Waiting**: files in the source folder not yet read in. Found by name -- the pile a
+  file sits in and its file name -- against the sources already stored, so nothing is
+  read or hashed to say so.
+- **Read in**: stored sources, with how much of each the encyclopedia agent has built
+  from (none, partly, all), by the text it has covered.
+- **The last scan**: what it took in and what it turned away and why, recorded as it
+  happens; a scan's report was only logged before.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+from pathlib import Path
+from typing import Any
+
+from ..db import transaction
+from ..ingest.detect import safe_display_name
+from ..ingest.folder import PILES_DIRNAME, SKIP_PREFIXES, TIER_TITLES, UNSORTED, tier_of
+from .common import utc_now
+
+SCAN_KEY = "ingest_scan"
+MAX_LISTED = 200
+
+
+def record_scan(connection: sqlite3.Connection, report: dict[str, Any]) -> None:
+    """Keep the latest scan's outcome: counts, and the files it turned away, by name."""
+    rejected = [
+        {"filename": str(item.get("filename") or ""), "pile": str(item.get("pile") or ""), "message": str(item.get("message") or "")}
+        for item in report.get("rejected") or []
+        if isinstance(item, dict)
+    ][:50]
+    record = {
+        "at": utc_now(),
+        "stored": len(report.get("stored") or []),
+        "already_present": int(report.get("already_present") or 0),
+        "waiting_to_settle": int(report.get("waiting") or 0),
+        "more_waiting": bool(report.get("more_waiting")),
+        "rejected": rejected,
+    }
+    with transaction(connection) as tx:
+        tx.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (SCAN_KEY, json.dumps(record, separators=(",", ":")), record["at"]),
+        )
+
+
+def last_scan(connection: sqlite3.Connection) -> dict[str, Any] | None:
+    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (SCAN_KEY,)).fetchone()
+    try:
+        return json.loads(row["value"]) if row else None
+    except ValueError:
+        return None
+
+
+def _pile_for(relative_parts: tuple[str, ...]) -> str | None:
+    """The pile a file in piles/ belongs to, as the folder scan names it."""
+    if len(relative_parts) == 1:
+        return UNSORTED
+    top = relative_parts[0]
+    tier = tier_of(top)
+    if tier is None:
+        return top.strip()  # a pile folder straight under piles/
+    if len(relative_parts) == 2:
+        return TIER_TITLES[tier]  # a loose file in a confidence folder
+    if len(relative_parts) == 3:
+        return relative_parts[1].strip()
+    return None  # deeper than the scan reads
+
+
+def folder_files(folder: Path) -> list[tuple[str, str]]:
+    """Every file the scan would consider: (pile title, display name)."""
+    root = folder / PILES_DIRNAME
+    found: list[tuple[str, str]] = []
+    if not root.is_dir():
+        return found
+    for directory, subdirs, files in os.walk(root):
+        subdirs[:] = [d for d in subdirs if not d.startswith(SKIP_PREFIXES)]
+        parts = Path(directory).relative_to(root).parts
+        for name in files:
+            if name.startswith(SKIP_PREFIXES):
+                continue
+            pile = _pile_for((*parts, name))
+            if pile is not None:
+                found.append((pile, safe_display_name(name)))
+    return found
+
+
+def progress(connection: sqlite3.Connection, folder: Path | None) -> dict[str, Any]:
+    stored = {
+        (row["pile"].casefold(), row["display_name"])
+        for row in connection.execute("SELECT p.title AS pile, s.display_name FROM sources s JOIN piles p ON p.id = s.pile_id")
+    }
+    waiting: list[dict[str, str]] = []
+    on_disk = 0
+    if folder is not None:
+        files = folder_files(folder)
+        on_disk = len(files)
+        waiting = [{"pile": pile, "filename": name} for pile, name in files if (pile.casefold(), name) not in stored]
+    rows = connection.execute(
+        """
+        SELECT s.id, s.display_name, s.status, s.created_at, p.title AS pile,
+               (SELECT COUNT(DISTINCT lps.learning_point_id) FROM learning_point_sources lps WHERE lps.source_id = s.id) AS points,
+               (SELECT COALESCE(SUM(g.char_count), 0) FROM source_segments g WHERE g.source_id = s.id) AS chars_total,
+               (SELECT COALESCE(SUM(MIN(g.covered_upto, g.char_count)), 0) FROM source_segments g WHERE g.source_id = s.id) AS chars_covered
+          FROM sources s JOIN piles p ON p.id = s.pile_id
+         ORDER BY s.created_at DESC
+        """
+    ).fetchall()
+    sources = []
+    counts = {"not_started": 0, "partly": 0, "built": 0, "unreadable": 0}
+    for row in rows:
+        total, covered = int(row["chars_total"] or 0), int(row["chars_covered"] or 0)
+        if row["status"] in ("unreadable", "encrypted", "needs_ocr") or total == 0:
+            state = "unreadable"
+        elif covered >= total:
+            state = "built"
+        elif covered > 0:
+            state = "partly"
+        else:
+            state = "not_started"
+        counts[state] += 1
+        sources.append(
+            {
+                "id": row["id"],
+                "filename": row["display_name"],
+                "pile": row["pile"],
+                "status": row["status"],
+                "state": state,
+                "percent": round(100 * covered / total) if total else 0,
+                "points": int(row["points"] or 0),
+                "added_at": row["created_at"],
+            }
+        )
+    return {
+        "folder": {
+            "present": folder is not None,
+            "files": on_disk,
+            "waiting_count": len(waiting),
+            "waiting": waiting[:MAX_LISTED],
+            "last_scan": last_scan(connection),
+        },
+        "sources": {"counts": counts, "total": len(sources), "items": sources},
+    }

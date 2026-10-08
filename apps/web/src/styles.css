@@ -1766,3 +1766,64 @@ details[open].strength-topic > summary::before {
   font-style: italic;
   font-size: 10px;
 }
+
+/* Construction's progress (feedback of 6 October). */
+.progress-figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.progress-figures div {
+  display: flex;
+  flex-direction: column;
+}
+.progress-figures strong {
+  font-size: 1.6rem;
+}
+.progress-bar {
+  display: flex;
+  height: 0.7rem;
+  border-radius: 0.35rem;
+  overflow: hidden;
+  background: var(--line);
+  margin: 0.75rem 0 0.25rem;
+}
+.progress-bar .seg.built,
+.key.built {
+  background: var(--accent);
+}
+.progress-bar .seg.partly,
+.key.partly {
+  background: #6f9d8f;
+}
+.progress-bar .seg.read,
+.key.read {
+  background: #b9cbc4;
+}
+.progress-bar .seg.waiting,
+.key.waiting {
+  background: #e3c27a;
+}
+.key {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  vertical-align: -0.05em;
+}
+.progress-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+}
+.progress-table th,
+.progress-table td {
+  text-align: left;
+  padding: 0.3rem 0.25rem;
+  border-bottom: 1px solid var(--line);
+  font-weight: normal;
+}
+.progress-table td {
+  white-space: nowrap;
+  text-align: right;
+}

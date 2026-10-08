@@ -163,7 +163,10 @@ def topics_to_compile(connection: sqlite3.Connection) -> list[str]:
         for row in connection.execute("SELECT topic, points_hash FROM encyclopedia_entries WHERE status = 'current'").fetchall()
     }
     stale: list[str] = []
+    deleted = set(deleted_pages(connection))
     for topic in topics_with_points(connection):
+        if topic.casefold() in deleted:
+            continue  # the owner deleted this page: it is not written again (feedback of 6 October)
         if current.get(topic) != points_hash(points_for_topic(connection, topic)):
             stale.append(topic)
     return stale
@@ -937,3 +940,50 @@ def next_for_page(connection: sqlite3.Connection, entry_id: str, *, not_id: str 
         last_attempt=last_attempt(connection, question.id),
         history_count=attempt_count(connection, question.id),
     )
+
+
+
+# --- deleting a page, for good (feedback of 6 October) ---------------------------------
+
+DELETED_KEY = "deleted_pages"
+
+
+def deleted_pages(connection: sqlite3.Connection) -> dict[str, dict[str, str]]:
+    """Topics whose page the owner deleted, by topic folded to lower case."""
+    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (DELETED_KEY,)).fetchone()
+    try:
+        data = json.loads(row["value"]) if row else {}
+    except ValueError:
+        data = {}
+    return {str(k): dict(v) for k, v in data.items() if isinstance(v, dict)} if isinstance(data, dict) else {}
+
+
+def _write_deleted(tx: sqlite3.Connection, deleted: dict[str, dict[str, str]]) -> None:
+    tx.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+        " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        (DELETED_KEY, json.dumps(deleted, separators=(",", ":")), utc_now()),
+    )
+
+
+def delete_entry(connection: sqlite3.Connection, entry_id: str) -> dict[str, str]:
+    """Delete a page with its board questions, flashcards and literature records (by the
+    schema's cascades; answers and reviews stay, unlinked), and remember its topic so
+    the encyclopedia is not written again on it. Learning points and sources stay."""
+    entry = get_entry(connection, entry_id)
+    deleted = deleted_pages(connection)
+    deleted[entry.topic.casefold()] = {"topic": entry.topic, "title": entry.title, "deleted_at": utc_now()}
+    with transaction(connection) as tx:
+        tx.execute("DELETE FROM encyclopedia_entries WHERE id = ?", (entry_id,))
+        _write_deleted(tx, deleted)
+    return {"topic": entry.topic, "title": entry.title}
+
+
+def restore_page(connection: sqlite3.Connection, topic: str) -> bool:
+    """Forget a deletion: the page is written again at the next compile."""
+    deleted = deleted_pages(connection)
+    if deleted.pop(topic.casefold(), None) is None:
+        return False
+    with transaction(connection) as tx:
+        _write_deleted(tx, deleted)
+    return True

@@ -210,3 +210,20 @@ def _copy_figures(connection: sqlite3.Connection, root: Path, images_dir: Path |
             shutil.copyfile(images_dir / found["stored_name"], target)
         except OSError:
             continue
+
+
+
+def remove_file(connection: sqlite3.Connection, folder: Path | None, entry_id: str) -> bool:
+    """A deleted page's Markdown file goes too, and is forgotten."""
+    record = _read_record(connection)
+    known = record.pop(entry_id, None)
+    removed = False
+    if folder is not None and isinstance(known, dict) and known.get("path"):
+        target = (folder / FOLDER / str(known["path"])).resolve()
+        root = (folder / FOLDER).resolve()
+        if root in target.parents and target.is_file():
+            target.unlink()
+            removed = True
+    if known is not None:
+        _write_record(connection, record)
+    return removed
