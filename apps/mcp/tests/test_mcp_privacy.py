@@ -132,7 +132,7 @@ async def test_request_urls_are_not_logged_by_the_http_client(
 # --- the documents ------------------------------------------------------------
 
 ADR = REPO_ROOT / "docs" / "adr" / "0008-mcp-server-for-chat-hosts.md"
-README = REPO_ROOT / "README.md"
+README = REPO_ROOT / "docs" / "technical-overview.md"
 AGENTS = REPO_ROOT / "AGENTS.md"
 
 

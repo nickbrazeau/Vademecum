@@ -178,7 +178,7 @@ def test_api_key_billing_appears_only_where_it_is_refused() -> None:
 # code cannot support is the same defect as a wrong response body, and it is
 # the one a person actually reads.
 BOUNDARY_DOCUMENTS = (
-    REPO_ROOT / "README.md",
+    REPO_ROOT / "docs" / "technical-overview.md",
     REPO_ROOT / "docs" / "adr" / "0002-local-first-boundary.md",
 )
 
@@ -235,13 +235,13 @@ def test_the_boundary_documents_name_what_is_actually_sent() -> None:
 
 
 def test_the_readme_names_the_one_allowlisted_provider_host() -> None:
-    lowered = (REPO_ROOT / "README.md").read_text(encoding="utf-8").lower()
+    lowered = (REPO_ROOT / "docs" / "technical-overview.md").read_text(encoding="utf-8").lower()
     assert "eutils.ncbi.nlm.nih.gov" in lowered
     assert "pubmed" in lowered
 
 
 def test_the_readme_never_promises_verification_it_cannot_deliver() -> None:
-    lowered = (REPO_ROOT / "README.md").read_text(encoding="utf-8").lower()
+    lowered = (REPO_ROOT / "docs" / "technical-overview.md").read_text(encoding="utf-8").lower()
     assert "machine reviewed" in lowered
     for overclaim in (
         "clinically validated",
