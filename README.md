@@ -97,3 +97,7 @@ Then follow the tutorials:
 
 Work happens in the open. Every change runs the full test suite
 ([CI](.github/workflows/ci.yml)).
+
+## Licence
+
+[MIT](LICENSE).

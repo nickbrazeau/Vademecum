@@ -226,7 +226,7 @@ understandable without knowledge of MCP, OAuth, queues or verification internals
 
 Phases 0 to 3 below are done. ADR 0012 then reframed distribution: the product is installed,
 not hosted. What remains is packaging (a wheel with the desk built in, then a signed macOS
-application bundling Python), the licensing decision, and retiring the owner's Codex bridge
+application bundling Python) and retiring the owner's Codex bridge
 once the owner's own workspace runs in host mode.
 
 Work in vertical, testable slices. Phase 0 precedes everything and can void the plan.
