@@ -12,6 +12,7 @@
  */
 
 import type {
+  MapPage,
   Anchor,
   Attempt,
   AttemptOutcome,
@@ -895,7 +896,15 @@ export function improvementMap(value: unknown): ImprovementMap {
     unfiled_flag_count: num(raw['unfiled_flag_count']),
     bank: bank(raw['bank']),
     can_file_flags: raw['can_file_flags'] !== false,
-    filing_note: str(raw['filing_note'])
+    filing_note: str(raw['filing_note']),
+    pages: list(raw['pages'], (entry): MapPage => ({
+      id: str(entry['id']),
+      title: str(entry['title']),
+      topic: str(entry['topic']),
+      specialty_id: nullableStr(entry['specialty_id'])
+    })),
+    page_links: list(raw['page_links'], (entry) => ({ topic: str(entry['topic']), entry_id: str(entry['entry_id']) })),
+    page_edges: list(raw['page_edges'], (entry): TopicLink => ({ a: str(entry['a']), b: str(entry['b']), weight: num(entry['weight']) }))
   }
 }
 

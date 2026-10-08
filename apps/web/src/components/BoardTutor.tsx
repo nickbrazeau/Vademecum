@@ -24,7 +24,7 @@ function CyclePosition({ cycle }: { cycle: Cycle }) {
   )
 }
 
-export function BoardTutor({ initial, onNavigate }: { initial: BoardNext; onNavigate?: (name: RouteName) => void }) {
+export function BoardTutor({ initial, onNavigate, entryId }: { initial: BoardNext; onNavigate?: (name: RouteName) => void; entryId?: string }) {
   const [view, setView] = useState<BoardNext>(initial)
   const [choice, setChoice] = useState<number | null>(null)
   const [result, setResult] = useState<BoardAnswer | null>(null)
@@ -76,7 +76,7 @@ export function BoardTutor({ initial, onNavigate }: { initial: BoardNext; onNavi
     setBusy(true)
     setFailure(null)
     try {
-      const next = await api.boardAdvance(question.id)
+      const next = await api.boardAdvance(question.id, entryId)
       setView(next)
       setChoice(null)
       setResult(null)

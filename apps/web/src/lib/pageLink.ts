@@ -27,3 +27,38 @@ export function takePendingPage(): string | null {
     return null
   }
 }
+
+
+/** The Tutor, opened on one page in one mode (feedback of 6 October: Tutor mode from the map). */
+export interface TutorFocus {
+  mode: 'questions' | 'socratic'
+  entryId: string
+  title: string
+}
+
+let pendingTutor: TutorFocus | null = null
+
+export function openTutorLater(focus: TutorFocus): void {
+  pendingTutor = focus
+  try {
+    window.history.pushState(null, '', `/tutor?mode=${focus.mode}&page=${encodeURIComponent(focus.entryId)}`)
+  } catch {
+    /* a test document without history */
+  }
+}
+
+/** The focus asked for, once: from a link in the app, or from the address. */
+export function takePendingTutor(): TutorFocus | null {
+  const asked = pendingTutor
+  pendingTutor = null
+  if (asked) return asked
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const mode = params.get('mode')
+    const entryId = params.get('page')
+    if ((mode === 'questions' || mode === 'socratic') && entryId) return { mode, entryId, title: '' }
+  } catch {
+    /* no address to read */
+  }
+  return null
+}

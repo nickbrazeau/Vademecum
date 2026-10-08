@@ -461,3 +461,43 @@ def test_a_page_names_its_markdown_file_and_reveals_it_only_on_the_mac(tmp_path:
         assert opened[-1][:2] == ["open", "-R"] and opened[-1][2].endswith("Acute kidney injury.md")
         c.post(f"/api/encyclopedia/{entry.id}/reveal?open_it=true")
         assert opened[-1][0] == "open" and len(opened[-1]) == 2
+
+
+def test_one_pages_questions_leave_the_pass_alone(connection) -> None:
+    """Feedback of 6 October: Tutor mode on a page asks that page's questions, longest
+    unasked first, without moving the shuffled pass."""
+    entry = store.upsert_entry(connection, topic="t", title="T", specialty_id=None, summary="", sections=[], point_ids=["lp_a"], points_hash_value="1")
+    store.insert_questions(
+        connection,
+        entry,
+        [{"stem": f"Stem {i}?", "options": ["a", "b", "c", "d", "e"], "answer_index": 0, "explanation": "x", "point_ids": ["lp_a"], "hold_reason": ""} for i in range(3)],
+    )
+    import vademecum.storage.encyclopedia as module
+
+    ids = [q.id for q in store.questions_for_entry(connection, entry.id)]
+    original = module.eligible_board_ids
+    module.eligible_board_ids = lambda _c: ids  # the points are not machine-reviewed in this unit test
+    try:
+        first = store.next_for_page(connection, entry.id)
+        assert first.question is not None and first.cycle.total == 3 and first.cycle.position == 0
+        store.record_attempt(connection, first.question, 0)
+        second = store.next_for_page(connection, entry.id, not_id=first.question.id)
+        assert second.question is not None and second.question.id != first.question.id and second.cycle.position == 1
+        assert connection.execute("SELECT COUNT(*) FROM board_cycle_entries").fetchone()[0] == 0, "the pass is untouched"
+        empty = store.next_for_page(connection, "ency_none")
+        assert empty.question is None and "no board questions" in empty.empty_reason
+    finally:
+        module.eligible_board_ids = original
+
+
+def test_flagged_topics_find_their_pages_without_loose_matches(connection) -> None:
+    """Feedback of 6 October: the map joins flags through their pages. A page whose whole
+    title the topic contains is its page; a single shared generic word is not a match."""
+    from vademecum.storage.overview import topic_pages
+
+    for topic, title, points in (("cirrhosis", "Cirrhosis", ["lp_1", "lp_2"]), ("ascites", "Ascites", ["lp_2"]), ("dx", "Diagnostic testing", ["lp_9"])):
+        store.upsert_entry(connection, topic=topic, title=title, specialty_id=None, summary="", sections=[], point_ids=points, points_hash_value=topic)
+    found = topic_pages(connection, ["Infections in cirrhosis", "Ascites management", "Tuberculosis diagnostic testing", "Leucovorin rescue"])
+    titles = {link["topic"]: next(p["title"] for p in found["pages"] if p["id"] == link["entry_id"]) for link in found["page_links"]}
+    assert titles == {"Infections in cirrhosis": "Cirrhosis", "Ascites management": "Ascites"}
+    assert found["page_edges"] and found["page_edges"][0]["weight"] == 1, "Cirrhosis and Ascites share a point"

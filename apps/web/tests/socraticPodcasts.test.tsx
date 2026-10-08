@@ -325,4 +325,23 @@ describe('the Podcast tab', () => {
     expect(screen.getByText('Or answer here, typed, with your Mac as the tutor')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'End session' })).toBeInTheDocument()
   })
+
+  it('opens on one page from the Improvement Map: its questions, and the Socratic tutor on it', async () => {
+    const { openTutorLater } = await import('../src/lib/pageLink')
+    const calls = stub({
+      '/api/tutor/board/next': { question: null, cycle: { cycle_number: 0, position: 0, total: 0, remaining: 0, exhausted: false }, empty_reason: 'This page has no board questions ready yet.' },
+      '/api/socratic': { open: null, recent: [], mode: 'codex', can_answer_here: true, note: '', disclosure: '', relay: { available: false, live: false } },
+      'POST /api/socratic': { session: { ...OPENED, transcript: [] }, note: '', gaps_filed: 0 },
+      'POST /api/socratic/soc_1/answer': { session: OPENED, note: '', gaps_filed: 0 }
+    })
+    openTutorLater({ mode: 'questions', entryId: 'ency_9', title: 'Cirrhosis' })
+    const user = userEvent.setup()
+    render(<Tutor />)
+    expect(await screen.findByText(/On one page: Cirrhosis/)).toBeInTheDocument()
+    expect(calls.some((call) => call.url === '/api/tutor/board/next' && call.method === 'GET')).toBe(true)
+    expect(await screen.findByText(/no board questions ready yet/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Socratic tutor' }))
+    await user.click(await screen.findByRole('button', { name: 'Start a session' }))
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST' && call.url === '/api/socratic')?.body).toEqual({ entry_id: 'ency_9' }))
+  })
 })

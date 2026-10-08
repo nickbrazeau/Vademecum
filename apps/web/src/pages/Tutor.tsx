@@ -34,6 +34,8 @@ import type { RouteName } from '../lib/router'
 import { MAX_ANSWER_LENGTH } from '../lib/types'
 import type { Attempt, AttemptOutcome, Cycle, TutorNext, TutorQuestion } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
+import { takePendingTutor } from '../lib/pageLink'
+import type { TutorFocus } from '../lib/pageLink'
 
 const OUTCOME_LABEL: Record<AttemptOutcome, string> = {
   correct: 'Correct',
@@ -141,7 +143,9 @@ function Reference({ question }: { question: TutorQuestion }) {
  * was built before the encyclopedia goes unasked.
  */
 export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
-  const [mode, setMode] = useState<'home' | 'questions' | 'socratic'>('home')
+  // Opened on one page from the Improvement Map (feedback of 6 October), or on everything.
+  const [focus, setFocus] = useState<TutorFocus | null>(() => takePendingTutor())
+  const [mode, setMode] = useState<'home' | 'questions' | 'socratic'>(() => focus?.mode ?? 'home')
   const card = useLoad(() => api.scorecard(), [mode])
 
   if (mode === 'home') {
@@ -180,22 +184,41 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
           Close
         </button>
       </div>
-      {mode === 'socratic' ? <SocraticTutor onNavigate={onNavigate} /> : <Questions onNavigate={onNavigate} />}
+      {focus ? (
+        <p className="muted small tutor-focus" role="status">
+          On one page{focus.title ? `: ${focus.title}` : ''}.{' '}
+          <button type="button" className="link-button" onClick={() => setFocus(null)}>
+            Everything instead
+          </button>
+        </p>
+      ) : null}
+      {mode === 'socratic' ? (
+        <SocraticTutor key={focus?.entryId ?? 'all'} onNavigate={onNavigate} entryId={focus?.entryId} />
+      ) : (
+        <Questions key={focus?.entryId ?? 'all'} onNavigate={onNavigate} entryId={focus?.entryId} />
+      )}
     </div>
   )
 }
 
 /** Board questions when there are any; otherwise the open-answer questions a Build made. */
-function Questions({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
-  const board = useLoad(() => api.boardNext(), [])
+function Questions({ onNavigate, entryId }: { onNavigate?: (name: RouteName) => void; entryId?: string }) {
+  const board = useLoad(() => api.boardNext(entryId), [entryId])
   if (board.result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
   // A board question is asked only when it is whole: five options and a stem.
   // Anything less is not a question, and the open-answer bank is asked instead.
   const candidate = board.result.state === 'ready' ? board.result.value.question : null
   const whole = board.result.state === 'ready' && candidate !== null && candidate.options.length === 5 && candidate.stem !== ''
   const reason = board.result.state === 'ready' ? board.result.value.empty_reason : ''
+  if (entryId && !whole) {
+    return (
+      <section className="card">
+        <p className="muted">{reason || 'This page has no board questions ready yet.'} Try the Socratic tutor on it instead.</p>
+      </section>
+    )
+  }
   return whole && board.result.state === 'ready' ? (
-    <BoardTutor initial={board.result.value} onNavigate={onNavigate} />
+    <BoardTutor initial={board.result.value} onNavigate={onNavigate} entryId={entryId} />
   ) : (
     <OpenTutor onNavigate={onNavigate} boardReason={reason} />
   )

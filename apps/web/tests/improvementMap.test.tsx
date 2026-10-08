@@ -7,7 +7,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { UNASSIGNED, buildGraph, isShown, layout, positionsOf, radiusFor, specialtyClass } from '../src/components/TopicGraph'
+import { PAGE_PREFIX, UNASSIGNED, buildGraph, isShown, layout, positionsOf, radiusFor, specialtyCentres, specialtyClass } from '../src/components/TopicGraph'
 import type { GraphNode } from '../src/components/TopicGraph'
 import { ImprovementMap } from '../src/pages/ImprovementMap'
 import type { CoveredTopic, Specialty, TopicGap, TopicLink } from '../src/lib/types'
@@ -37,6 +37,45 @@ const links: TopicLink[] = [
   { a: 'Antivirals', b: 'Influenza', weight: 1 },
   { a: 'Influenza', b: 'Nephrology', weight: 1 }
 ]
+
+describe('flags joined through their pages (feedback of 6 October)', () => {
+  const pages = [
+    { id: 'ency_flu', title: 'Influenza', topic: 'influenza', specialty_id: 'infectious-disease' },
+    { id: 'ency_cap', title: 'Community-acquired pneumonia', topic: 'cap', specialty_id: 'infectious-disease' }
+  ]
+  const pageLinks = [
+    { topic: 'Influenza', entry_id: 'ency_flu' },
+    { topic: 'Pneumonia', entry_id: 'ency_cap' },
+    { topic: 'Pneumonia', entry_id: 'ency_flu' }
+  ]
+
+  it('adds a page node per matched page, links each topic to it, and pages that share points', () => {
+    const graph = buildGraph([flu, cap], [], [], { openOnly: true, pages, pageLinks, pageEdges: [{ a: 'ency_flu', b: 'ency_cap', weight: 3 }] })
+    const pageNodes = graph.nodes.filter((node) => node.kind === 'page')
+    expect(pageNodes.map((node) => node.id).sort()).toEqual([PAGE_PREFIX + 'ency_cap', PAGE_PREFIX + 'ency_flu'])
+    expect(pageNodes.every((node) => radiusFor(node) === 7)).toBe(true)
+    const kinds = graph.links.map((link) => link.kind)
+    expect(kinds.filter((kind) => kind === 'covers')).toHaveLength(3)
+    expect(kinds).toContain('pages')
+    // Influenza and Pneumonia, which share no learning point, now meet at the Influenza page.
+    const meet = graph.links.filter((link) => (link.target as { id: string }).id === PAGE_PREFIX + 'ency_flu').map((link) => (link.source as { id: string }).id)
+    expect(meet.sort()).toEqual(['Influenza', 'Pneumonia'])
+  })
+
+  it('ignores a page link for a topic that is not drawn', () => {
+    const graph = buildGraph([flu], [], [], { openOnly: true, pages, pageLinks })
+    expect(graph.nodes.some((node) => node.id === PAGE_PREFIX + 'ency_cap')).toBe(false)
+  })
+
+  it('places each specialty in its own area, the same every time', () => {
+    const graph = buildGraph([flu, cap, renal], covered, links, { openOnly: false })
+    const centres = specialtyCentres(graph.nodes, 720, 480)
+    expect([...centres.keys()].sort()).toEqual(['infectious-disease', 'nephrology'])
+    expect(centres).toEqual(specialtyCentres(graph.nodes, 720, 480))
+    const simulation = layout(graph.nodes, graph.links, 720, 480)
+    expect(simulation.alpha()).toBe(0)
+  })
+})
 
 describe('building the graph', () => {
   it('draws only flagged topics by default, and covered topics on request', () => {

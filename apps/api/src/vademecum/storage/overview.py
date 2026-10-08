@@ -136,6 +136,35 @@ def cover_sheet(
     }
 
 
+PAGES_PER_TOPIC = 2
+
+
+def topic_pages(connection: sqlite3.Connection, topics: list[str]) -> dict[str, Any]:
+    """The pages that cover each topic, and the pages among them that share points."""
+    from . import encyclopedia as pages_store
+
+    index = pages_store.current_page_index(connection)
+    found: dict[str, dict[str, Any]] = {}
+    page_links: list[dict[str, str]] = []
+    for topic in dict.fromkeys(topics):
+        for page in pages_store.pages_matching(index, topic, limit=PAGES_PER_TOPIC):
+            found[page["id"]] = page
+            page_links.append({"topic": topic, "entry_id": page["id"]})
+    chosen = list(found.values())
+    page_edges = []
+    for i, a in enumerate(chosen):
+        points_a = set(a["point_ids"])
+        for b in chosen[i + 1 :]:
+            shared = len(points_a & set(b["point_ids"]))
+            if shared:
+                page_edges.append({"a": a["id"], "b": b["id"], "weight": shared})
+    return {
+        "pages": [{"id": p["id"], "title": p["title"], "topic": p["topic"], "specialty_id": p["specialty_id"]} for p in chosen],
+        "page_links": page_links,
+        "page_edges": page_edges,
+    }
+
+
 def improvement_map(connection: sqlite3.Connection) -> dict[str, Any]:
     """Where the gaps are, grouped by topic. A map, not a work list."""
     rows = connection.execute(
@@ -193,6 +222,9 @@ def improvement_map(connection: sqlite3.Connection) -> dict[str, Any]:
             for row in covered
         ],
         "links": topic_links(connection),
+        # Each flagged topic's encyclopedia pages, and pages that share learning points
+        # (feedback of 6 October): the map's lines between flags run through these.
+        **topic_pages(connection, [gap.topic for gap in topics if gap.topic] + [a["topic"] for a in reports_store.areas_for_map(connection)]),
         # What the learner's exam reports say, by content area (ADR 0020).
         "report_areas": reports_store.areas_for_map(connection),
         "specialties": [entry.as_dict() for entry in specialties],

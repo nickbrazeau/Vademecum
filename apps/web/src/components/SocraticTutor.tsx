@@ -113,7 +113,12 @@ function Assessment({ session }: { session: SocraticSession }) {
   )
 }
 
-export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
+/** The launch prompt for one page (Tutor mode from the Improvement Map). */
+export function pagePrompt(entryId: string): string {
+  return LAUNCH_PROMPT.replace('call socratic_start,', `call socratic_start with entry_id ${entryId},`)
+}
+
+export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: RouteName) => void; entryId?: string }) {
   const { result, reload } = useLoad(() => api.socraticOverview(), [])
   const [session, setSession] = useState<SocraticSession | null>(null)
   const [answer, setAnswer] = useState('')
@@ -244,9 +249,9 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
   const start = () => act(async () => {
     if (relayAvailable) {
       // The Mac writes the opening question; the page shows it when it comes.
-      return api.socraticStart(undefined, true)
+      return api.socraticStart(entryId, true)
     }
-    const started = await api.socraticStart()
+    const started = await api.socraticStart(entryId)
     // The first turn opens the dialogue: no answer yet, the tutor speaks first.
     return overview.can_answer_here ? api.socraticAnswer(started.session.id, '') : started
   })
@@ -279,7 +284,7 @@ export function SocraticTutor({ onNavigate }: { onNavigate?: (name: RouteName) =
             {/* On the phone, ChatGPT's own voice is the tutor (feedback of 7 October): it calls the Socratic
                 tools, so the session is saved here as it goes, with the Mac awake or asleep. */}
             <HandOff
-              prompt={LAUNCH_PROMPT}
+              prompt={entryId ? pagePrompt(entryId) : LAUNCH_PROMPT}
               primary
               lead="The tutor in ChatGPT’s own voice: tap Continue in ChatGPT, then its voice button, and talk it through. The session is saved to Vademecum as you go, whether or not your Mac is awake."
             />

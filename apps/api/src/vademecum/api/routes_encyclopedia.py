@@ -43,6 +43,8 @@ class CompileIn(Strict):
 
 class BoardAdvance(Strict):
     question_id: RecordId
+    # Within one page's questions (Tutor mode from the Improvement Map), not the pass.
+    entry_id: RecordId | None = None
 
 
 class BoardAnswer(Strict):
@@ -244,8 +246,11 @@ def board_overview(connection: sqlite3.Connection = Depends(get_connection)) -> 
 
 
 @board_router.get("/next")
-def board_next(connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
-    """The question to ask now, without its key. Idempotent, so a refresh keeps your place."""
+def board_next(entry_id: str | None = None, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """The question to ask now, without its key. Idempotent, so a refresh keeps your place.
+    With entry_id, one page's questions instead of the shuffled pass."""
+    if entry_id:
+        return store.next_for_page(connection, entry_id).as_dict()
     return store.next_question(connection).as_dict()
 
 
@@ -266,6 +271,8 @@ def board_answer(payload: BoardAnswer, connection: sqlite3.Connection = Depends(
 @board_router.post("/advance")
 def board_advance(payload: BoardAdvance, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
     store.get_question(connection, payload.question_id)
+    if payload.entry_id:
+        return store.next_for_page(connection, payload.entry_id, not_id=payload.question_id).as_dict()
     return store.advance_question(connection, payload.question_id).as_dict()
 
 

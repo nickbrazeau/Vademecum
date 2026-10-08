@@ -1030,6 +1030,14 @@ export interface TopicLink {
   weight: number
 }
 
+/** An encyclopedia page a flagged topic is about (feedback of 6 October). */
+export interface MapPage {
+  id: string
+  title: string
+  topic: string
+  specialty_id: string | null
+}
+
 /** One content area from an exam report (ADR 0020): what the report said, located. */
 export interface ReportArea {
   topic: string
@@ -1081,6 +1089,10 @@ export interface ImprovementMap {
   /** Whether this node files flags itself (the Mac), or leaves it to the Mac (the cloud copy). */
   can_file_flags: boolean
   filing_note: string
+  /** Each flagged topic's pages, and pages that share learning points: the map's lines run through them. */
+  pages: MapPage[]
+  page_links: { topic: string; entry_id: string }[]
+  page_edges: TopicLink[]
 }
 
 export interface WrittenFile {

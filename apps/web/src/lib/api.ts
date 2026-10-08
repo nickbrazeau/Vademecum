@@ -454,11 +454,13 @@ export const api = {
     request<unknown>('/encyclopedia/dissection', { method: 'POST', ...body({ pile_id: pileId }) }).then(normalize.dissection),
   stopDissection: () => request<unknown>('/encyclopedia/dissection/stop', { method: 'POST' }).then(normalize.dissection),
   boardOverview: () => request<unknown>('/tutor/board').then(normalize.boardOverview),
-  boardNext: () => request<unknown>('/tutor/board/next').then(normalize.boardNext),
+  boardNext: (entryId?: string) => request<unknown>(`/tutor/board/next${query({ entry_id: entryId })}`).then(normalize.boardNext),
   boardAnswer: (questionId: string, choice: number) =>
     request<unknown>('/tutor/board/answer', { method: 'POST', ...body({ question_id: questionId, choice }) }).then(normalize.boardAnswer),
-  boardAdvance: (questionId: string) =>
-    request<unknown>('/tutor/board/advance', { method: 'POST', ...body({ question_id: questionId }) }).then(normalize.boardNext),
+  boardAdvance: (questionId: string, entryId?: string) =>
+    request<unknown>('/tutor/board/advance', { method: 'POST', ...body(entryId ? { question_id: questionId, entry_id: entryId } : { question_id: questionId }) }).then(
+      normalize.boardNext
+    ),
 
   // The Case Series hub (ADR 0022). Listing reads this Mac; the switch and
   // "Refresh now" are the explicit acts behind the fixed public requests the

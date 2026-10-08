@@ -12,12 +12,12 @@ import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { ExamReports } from '../components/ExamReports'
 import { StrengthsView } from '../components/StrengthsView'
-import { TopicGraph, isShown } from '../components/TopicGraph'
+import { PAGE_PREFIX, TopicGraph, isShown } from '../components/TopicGraph'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
-import type { EncyclopediaEntry, Flag, MapPosition } from '../lib/types'
+import type { EncyclopediaEntry, Flag, MapPage, MapPosition } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
-import { openPageLater } from '../lib/pageLink'
+import { openPageLater, openTutorLater } from '../lib/pageLink'
 import type { RouteName } from '../lib/router'
 
 function FlagList({ flags, onChanged }: { flags: Flag[]; onChanged: () => void }) {
@@ -103,12 +103,15 @@ function TopicConnections({
   topic,
   neighbours,
   onSelect,
-  onNavigate
+  onNavigate,
+  mapped = []
 }: {
   topic: string
   neighbours: string[]
   onSelect: (topic: string) => void
   onNavigate?: (name: RouteName) => void
+  /** The pages the map itself matched to this topic, best first. */
+  mapped?: MapPage[]
 }) {
   const [pages, setPages] = useState<Record<string, EncyclopediaEntry[]> | null>(null)
   useEffect(() => {
@@ -150,10 +153,41 @@ function TopicConnections({
       <span className="muted">no page yet</span>
     )
 
+  // Tutor mode on this topic's page (feedback of 6 October): the Socratic tutor or its board questions.
+  const own: { id: string; title: string }[] = mapped.length > 0 ? mapped : (pages?.[topic] ?? []).map((entry) => ({ id: entry.id, title: entry.title }))
+  const tutor = (mode: 'socratic' | 'questions', page: { id: string; title: string }) => (event: MouseEvent) => {
+    if (onNavigate === undefined) return
+    event.preventDefault()
+    openTutorLater({ mode, entryId: page.id, title: page.title })
+    onNavigate('tutor')
+  }
+
   return (
     <div className="topic-connections">
       <h4>Encyclopedia</h4>
-      <p className="small">{pages === null ? <span className="muted">Looking…</span> : links(pages[topic])}</p>
+      <p className="small">
+        {mapped.length > 0
+          ? links(mapped.map((page) => ({ id: page.id, title: page.title }) as EncyclopediaEntry))
+          : pages === null
+            ? <span className="muted">Looking…</span>
+            : links(pages[topic])}
+      </p>
+      {own.length > 0 ? (
+        <>
+          <h4>Tutor mode</h4>
+          {own.slice(0, 2).map((page) => (
+            <div key={page.id} className="actions tutor-mode">
+              <span className="small">{page.title}:</span>
+              <a className="button small primary" href={`/tutor?mode=socratic&page=${encodeURIComponent(page.id)}`} onClick={tutor('socratic', page)}>
+                Socratic tutor
+              </a>
+              <a className="button small" href={`/tutor?mode=questions&page=${encodeURIComponent(page.id)}`} onClick={tutor('questions', page)}>
+                Board questions
+              </a>
+            </div>
+          ))}
+        </>
+      ) : null}
       <h4>Connected topics</h4>
       {neighbours.length === 0 ? (
         <p className="muted small">No learning point is filed under this topic and another yet.</p>
@@ -299,6 +333,13 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
               onPositions={rememberLayout}
               hidden={hidden}
               onToggleSpecialty={toggleSpecialty}
+              pages={value.pages}
+              pageLinks={value.page_links}
+              pageEdges={value.page_edges}
+              onOpenPage={(entryId) => {
+                openPageLater(entryId)
+                onNavigate?.('encyclopedia')
+              }}
             />
             {layoutFailure ? (
               <p className="failure small" role="status">
@@ -361,7 +402,16 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
             {selectedCovered ? ` · ${selectedCovered.point_count} learning points` : ''}
             {selectedCovered?.cluster ? ` · mostly from ${selectedCovered.cluster.title}` : ''}
           </p>
-          <TopicConnections topic={selected} neighbours={neighbours} onSelect={setSelected} onNavigate={onNavigate} />
+          <TopicConnections
+            topic={selected}
+            neighbours={neighbours.filter((name) => !name.startsWith(PAGE_PREFIX))}
+            onSelect={setSelected}
+            onNavigate={onNavigate}
+            mapped={value.page_links
+              .filter((link) => link.topic === selected)
+              .map((link) => value.pages.find((page) => page.id === link.entry_id))
+              .filter((page): page is MapPage => page !== undefined)}
+          />
           <label className="field specialty-field">
             <span>
               Specialty

@@ -1737,3 +1737,32 @@ details[open].strength-topic > summary::before {
   margin-left: auto;
   margin-right: 0.5rem;
 }
+
+/* The map's specialty areas, page nodes and highlighted connections (feedback of 6 October). */
+.spec-region circle {
+  fill: currentColor;
+  fill-opacity: 0.06;
+  stroke: currentColor;
+  stroke-opacity: 0.18;
+  stroke-dasharray: 3 4;
+}
+.spec-region text {
+  fill: currentColor;
+  fill-opacity: 0.55;
+  font-size: 11px;
+  font-weight: 600;
+}
+.topic-edge.edge-covers {
+  stroke-dasharray: 4 3;
+}
+.topic-edge.lit {
+  stroke-opacity: 0.95;
+}
+.topic-edge.dim,
+.topic-node.dim {
+  opacity: 0.18;
+}
+.page-node .topic-label {
+  font-style: italic;
+  font-size: 10px;
+}

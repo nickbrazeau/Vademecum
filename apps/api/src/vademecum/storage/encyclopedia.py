@@ -843,3 +843,97 @@ def board_overview(connection: sqlite3.Connection) -> dict[str, Any]:
         "answered_correct": int(answered["right"] or 0),
         "cycle": _cycle_state(connection, _current_cycle(connection)).as_dict(),
     }
+
+
+
+# --- pages for a topic in words (feedback of 6 October) ------------------------------
+
+_MATCH_STOP = {
+    "the", "and", "for", "with", "about", "on", "of", "in", "a", "an", "to", "how", "what", "approach", "episode",
+    "podcast", "vs", "versus", "management", "treatment", "diagnosis", "disease", "disorder", "syndrome", "care",
+    "diagnostic", "testing", "test", "tests", "criteria", "pathophysiology", "outpatient", "inpatient", "assessment",
+    "evaluation", "therapy", "use", "adult", "adults", "patients", "patient", "approach", "workup", "overview", "basics",
+}
+
+
+def _words(text: str) -> set[str]:
+    import re
+
+    return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 2 and w not in _MATCH_STOP}
+
+
+def current_page_index(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    """Every current page, light: id, title, topic, specialty and its points, for matching."""
+    rows = connection.execute(
+        "SELECT id, title, topic, specialty_id, point_ids FROM encyclopedia_entries WHERE status = 'current'"
+    ).fetchall()
+    index = []
+    for row in rows:
+        try:
+            points = [str(p) for p in json.loads(row["point_ids"] or "[]")]
+        except ValueError:
+            points = []
+        index.append(
+            {
+                "id": row["id"],
+                "title": row["title"],
+                "topic": row["topic"],
+                "specialty_id": row["specialty_id"],
+                "point_ids": points,
+                "words": _words(f"{row['title']} {row['topic']}"),
+                "names": {" ".join(str(row["title"]).lower().split()), " ".join(str(row["topic"]).lower().split())},
+            }
+        )
+    return index
+
+
+def pages_matching(index: list[dict[str, Any]], text: str, *, limit: int = 3, floor: float = 0.34) -> list[dict[str, Any]]:
+    """The pages a topic or request names: an exact title or topic first, then the most
+    words in common, above a floor so one shared word does not make a match."""
+    name = " ".join(text.lower().split())
+    exact = [page for page in index if name in page["names"]]
+    if exact:
+        return exact[:limit]
+    wanted = _words(text)
+    if not wanted:
+        return []
+    scored = []
+    for page in index:
+        overlap = len(wanted & page["words"])
+        if not overlap:
+            continue
+        score = overlap / len(wanted | page["words"])
+        # A page whose whole title the topic contains ("Cirrhosis" for "Cirrhosis
+        # definition and staging") is its page, however long the topic.
+        named = page["words"] <= wanted and all(len(w) >= 5 for w in page["words"])
+        if score >= floor or overlap >= 2 or named:
+            score = max(score, 0.5) if named else score
+            scored.append((score, page["title"], page))
+    return [page for _score, _title, page in sorted(scored, key=lambda item: (-item[0], item[1]))[:limit]]
+
+
+
+def next_for_page(connection: sqlite3.Connection, entry_id: str, *, not_id: str | None = None) -> NextBoard:
+    """A question from one page (feedback of 6 October: Tutor mode from the Improvement
+    Map). Outside the shuffled pass, which it leaves alone: the page's question asked
+    longest ago, or never, comes first; the one just asked is skipped while others remain."""
+    eligible = set(eligible_board_ids(connection))
+    ids = [q.id for q in questions_for_entry(connection, entry_id) if q.id in eligible]
+    if not ids:
+        return NextBoard(question=None, cycle=CycleState(0, 0, 0, 0), empty_reason="This page has no board questions ready yet.")
+    last: dict[str, str] = {}
+    for row in connection.execute(
+        f"SELECT question_id, MAX(created_at) AS at FROM board_attempts WHERE question_id IN ({','.join('?' * len(ids))}) GROUP BY question_id",
+        ids,
+    ):
+        last[row["question_id"]] = row["at"]
+    order = sorted(ids, key=lambda qid: (last.get(qid) or "", ids.index(qid)))
+    candidates = [qid for qid in order if qid != not_id] or order
+    question = get_question(connection, candidates[0])
+    asked = sum(1 for qid in ids if qid in last)
+    return NextBoard(
+        question=question,
+        cycle=CycleState(cycle_number=0, position=asked, total=len(ids), remaining=len(ids) - asked),
+        last_attempt=last_attempt(connection, question.id),
+        history_count=attempt_count(connection, question.id),
+    )
