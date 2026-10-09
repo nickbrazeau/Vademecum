@@ -56,6 +56,7 @@ def say(message: str) -> None:
 
 class Store(Protocol):
     def list(self, prefix: str) -> list[tuple[str, int]]: ...
+    def uploaded(self, prefix: str) -> dict[str, str]: ...
     def get(self, key: str) -> bytes | None: ...
     def put(self, key: str, data: bytes) -> bool: ...
     def delete(self, key: str) -> bool: ...
@@ -90,7 +91,7 @@ class WorkerStore:
         finally:
             connection.close()
 
-    def list(self, prefix: str) -> list[tuple[str, int]]:
+    def _objects(self, prefix: str) -> list[dict]:
         status, raw = self._request("GET", f"/list?prefix={quote(prefix, safe='/')}")
         if status != 200:
             return []
@@ -98,7 +99,14 @@ class WorkerStore:
             objects = json.loads(raw.decode("utf-8")).get("objects", [])
         except ValueError:
             return []
-        return [(str(o["key"]), int(o["size"])) for o in objects if "key" in o]
+        return [o for o in objects if isinstance(o, dict) and "key" in o]
+
+    def list(self, prefix: str) -> list[tuple[str, int]]:
+        return [(str(o["key"]), int(o["size"])) for o in self._objects(prefix)]
+
+    def uploaded(self, prefix: str) -> dict[str, str]:
+        """When each object under the prefix was written (ISO 8601), as the bucket says."""
+        return {str(o["key"]): str(o.get("uploaded") or "") for o in self._objects(prefix)}
 
     def get(self, key: str) -> bytes | None:
         status, raw = self._request("GET", f"/object/{quote(key, safe='/')}")
@@ -138,7 +146,14 @@ def put_object(store: Store, key: str, path: Path) -> bool:
     """One object, or parts plus a manifest when it is too large for one request."""
     size = path.stat().st_size
     if size <= PART_BYTES:
-        return store.put(key, path.read_bytes())
+        if not store.put(key, path.read_bytes()):
+            return False
+        # A database that once went up in parts and now fits in one: the old manifest
+        # and parts go, or a restore would bring that old copy back (feedback of 9 October).
+        for stale, _size in store.list(f"{key}."):
+            if stale == f"{key}.manifest" or ".part-" in stale:
+                store.delete(stale)
+        return True
     parts: list[str] = []
     with path.open("rb") as handle:
         index = 0
@@ -152,13 +167,22 @@ def put_object(store: Store, key: str, path: Path) -> bool:
             parts.append(part_key)
             index += 1
     manifest = json.dumps({"size": size, "parts": parts, "sha256": _digest(path)}).encode("utf-8")
-    return store.put(f"{key}.manifest", manifest)
+    if not store.put(f"{key}.manifest", manifest):
+        return False
+    store.delete(key)  # the single-object copy, if one was ever made, is now the stale one
+    return True
 
 
 def get_object(store: Store, key: str) -> bytes | None:
-    """The object, whole or reassembled from its parts."""
+    """The object, whole or reassembled from its parts. Where both forms exist (a stale
+    manifest from when the object was larger), the one written last is the truth."""
     manifest = store.get(f"{key}.manifest")
     if manifest is None:
+        return store.get(key)
+    times = store.uploaded(key) if hasattr(store, "uploaded") else {}
+    whole_at, manifest_at = times.get(key, ""), times.get(f"{key}.manifest", "")
+    if whole_at and manifest_at and whole_at > manifest_at:
+        say(f"{key}: the single copy is newer than the parts; restoring it")
         return store.get(key)
     try:
         parts = json.loads(manifest.decode("utf-8"))["parts"]
@@ -216,28 +240,55 @@ def restore_files(data: Path, store: Store) -> int:
     return restored
 
 
+def snapshot_database(data: Path, store: Store, relative: str, prefix: str) -> str:
+    """A consistent copy of one database, uploaded if it changed: "db", "unchanged",
+    or "failed" (said, not swallowed); a database not there yet counts as unchanged."""
+    source = data / relative
+    if not source.exists():
+        return "unchanged"
+    stage = data / ".snapshot"
+    stage.mkdir(parents=True, exist_ok=True)
+    copy = stage / f"{prefix}-{source.name}"
+    if copy.exists():
+        copy.unlink()
+    with sqlite3.connect(source) as live, sqlite3.connect(copy) as backup:
+        live.backup(backup)
+    key = f"{prefix}/{source.name}"
+    digest = _digest(copy)
+    if _uploaded.get(key) == digest:
+        return "unchanged"
+    if put_object(store, key, copy):
+        _uploaded[key] = digest
+        return "db"
+    say(f"snapshot of {key} failed; it is tried again next time")
+    return "failed"
+
+
+# The connectors' sign-ins (registered clients, tokens) are small and written rarely, and
+# losing one strands ChatGPT or Claude with an app id this copy no longer knows (feedback of
+# 9 October). They are saved within seconds of changing, not at the next five-minute round.
+ACCESS = ("mcp/access.sqlite3", "mcp")
+ACCESS_CHECK_SECONDS = 5
+
+
+def access_signature(data: Path) -> tuple[tuple[int, int], ...]:
+    """What changes when the sign-in database does: the file and its write-ahead log."""
+    base = data / ACCESS[0]
+    signature = []
+    for path in (base, base.with_name(base.name + "-wal")):
+        try:
+            stat = path.stat()
+            signature.append((stat.st_mtime_ns, stat.st_size))
+        except FileNotFoundError:
+            signature.append((0, 0))
+    return tuple(signature)
+
+
 def snapshot(data: Path, store: Store) -> dict[str, int]:
     """A consistent copy of every database that changed, then every new file."""
-    stage = data / ".snapshot"
-    results = {"db": 0, "unchanged": 0, "files": 0}
+    results = {"db": 0, "unchanged": 0, "files": 0, "failed": 0}
     for relative, prefix in DATABASES:
-        source = data / relative
-        if not source.exists():
-            continue
-        stage.mkdir(parents=True, exist_ok=True)
-        copy = stage / f"{prefix}-{source.name}"
-        if copy.exists():
-            copy.unlink()
-        with sqlite3.connect(source) as live, sqlite3.connect(copy) as backup:
-            live.backup(backup)
-        key = f"{prefix}/{source.name}"
-        digest = _digest(copy)
-        if _uploaded.get(key) == digest:
-            results["unchanged"] += 1
-            continue
-        if put_object(store, key, copy):
-            _uploaded[key] = digest
-            results["db"] += 1
+        results[snapshot_database(data, store, relative, prefix)] += 1
     for name in FILES:
         root = data / name
         if not root.is_dir():
@@ -250,6 +301,8 @@ def snapshot(data: Path, store: Store) -> dict[str, int]:
                 continue
             if put_object(store, key, path):
                 results["files"] += 1
+            else:
+                results["failed"] += 1
     results["pruned"] = prune(data, store) if _files_restored.is_set() else 0
     return results
 
@@ -355,11 +408,22 @@ def run() -> int:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     last = time.monotonic()
+    last_access_check = time.monotonic()
+    access_seen = access_signature(DATA)
     while not stopping:
         time.sleep(1)
         if api.poll() is not None or gateway.poll() is not None:
             say("a process exited; stopping")
             break
+        if time.monotonic() - last_access_check >= ACCESS_CHECK_SECONDS:
+            last_access_check = time.monotonic()
+            now_seen = access_signature(DATA)
+            if now_seen != access_seen:
+                outcome = snapshot_database(DATA, store, *ACCESS)
+                if outcome != "failed":
+                    access_seen = now_seen
+                if outcome == "db":
+                    say("sign-ins saved")
         if time.monotonic() - last >= INTERVAL:
             say(f"snapshot: {snapshot(DATA, store)}")
             last = time.monotonic()

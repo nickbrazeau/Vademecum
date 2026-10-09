@@ -89,11 +89,12 @@ async function store(request: Request, env: Env, url: URL): Promise<Response> {
   if (rest === 'list') {
     const prefix = url.searchParams.get('prefix') ?? ''
     if (prefix && !validKey(prefix + 'x')) return new Response('bad prefix', { status: 400 })
-    const objects: { key: string; size: number }[] = []
+    // When each was written, so the seat can tell a stale copy from a fresh one.
+    const objects: { key: string; size: number; uploaded: string }[] = []
     let cursor: string | undefined
     do {
       const page = await env.BUCKET.list({ prefix, cursor, limit: MAX_LIST })
-      for (const object of page.objects) objects.push({ key: object.key, size: object.size })
+      for (const object of page.objects) objects.push({ key: object.key, size: object.size, uploaded: object.uploaded.toISOString() })
       cursor = page.truncated ? page.cursor : undefined
     } while (cursor)
     return Response.json({ objects })

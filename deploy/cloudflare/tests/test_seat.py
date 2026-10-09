@@ -19,7 +19,9 @@ class MemoryStore:
 
     def __init__(self) -> None:
         self.objects: dict[str, bytes] = {}
+        self.times: dict[str, str] = {}
         self.puts: list[str] = []
+        self.clock = 0
 
     def list(self, prefix: str) -> list[tuple[str, int]]:
         return [(key, len(data)) for key, data in sorted(self.objects.items()) if key.startswith(prefix)]
@@ -29,12 +31,18 @@ class MemoryStore:
 
     def put(self, key: str, data: bytes) -> bool:
         self.objects[key] = data
+        self.clock += 1
+        self.times[key] = f"2026-10-09T00:00:{self.clock:02d}.000Z"
         self.puts.append(key)
         return True
 
     def delete(self, key: str) -> bool:
         self.objects.pop(key, None)
+        self.times.pop(key, None)
         return True
+
+    def uploaded(self, prefix: str) -> dict[str, str]:
+        return {key: at for key, at in self.times.items() if key.startswith(prefix)}
 
 
 def test_a_fresh_container_restores_the_databases_first_and_the_files_later(tmp_path: Path) -> None:
@@ -71,7 +79,7 @@ def test_snapshot_copies_each_database_consistently_and_uploads_only_new_files(t
 
     seat._uploaded.clear()  # noqa: SLF001 - a fresh boot
     first = seat.snapshot(data, store)
-    assert first == {"db": 2, "unchanged": 0, "files": 1, "pruned": 0}
+    assert first == {"db": 2, "unchanged": 0, "files": 1, "failed": 0, "pruned": 0}
     assert sorted(store.objects) == ["attachments/sources/abc.pdf", "db/vademecum.sqlite3", "mcp/access.sqlite3"]
     copy = tmp_path / "copy.sqlite3"
     copy.write_bytes(store.objects["db/vademecum.sqlite3"])
@@ -79,11 +87,11 @@ def test_snapshot_copies_each_database_consistently_and_uploads_only_new_files(t
         assert backup.execute("SELECT x FROM t").fetchone() == (1,)
 
     second = seat.snapshot(data, store)
-    assert second == {"db": 0, "unchanged": 2, "files": 0, "pruned": 0}, "nothing changed, nothing sent"
+    assert second == {"db": 0, "unchanged": 2, "files": 0, "failed": 0, "pruned": 0}, "nothing changed, nothing sent"
     with sqlite3.connect(data / "vademecum.sqlite3") as live:
         live.execute("INSERT INTO t VALUES (2)")
     third = seat.snapshot(data, store)
-    assert third == {"db": 1, "unchanged": 1, "files": 0, "pruned": 0}, "only the database that changed"
+    assert third == {"db": 1, "unchanged": 1, "files": 0, "failed": 0, "pruned": 0}, "only the database that changed"
 
 
 def test_a_large_object_goes_up_in_parts_and_comes_back_whole(tmp_path: Path, monkeypatch) -> None:
@@ -167,3 +175,64 @@ def test_retired_podcast_audio_leaves_the_store_but_nothing_else_does(tmp_path: 
     finally:
         seat._files_restored.clear()
     assert "attachments/figures/img_abcdef12.png" not in store.objects
+
+
+def _database(path: Path, rows: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(path) as db:
+        db.execute("CREATE TABLE IF NOT EXISTS t (x TEXT)")
+        db.execute("DELETE FROM t")
+        db.executemany("INSERT INTO t VALUES (?)", [("x" * 1000,) for _ in range(rows)])
+    with sqlite3.connect(path) as db:
+        db.execute("VACUUM")
+
+
+def test_a_database_that_shrank_below_the_part_size_is_never_restored_from_old_parts(tmp_path: Path, monkeypatch) -> None:
+    """Feedback of 9 October: a manifest left from when the database was larger was
+    preferred on restore, bringing back an old copy at every container start."""
+    monkeypatch.setattr(seat, "PART_BYTES", 64 * 1024)
+    store = MemoryStore()
+    data = tmp_path / "data"
+    _database(data / "vademecum.sqlite3", 200)  # larger than a part: goes up in parts
+    seat._uploaded.clear()
+    seat.snapshot(data, store)
+    assert "db/vademecum.sqlite3.manifest" in store.objects
+    _database(data / "vademecum.sqlite3", 3)  # now small: one object
+    seat._uploaded.clear()
+    seat.snapshot(data, store)
+    assert "db/vademecum.sqlite3" in store.objects
+    assert not any(key.startswith("db/vademecum.sqlite3.") for key in store.objects), "the old parts and manifest are gone"
+    fresh = tmp_path / "fresh"
+    seat.restore_databases(fresh, store)
+    with sqlite3.connect(fresh / "vademecum.sqlite3") as db:
+        assert db.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 3
+
+
+def test_where_a_stale_manifest_survives_the_newer_single_copy_is_restored(tmp_path: Path, monkeypatch) -> None:
+    """A store written by the old code still holds a stale manifest beside a newer object."""
+    monkeypatch.setattr(seat, "PART_BYTES", 64 * 1024)
+    store = MemoryStore()
+    data = tmp_path / "data"
+    _database(data / "vademecum.sqlite3", 200)
+    seat._uploaded.clear()
+    seat.snapshot(data, store)
+    _database(data / "vademecum.sqlite3", 3)
+    store.put("db/vademecum.sqlite3", (data / "vademecum.sqlite3").read_bytes())  # as the old code did: the manifest stays
+    assert "db/vademecum.sqlite3.manifest" in store.objects
+    fresh = tmp_path / "fresh"
+    seat.restore_databases(fresh, store)
+    with sqlite3.connect(fresh / "vademecum.sqlite3") as db:
+        assert db.execute("SELECT COUNT(*) FROM t").fetchone()[0] == 3
+
+
+def test_the_sign_in_database_is_noticed_when_it_or_its_log_changes(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    before = seat.access_signature(data)
+    _database(data / "mcp" / "access.sqlite3", 1)
+    after = seat.access_signature(data)
+    assert before != after
+    store = MemoryStore()
+    seat._uploaded.clear()
+    assert seat.snapshot_database(data, store, *seat.ACCESS) == "db"
+    assert seat.snapshot_database(data, store, *seat.ACCESS) == "unchanged"
+    assert "mcp/access.sqlite3" in store.objects
