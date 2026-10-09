@@ -7,7 +7,7 @@
  * `Cache.put`, and the only way to be sure of that is to be able to ask.
  */
 
-export const SHELL_CACHE = 'vademecum-shell-v1'
+export const SHELL_CACHE = 'vademecum-shell-v2' // v2: the stale `/` that v1 kept is dropped on activate
 
 /** Paths whose responses are the owner's own content. Never cached, ever. */
 export const PRIVATE_PATH_PREFIXES = ['/api'] as const

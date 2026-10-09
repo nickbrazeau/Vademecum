@@ -14,6 +14,7 @@
  */
 
 import {
+  BUILD_ASSET_PREFIX,
   SHELL_ASSETS,
   SHELL_CACHE,
   isPrivatePath,
@@ -79,7 +80,8 @@ worker.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         try {
-          const response = await fetch(request)
+          // Past the browser's own cache too: a stored page is how an update went unseen.
+          const response = await fetch(request, { cache: 'no-cache' })
           await storeIfPermitted(request, response)
           return response
         } catch {
@@ -97,8 +99,23 @@ worker.addEventListener('fetch', (event) => {
   // browser, untouched and unstored.
   if (!shouldCacheRequest(facts(request))) return
 
+  // Hashed build files never change, so the stored copy is the answer. The shell's
+  // unhashed files (`/`, the manifest, the icon) change with every build: the network
+  // first, the stored copy only offline.
+  const immutable = url.pathname.startsWith(BUILD_ASSET_PREFIX)
   event.respondWith(
     (async () => {
+      if (!immutable) {
+        try {
+          const response = await fetch(request, { cache: 'no-cache' })
+          await storeIfPermitted(request, response)
+          return response
+        } catch {
+          const offline = await caches.match(request)
+          if (offline) return offline
+          throw new Error('offline and not stored')
+        }
+      }
       const cached = await caches.match(request)
       if (cached) return cached
       const response = await fetch(request)

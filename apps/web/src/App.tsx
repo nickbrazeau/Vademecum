@@ -10,7 +10,7 @@ import { Nav } from './components/Nav'
 import { QuickFlagDialog } from './components/QuickFlagDialog'
 import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
-import { newerBuild as servedNewerBuild, reloadTarget, typedSomething } from './lib/updateCheck'
+import { freshAddress, newerBuild as servedNewerBuild, reloadTarget, typedSomething } from './lib/updateCheck'
 import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
 import { Construction } from './pages/Construction'
 import { Encyclopedia } from './pages/Encyclopedia'
@@ -187,7 +187,7 @@ export function App() {
       {newerBuild ? (
         <div className="update-banner" role="status">
           <span>A newer Vademecum is ready.</span>
-          <button type="button" className="button small primary" onClick={() => window.location.reload()}>
+          <button type="button" className="button small primary" onClick={() => window.location.replace(freshAddress())}>
             Reload
           </button>
         </div>

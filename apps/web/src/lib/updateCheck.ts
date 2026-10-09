@@ -30,7 +30,9 @@ export async function newerBuild(fetcher: typeof fetch = fetch, doc: Document = 
   const loaded = loadedBuild(doc)
   if (loaded === null) return null
   try {
-    const response = await fetcher('/', { cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'text/html' } })
+    // A query string, so the service worker passes it to the server: it answers `/` itself
+    // from the copy it saved at install, which made every check see an old build.
+    const response = await fetcher(`/?build-check=${Date.now()}`, { cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'text/html' } })
     if (!response.ok) return null
     const served = servedBuild(await response.text())
     return served !== null && served !== loaded ? served : null
@@ -63,4 +65,11 @@ export function typedSomething(doc: Document = document): boolean {
     if ((field as HTMLInputElement | HTMLTextAreaElement).value.trim() !== '') return true
   }
   return Boolean(doc.querySelector('dialog[open]'))
+}
+
+/** The banner's Reload: a fresh address, so no cache can hand back the old page. */
+export function freshAddress(href: string = window.location.href, now: number = Date.now()): string {
+  const url = new URL(href)
+  url.searchParams.set('fresh', String(now))
+  return url.toString()
 }

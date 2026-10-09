@@ -885,9 +885,14 @@ def create_app(
         @app.get("/{path:path}", include_in_schema=False)
         async def spa(path: str) -> Response:
             """Serve built files; fall back to the shell for client routes."""
+            # The shell and anything unhashed (the service worker, the manifest) are asked
+            # for afresh every time: a browser that reused a stored page kept showing an old
+            # app after an update (feedback of 8 October). Hashed build files under /assets
+            # are immutable and cached as before.
+            fresh = {"Cache-Control": "no-cache"}
             candidate = (dist / path).resolve()
             if path and dist in candidate.parents and candidate.is_file():
-                return FileResponse(candidate)
-            return FileResponse(dist / "index.html")
+                return FileResponse(candidate, headers=fresh)
+            return FileResponse(dist / "index.html", headers=fresh)
 
     return app
