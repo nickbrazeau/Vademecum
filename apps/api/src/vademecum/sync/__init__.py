@@ -212,6 +212,16 @@ def sync_once(
     # --- pull ---------------------------------------------------------------
     pulled = applied = skipped = deferred = 0
     cursor = int(sync_store.state(connection)["pulled_through"])
+    # A peer restored from an older copy of itself has a shorter log than we have read
+    # (feedback of 9 October): read it again from the start, or everything made there since
+    # would wait for ever. Re-applying is harmless; what is ours is skipped.
+    peer_log = status.get("log_length")
+    if isinstance(peer_log, int) and 0 <= peer_log < cursor:
+        cursor = 0
+        sync_store.record_sync(connection, peer_node_id=peer_id, pulled_through=0, note="peer restored; reading its log again")
+        # What the peer made before its restore came here unlogged: queue it to go back.
+        queued = sync_store.relog_unlogged(connection)
+        logger.info("sync_peer_restored queued=%d", queued)
     while True:
         page = peer.changes(cursor)
         changes = [Change.from_dict(item) for item in page.get("changes", [])]

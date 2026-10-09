@@ -470,3 +470,44 @@ def test_a_batch_with_its_parents_still_fits_the_peers_limit(connection, monkeyp
         if done:
             break
     assert seen == 3
+
+
+def test_a_peer_restored_with_a_shorter_log_is_read_again_from_the_start(pair) -> None:
+    """Feedback of 9 October: the cloud copy came back on an older database, its log shorter
+    than the Mac had read, and the Mac kept asking for changes after a point that no longer
+    existed: work done on the phone never arrived."""
+    _home, home_app, away, _ = pair
+    connection = db(home_app)
+    try:
+        sync_store.record_sync(connection, peer_node_id="node_elsewhere", pulled_through=5000, note="before the restore")
+    finally:
+        connection.close()
+    away.post("/api/flags", json={"text": "Made on the phone after the restore"})
+    result = run_sync(home_app, away)
+    assert result["pulled"] >= 1
+    connection = db(home_app)
+    try:
+        texts = [row["text"] for row in connection.execute("SELECT text FROM knowledge_gap_flags")]
+        assert "Made on the phone after the restore" in texts
+        assert sync_store.state(connection)["pulled_through"] < 5000
+    finally:
+        connection.close()
+
+
+def test_rows_from_a_restored_peer_are_queued_to_go_back_to_it(pair) -> None:
+    """What the peer made before its restore reached here unlogged; it is queued again."""
+    _home, home_app, _away, _ = pair
+    connection = db(home_app)
+    try:
+        incoming = sync_store.Change(7, "knowledge_gap_flags", ["flg_phone"], "upsert", {
+            "id": "flg_phone", "text": "Flagged on the phone", "topic": None, "pile_id": None,
+            "status": "open", "created_at": "2026-10-02T00:00:00Z", "updated_at": "2026-10-02T00:00:00Z", "addressed_at": None,
+        })
+        sync_store.apply_changes(connection, [incoming], role="domi")
+        logged = "SELECT COUNT(*) FROM sync_log WHERE table_name = 'knowledge_gap_flags' AND row_key = json_array('flg_phone')"
+        assert connection.execute(logged).fetchone()[0] == 0
+        assert sync_store.relog_unlogged(connection) >= 1
+        assert connection.execute(logged).fetchone()[0] == 1
+        assert sync_store.relog_unlogged(connection) == 0, "once is enough"
+    finally:
+        connection.close()

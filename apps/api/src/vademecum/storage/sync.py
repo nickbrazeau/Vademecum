@@ -349,6 +349,30 @@ def _read_batch(connection: sqlite3.Connection, since: int, limit: int, scope: S
     return changes, int(rows[-1]["seq"]), done
 
 
+def relog_unlogged(connection: sqlite3.Connection) -> int:
+    """Put every synced row with no entry in this node's log into it (feedback of 9 October).
+
+    A row that reached this node from the peer is not logged here, so a peer restored from
+    an older copy of itself never gets it back: answers, flags and listening marks made on
+    the phone. Called when the peer is found restored; the next push sends them. Returns
+    how many rows were queued."""
+    queued = 0
+    at = utc_now()
+    with transaction(connection) as tx:
+        for table in sorted(SYNCED_TABLES):
+            pks = _pk_columns(tx, table)
+            if not pks:
+                continue
+            key = f"json_array({', '.join(pks)})"
+            cursor = tx.execute(
+                f"INSERT INTO sync_log (table_name, row_key, op, at) SELECT ?, {key}, 'upsert', ? FROM {table}"
+                f" WHERE {key} NOT IN (SELECT row_key FROM sync_log WHERE table_name = ?)",
+                (table, at, table),
+            )
+            queued += cursor.rowcount or 0
+    return queued
+
+
 def with_parents(connection: sqlite3.Connection, changes: list[Change]) -> list[Change]:
     """The batch, with every synced row its rows point at (feedback of 9 October).
 
