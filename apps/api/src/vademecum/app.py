@@ -431,6 +431,43 @@ async def _relay_loop(database_path: Path, settings: Settings, turn_factory: Any
             await asyncio.sleep(10)
 
 
+async def _voice_waiting(app: FastAPI, database_path: Path, source_dir: Path, *, interval: float = 600.0) -> None:
+    """Give every written, unheard episode its audio on this Mac (feedback of 9 October),
+    one at a time and behind the same lock as a render asked for in the app, so the phone
+    always has a real recording to play rather than the browser's own voice."""
+    from .model import kokoro
+    from .model import podcasts as service
+    from .storage import podcasts as store
+
+    voices = kokoro.voices_dir_for(source_dir.parent.parent)
+    await asyncio.sleep(60)
+    while True:
+        try:
+            if service.available_voices(voices):
+                connection = connect(database_path)
+                try:
+                    waiting = store.unheard_without_audio(connection)
+                finally:
+                    connection.close()
+                for episode in waiting:
+                    lock = getattr(app.state, "podcast_render_lock", None)
+                    if lock is None:
+                        lock = app.state.podcast_render_lock = asyncio.Lock()
+                    async with lock:
+                        result = await service.render(
+                            database_path, episode.id, store.podcasts_dir(source_dir), service.default_voices(voices),
+                            synth=getattr(app.state, "podcast_synth", None),
+                            encode=getattr(app.state, "podcast_encode", None) or service.afconvert_encode,
+                            voices_dir=voices,
+                        )
+                    logger.info("podcast_voiced ok=%s", "error" not in result)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - the loop reports and continues
+            logger.error("podcast_voicing_failed error=%s", type(exc).__name__)
+        await asyncio.sleep(interval)
+
+
 async def _sync_loop(database_path: Path, source_dir: Path, settings: Settings, app: FastAPI | None = None) -> None:
     """Sync every `sync_interval` seconds; a failed round is logged, not fatal."""
     while True:
@@ -446,7 +483,9 @@ async def _sync_loop(database_path: Path, source_dir: Path, settings: Settings, 
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the loop reports and continues
-            logger.error("sync_failed error=%s", type(exc).__name__)
+            # A SyncError says only what the peer answered and to which route; it carries no content.
+            detail = str(exc)[:160] if type(exc).__name__ == "SyncError" else ""
+            logger.error("sync_failed error=%s detail=%s", type(exc).__name__, detail)
 
 
 def _status_change_handler(database_path: Path):
@@ -781,6 +820,8 @@ def create_app(
             # background: a long scan is read on-device page by page.
             backfill_task = asyncio.create_task(_pictures_in_background(owner.database_path, owner.source_dir))
             app.state.backfill_task = backfill_task
+            if resolved.model_provider in ("codex", "claude") and resolved.sync_role_name != "foris":
+                app.state.voicing_task = asyncio.create_task(_voice_waiting(app, owner.database_path, owner.source_dir))
             if resolved.sync_peer_url and resolved.sync_token:
                 # Domi pulls from and pushes to foris (ADR 0015),
                 # on a timer, never at startup itself.
@@ -808,7 +849,7 @@ def create_app(
                     await compile_task
                 except (asyncio.CancelledError, Exception):
                     pass
-            for task in (folder_task, backfill_task, parent_task, sync_task, getattr(app.state, "relay_task", None)):
+            for task in (folder_task, backfill_task, parent_task, sync_task, getattr(app.state, "relay_task", None), getattr(app.state, "voicing_task", None)):
                 if task is None:
                     continue
                 task.cancel()

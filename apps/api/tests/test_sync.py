@@ -414,3 +414,33 @@ def test_page_figures_reach_the_phones_copy_and_leave_when_unused(pair) -> None:
         connection.close()
     run_sync(home_app, away, scope="lean")
     assert away.get(f"/api/images/{image['id']}").status_code == 404
+
+
+def test_a_batch_carries_the_parents_its_rows_point_at(connection) -> None:
+    """Feedback of 9 October: a pile that came from the peer is not logged again here, so a
+    peer that lost it could never get it back, and every batch citing it failed for good.
+    Each batch now carries its rows' parents, and a fresh peer takes the batch whole."""
+    from vademecum.db import apply_migrations
+    from vademecum.storage import piles
+
+    connection.execute("UPDATE sync_state SET applying = 1 WHERE id = 1")  # as if applied from the peer
+    pile = piles.create_pile(connection, title="From the phone", tier="mid")
+    connection.execute("UPDATE sync_state SET applying = 0 WHERE id = 1")
+    connection.commit()
+    assert connection.execute("SELECT COUNT(*) FROM sync_log WHERE table_name = 'piles'").fetchone()[0] == 0
+    connection.execute(
+        "INSERT INTO knowledge_gap_flags (id, text, topic, pile_id, status, created_at, updated_at, addressed_at)"
+        " VALUES ('kgf_1', 'Unsure', 't', ?, 'open', '2026-10-09T00:00:00Z', '2026-10-09T00:00:00Z', NULL)",
+        (pile.id,),
+    )
+    connection.commit()
+    changes, _through, _done = sync_store.changes_since(connection, 0)
+    assert [(c.table, c.key) for c in changes if c.table == "piles"] == [("piles", [pile.id])]
+
+    import sqlite3
+    fresh = sqlite3.connect(":memory:")
+    fresh.row_factory = sqlite3.Row
+    fresh.execute("PRAGMA foreign_keys = ON")
+    apply_migrations(fresh)
+    applied = sync_store.apply_changes(fresh, changes, role="foris", directories={}, require_files=False)
+    assert applied.applied >= 2 and fresh.execute("SELECT COUNT(*) FROM knowledge_gap_flags").fetchone()[0] == 1

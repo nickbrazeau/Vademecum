@@ -53,16 +53,49 @@ function Player({ episode, speed, onEnded }: { episode: PodcastEpisode; speed: n
   const apply = () => {
     if (audio.current) audio.current.playbackRate = speed
   }
+  // The lock screen and Control Center (feedback of 9 October): the episode's title, play
+  // and pause, and fifteen seconds back or forward, while the phone is on another app.
+  const announce = () => {
+    apply()
+    const element = audio.current
+    const session = typeof navigator !== 'undefined' ? navigator.mediaSession : undefined
+    if (!element || !session || typeof MediaMetadata === 'undefined') return
+    session.metadata = new MediaMetadata({
+      title: episode.title || 'Vademecum episode',
+      artist: 'Vademecum',
+      artwork: [{ src: '/icon-512.png', sizes: '512x512', type: 'image/png' }]
+    })
+    const skip = (seconds: number) => () => {
+      element.currentTime = Math.max(0, Math.min(element.duration || Infinity, element.currentTime + seconds))
+    }
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ['play', () => void element.play()],
+      ['pause', () => element.pause()],
+      ['seekbackward', skip(-15)],
+      ['seekforward', skip(15)],
+      ['seekto', (details) => {
+        if (typeof details.seekTime === 'number') element.currentTime = details.seekTime
+      }]
+    ]
+    for (const [action, handler] of handlers) {
+      try {
+        session.setActionHandler(action, handler)
+      } catch {
+        /* an action this browser does not offer */
+      }
+    }
+  }
   return (
     <audio
       ref={audio}
       controls
-      preload="none"
+      preload="metadata"
+      playsInline
       src={`${API_ROOT}/podcasts/${episode.id}/audio`}
       className="podcast-audio"
       onEnded={onEnded}
       onLoadedMetadata={apply}
-      onPlay={apply}
+      onPlay={announce}
     >
       <a href={`${API_ROOT}/podcasts/${episode.id}/audio`}>Download the audio</a>
     </audio>
@@ -114,7 +147,7 @@ function Script({ episode, speed, onFinished }: { episode: PodcastEpisode; speed
           </ul>
         </>
       ) : null}
-      {canSpeak() && episode.script.length > 0 ? (
+      {canSpeak() && episode.script.length > 0 && !episode.has_audio ? (
         <div className="actions">
           <button type="button" className="button" onClick={readAloud}>
             {reading ? 'Stop reading' : 'Read aloud in this browser'}
@@ -203,6 +236,8 @@ function EpisodeCard({
       ) : null}
       {episode.has_audio ? (
         <Player episode={episode} speed={speed} onEnded={finished} />
+      ) : episode.status === 'scripted' && !episode.archived && !episode.audio_elsewhere ? (
+        <p className="muted small">The Mac is voicing this in natural voices; the player appears here when it is ready.</p>
       ) : null}
       {episode.has_audio || (canSpeak() && episode.script.length > 0) ? <SpeedPicker speed={speed} onSpeed={onSpeed} /> : null}
       {episode.script.length > 0 ? <Script episode={episode} speed={speed} onFinished={finished} /> : null}

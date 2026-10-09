@@ -119,7 +119,10 @@ async def _produce(request: Request, episode_id: str, source_dir: Path) -> None:
             episode = store.get_episode(connection, episode_id)
         finally:
             connection.close()
-        if not (episode.auto_render and episode.status == "scripted" and written.get("status") != "failed"):
+        # Every episode is voiced as soon as it is written, not only one asked for: a script
+        # without audio can only be read by the browser's own voice, which is robotic and
+        # stops when the phone leaves the app (feedback of 9 October).
+        if not (episode.status == "scripted" and written.get("status") != "failed" and service.available_voices(_voices_dir(source_dir))):
             return
         store.set_progress(directory, episode_id, "queued")
         lock = _render_lock(request)

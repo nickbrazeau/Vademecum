@@ -370,3 +370,15 @@ def test_progress_runs_from_writing_through_voicing(tmp_path) -> None:
     assert store.progress(tmp_path, "pod_x")["percent"] == 100
     store.clear_progress(tmp_path, "pod_x")
     assert store.progress(tmp_path, "pod_x") is None
+
+
+def test_written_unheard_episodes_without_audio_are_the_ones_to_voice(connection) -> None:
+    """Feedback of 9 October: every written episode gets audio on the Mac, so the phone
+    plays a recording rather than the browser's own voice."""
+    from vademecum.storage import podcasts as store
+
+    draft = store.create_episode(connection, title="Draft", entry_ids=[])
+    written = store.create_episode(connection, title="Written", entry_ids=[])
+    store.set_script(connection, written.id, title="Written", script=[{"speaker": "A", "text": "Hello."}], takeaways=[])
+    assert [e.id for e in store.unheard_without_audio(connection)] == [written.id]
+    assert draft.id not in {e.id for e in store.unheard_without_audio(connection)}

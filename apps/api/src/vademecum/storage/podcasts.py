@@ -262,6 +262,13 @@ def progress(directory: Path, episode_id: str) -> dict[str, Any] | None:
     return None
 
 
+def unheard_without_audio(connection: sqlite3.Connection, *, limit: int = MAX_HOSTED) -> list[Episode]:
+    """Written, not yet listened to, and with no audio: the episodes still to voice, newest first."""
+    return [
+        e for e in list_episodes(connection, limit=500) if e.status == "scripted" and e.script and not e.audio_name and e.listened_at is None
+    ][:limit]
+
+
 def unheard_with_audio(connection: sqlite3.Connection) -> list[Episode]:
     """Rendered and not yet listened to, newest first."""
     return [e for e in list_episodes(connection, limit=500) if e.audio_name and e.listened_at is None]

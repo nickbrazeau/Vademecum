@@ -333,9 +333,60 @@ def changes_since(
         else:
             changes.append(Change(int(entry["seq"]), table, key, "upsert", current))
     changes.sort(key=lambda change: change.seq)
+    changes = with_parents(connection, changes)
     if scope == "lean":
         changes = lean(connection, changes)
     return changes, int(rows[-1]["seq"]), done
+
+
+def with_parents(connection: sqlite3.Connection, changes: list[Change]) -> list[Change]:
+    """The batch, with every synced row its rows point at (feedback of 9 October).
+
+    A row that reached this node from the peer is not logged again here, so a peer that
+    lost it (a cloud copy restored from an older snapshot) would never get it back, and
+    every batch citing it failed its foreign keys for good. Each batch now carries its
+    parents as they are now; applying a row the peer already holds is harmless."""
+    present = {(change.table, json.dumps(change.key)) for change in changes}
+    added: list[Change] = []
+    pending = [change for change in changes if change.op == "upsert" and change.row is not None]
+    while pending:
+        change = pending.pop()
+        for parent_table, pairs in _foreign_keys(connection, change.table):
+            if parent_table not in SYNCED_TABLES:
+                continue
+            values = [change.row.get(child) for child, _parent in pairs]  # type: ignore[union-attr]
+            if any(value is None for value in values):
+                continue
+            where = " AND ".join(f"{parent} = ?" for _child, parent in pairs)
+            found = connection.execute(f"SELECT * FROM {parent_table} WHERE {where}", values).fetchone()
+            if found is None:
+                continue
+            row = dict(found)
+            key = [row[column] for column in _pk_columns(connection, parent_table)]
+            marker = (parent_table, json.dumps(key))
+            if marker in present:
+                continue
+            present.add(marker)
+            parent = Change(change.seq, parent_table, key, "upsert", row)
+            added.append(parent)
+            pending.append(parent)
+    return sorted(changes + added, key=lambda change: change.seq) if added else changes
+
+
+_FOREIGN_KEYS: dict[str, list[tuple[str, list[tuple[str, str]]]]] = {}
+
+
+def _foreign_keys(connection: sqlite3.Connection, table: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """(parent table, [(child column, parent column)]) for each foreign key of a table."""
+    if table not in _FOREIGN_KEYS:
+        grouped: dict[int, tuple[str, list[tuple[str, str]]]] = {}
+        for row in connection.execute(f"PRAGMA foreign_key_list({table})").fetchall():
+            parent, child, to = row[2], row[3], row[4]
+            if to is None:
+                to = _pk_columns(connection, parent)[int(row[1])]
+            grouped.setdefault(int(row[0]), (parent, []))[1].append((child, to))
+        _FOREIGN_KEYS[table] = list(grouped.values())
+    return _FOREIGN_KEYS[table]
 
 
 # --- a peer's changes, applied ---------------------------------------------------
