@@ -114,7 +114,7 @@ def create_server(
     @mcp.prompt(name="open_vademecum", title="Open Vademecum", description="Show the Vademecum dashboard here.")
     def open_prompt() -> str:
         """A one-line way in, for hosts that offer prompts as quick actions."""
-        return "Open Vademecum here with open_vademecum, then tell me in a sentence what is worth a look today."
+        return "Open Vademecum here with open_vademecum, then ask me today's one thing to recall."
     return mcp
 
 

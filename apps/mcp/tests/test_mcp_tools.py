@@ -214,7 +214,7 @@ async def test_note_build_tutor_grade_through_the_tools(
 
     today = await call(mcp_client, "get_today", {})
     assert today["tutor"]["answered_total"] == 1
-    assert today["worth_a_look"][0]["claim"].startswith("Lactate clearance")
+    assert "recall" in today
 
 
 async def test_a_stale_preview_is_refused_in_plain_language(mcp_client: Client) -> None:

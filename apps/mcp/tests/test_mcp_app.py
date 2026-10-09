@@ -69,7 +69,7 @@ async def test_app_request_reaches_the_dashboard_routes_and_only_those(mcp_clien
 
     today = await call(mcp_client, "app_request", {"method": "GET", "path": "/api/today"})
     assert today["ok"] is True and today["status"] == 200
-    assert "worth_a_look" in today["body"]
+    assert "recall" in today["body"]
 
     sources = await call(mcp_client, "app_request", {"method": "GET", "path": f"/api/piles/{pile['id']}/sources"})
     assert sources["ok"] and sources["body"][0]["display_name"] == "Lecture.md"

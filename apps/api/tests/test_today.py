@@ -34,8 +34,7 @@ def test_an_empty_workspace_says_so_rather_than_inventing_anything(
     client: TestClient,
 ) -> None:
     body = client.get("/api/today").json()
-    assert body["worth_a_look"] == []
-    assert "Build learning material" in body["worth_a_look_message"]
+    assert body["recall"] == {"card": None, "unit": None}
     assert body["recent_flags"] == []
     assert body["open_flag_count"] == 0
     assert body["sources"]["total"] == 0
@@ -64,8 +63,7 @@ def test_raw_plain_text_notes_are_not_presented_as_learning_points(
     client.post(f"/api/piles/{pile['id']}/items", json={"title": "Lactate clearance"})
 
     body = client.get("/api/today").json()
-    assert body["worth_a_look"] == []
-    assert "Build learning material" in body["worth_a_look_message"]
+    assert body["recall"]["card"] is None
 
 
 def test_a_built_point_appears_with_its_support_stated(
@@ -74,10 +72,9 @@ def test_a_built_point_appears_with_its_support_stated(
     _built_point(connection, claim="Lactate clearance guides resuscitation")
     sheet = overview.cover_sheet(connection)
 
-    entry = sheet["worth_a_look"]
-    # A point with no citations settles as uncertain and is held, so it does not
-    # appear. That is the honest outcome, not a bug.
-    assert entry == []
+    # A point with no citations settles as uncertain and is held. That is the honest
+    # outcome, not a bug.
+    assert sheet["recall"]["card"] is None
     assert sheet["held"]["points"] == 1
 
 

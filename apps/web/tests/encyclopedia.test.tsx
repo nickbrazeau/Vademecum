@@ -100,7 +100,7 @@ describe('the dissection agent card', () => {
 describe('Today', () => {
   it('opens with a page to review and offers another', async () => {
     const calls = stub({
-      '/api/today': { page: PAGE, encyclopedia: { ...COUNTS, entries: 2, message: '' }, worth_a_look: [], held: { points: 0, questions: 0, needs_re_review: 0, reasons: [] }, literature: { unread: 0, updates: [], topic_count: 0, message: '' }, tutor: { eligible: 0, held: 0, answered_total: 0, cycle: CYCLE, message: '' }, recent_flags: [], open_flag_count: 0 },
+      '/api/today': { page: PAGE, encyclopedia: { ...COUNTS, entries: 2, message: '' }, recall: { card: null, unit: null }, held: { points: 0, questions: 0, needs_re_review: 0, reasons: [] }, literature: { unread: 0, updates: [], topic_count: 0, message: '' }, tutor: { eligible: 0, held: 0, answered_total: 0, cycle: CYCLE, message: '' }, recent_flags: [], open_flag_count: 0 },
       '/api/encyclopedia/page': { page: { ...PAGE, id: 'ency_2', title: 'Noradrenaline in shock' }, counts: COUNTS, message: '' },
       '/api/literature/settings': {}
     })

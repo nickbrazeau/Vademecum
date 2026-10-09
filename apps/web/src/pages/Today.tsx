@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { EncyclopediaPage } from '../components/EncyclopediaPage'
-import { PointCard } from '../components/PointCard'
+import { TodayRecall } from '../components/TodayRecall'
 import { PaperLink } from '../components/PaperLink'
 import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
@@ -357,26 +357,12 @@ export function Today({
         </details>
       ) : null}
 
-      <details className="card toggle-card" aria-labelledby="worth-a-look-heading">
+      <details className="card toggle-card" aria-labelledby="recall-heading" open>
         <summary>
-          <h2 id="worth-a-look-heading">Worth a look</h2>
-          <span className="muted small">{sheet.worth_a_look.length} point{sheet.worth_a_look.length === 1 ? '' : 's'}</span>
+          <h2 id="recall-heading">Recall one thing</h2>
+          {sheet.recall.unit ? <span className="muted small">{sheet.recall.unit.title}</span> : null}
         </summary>
-        {sheet.worth_a_look.length === 0 ? (
-          <p className="muted">
-            Nothing here yet. Learning points are built from files you add in{' '}
-            <a href="/sources" onClick={go('sources')}>
-              Sources
-            </a>
-            , and only when you press Build learning material.
-          </p>
-        ) : (
-          <ul className="list">
-            {sheet.worth_a_look.map((point) => (
-              <PointCard key={point.id} point={point} />
-            ))}
-          </ul>
-        )}
+        <TodayRecall recall={sheet.recall} onNavigate={onNavigate} />
       </details>
     </div>
   )

@@ -219,7 +219,7 @@ class TestTheWholeFlow:
         assert history[0]["asked_prompt"] == question["prompt"]
 
         today = client.get("/api/today").json()
-        assert len(today["worth_a_look"]) == 1
+        assert "recall" in today
         assert today["tutor"]["eligible"] == 1
         assert today["sources"]["usable"] == 1
 

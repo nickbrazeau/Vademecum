@@ -516,3 +516,53 @@ def most_needed_entry(connection: sqlite3.Connection, *, kind: str, not_entry: s
         if best is None or candidate < best:
             best = candidate
     return None if best is None else best[3]
+
+
+def recall_prompt(connection: sqlite3.Connection, *, now: datetime | None = None) -> dict[str, Any]:
+    """Today's one thing to recall (feedback of 9 October, replacing "worth a look"): a
+    flashcard from the first step in the plan whose page has cards, the one ready longest
+    or else one not yet seen, with the step beside it. Recalling beats rereading, and the
+    plan points it where it helps most. With no cards anywhere in the plan, the step alone."""
+    from . import srs
+    from .flashcards import eligible_card_ids, get_card
+
+    moment = now or datetime.now(timezone.utc)
+    plan = model(connection, now=moment)["plan"]
+    if not plan:
+        return {"card": None, "unit": None}
+    eligible = set(eligible_card_ids(connection))
+    plans = srs.schedules(connection)
+    for unit in plan:
+        if not unit["entry_id"] or not unit["cards_ready"]:
+            continue
+        ids = [row["id"] for row in connection.execute("SELECT id FROM flashcards WHERE entry_id = ? ORDER BY created_at, id", (unit["entry_id"],)) if row["id"] in eligible]
+        if not ids:
+            continue
+
+        def order(card_id: str) -> tuple[int, float]:
+            plan_for = plans.get(card_id)
+            if plan_for is None or plan_for.due_at is None:
+                return (1, 0.0)  # not yet seen: after anything ready again
+            ready_for = (moment - plan_for.due_at).total_seconds()
+            return (0, -ready_for) if ready_for >= 0 else (2, -ready_for)
+
+        card_id = min(ids, key=order)
+        card = get_card(connection, card_id)
+        schedule = plans.get(card_id, srs.NEW)
+        return {
+            "card": card.as_dict(),
+            "citations": pages_store.cited_points(connection, list(card.point_ids)),
+            "reasons": [unit["next"]["why"]] if unit["state"] in ("fading", "forming") else [],
+            "kind": "recall",
+            "deck": len(ids),
+            "counts": {},
+            "intervals": srs.preview(schedule, moment),
+            "unit": _brief(unit),
+        }
+    return {"card": None, "unit": _brief(plan[0])}
+
+
+def _brief(unit: dict[str, Any]) -> dict[str, Any]:
+    keep = ("key", "title", "topic", "entry_id", "specialty_id", "state", "state_label", "understood", "recall",
+            "half_life_days", "confidence", "need", "open_flags", "board_ready", "cards_ready", "evidence", "next")
+    return {name: unit[name] for name in keep}

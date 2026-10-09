@@ -301,7 +301,7 @@ async def test_the_owner_signs_in_with_the_passphrase_alone(seat) -> None:
     desk = await web.get("/", cookies={"vademecum_desk": cookie})
     assert desk.status_code == 200 and "Vademecum desk" in desk.text
     today = await web.get("/api/today", cookies={"vademecum_desk": cookie})
-    assert today.status_code == 200 and "worth_a_look" in today.json()
+    assert today.status_code == 200 and "recall" in today.json()
 
 
 async def test_sync_passes_through_the_gateway_on_the_peer_token_alone(seat) -> None:

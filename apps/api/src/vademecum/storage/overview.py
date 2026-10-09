@@ -3,11 +3,9 @@
 Both are descriptive. Nothing here returns something to clear, count down, or
 keep a run going.
 
-What Today shows as "worth a look" is *generated learning points*, with their
-support status and their sources beneath them -- not raw uploaded text. Raw
-plain-text items are source material; presenting them as though they had been
-through synthesis and verification would be the same lie the support labels
-exist to prevent.
+Today's one thing to recall comes from the learner model (ADR 0031): a flashcard from
+where the next few minutes help most. It replaced "worth a look", a list of the newest
+learning points, which was rereading and not aimed anywhere (feedback of 9 October).
 """
 
 from __future__ import annotations
@@ -22,11 +20,10 @@ from . import map as map_store
 from . import reports as reports_store
 from . import sources as source_store
 from .flags import UNSORTED_TOPIC, list_flags
-from .learning import bank_summary, list_points
+from .learning import bank_summary
 from .piles import TIERS
 from .tutor import overview as tutor_overview
 
-WORTH_A_LOOK_LIMIT = 4
 RECENT_FLAGS_LIMIT = 5
 LITERATURE_LIMIT = 6
 
@@ -73,7 +70,6 @@ def cover_sheet(
 ) -> dict[str, Any]:
     # on_day chooses the page of the day (ADR 0023); nothing else here rotates by date.
     bank = bank_summary(connection)
-    points = list_points(connection, held=False, limit=WORTH_A_LOOK_LIMIT)
     tutor = tutor_overview(connection)
 
     try:
@@ -96,14 +92,14 @@ def cover_sheet(
 
     from . import activity
     from . import cases as case_store
+    from . import learner
 
     return {
         "dashboard": activity.dashboard(connection),
         "new_cases": [case.as_dict() for case in case_store.new_cases(connection)],
         "page": page_payload,
         "encyclopedia": {**encyclopedia_counts, "message": "" if page is not None else encyclopedia_store.NO_PAGES},
-        "worth_a_look": [point.as_dict() for point in points],
-        "worth_a_look_message": "" if points else NO_MATERIAL,
+        "recall": learner.recall_prompt(connection),
         "held": {
             "points": bank["points_held"],
             "questions": bank["questions_held"],

@@ -113,6 +113,12 @@ It orders them so that no two steps in a row share a specialty where another is 
     button.
   - The graph can be coloured by what you know instead of by specialty.
   - The selected topic shows its estimate as words and meters, never as a score.
+- **Today:** "Recall one thing" takes a flashcard from the first step in the plan whose page
+  has cards (the card ready longest, else one not yet seen) and shows the step beside it. It
+  replaced "worth a look", the four newest learning points: that was rereading, chosen by
+  date, in wording written about the source rather than the medicine (feedback of
+  9 October). The answer is an ordinary flashcard review, so it feeds the spacing schedule.
+  The points stay one tap away, under each page's citations and in Sources.
 - **Strong and weak:** each topic carries its state badge.
 - **Flashcards:** the draw multiplies a card's weight by its page's state (fading 1.8,
   forming 1.4, holding 0.7) and says so ("Fading: recalling it now helps it last"). The factor

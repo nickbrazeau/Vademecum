@@ -80,7 +80,7 @@ const EMPTY_TIERS = [
 const OTHER_ROUTES: Record<string, unknown> = {
   '/api/today': {
     curated: { articles: [], source_configured: false, message: 'Nothing here yet.' },
-    worth_a_look: [],
+    recall: { card: null, unit: null },
     recent_flags: [],
     tiers: EMPTY_TIERS,
     open_flag_count: 0

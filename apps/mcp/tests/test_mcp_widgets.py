@@ -97,7 +97,7 @@ async def test_the_domain_is_declared_when_the_public_url_is_known(api) -> None:
 
 async def test_a_card_result_carries_what_the_card_draws(mcp_client: Client) -> None:
     today = await call(mcp_client, "get_today", {})
-    for key in ("worth_a_look", "held", "tutor", "literature", "recent_flags", "open_flag_count"):
+    for key in ("recall", "held", "tutor", "literature", "recent_flags", "open_flag_count"):
         assert key in today
     question = await call(mcp_client, "tutor_next_question", {})
     for key in ("question", "cycle", "empty_reason"):

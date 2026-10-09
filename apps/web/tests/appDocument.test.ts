@@ -14,7 +14,7 @@ const DOCUMENT = resolve(process.cwd(), '../mcp/src/vademecum_mcp/widgets/app.ht
 
 const EMPTY_SHEET = {
   curated: { articles: [], source_configured: false, message: 'Nothing yet.' },
-  worth_a_look: [],
+  recall: { card: null, unit: null },
   recent_flags: [],
   tiers: [
     { tier: 'low', pile_count: 0, item_count: 0 },

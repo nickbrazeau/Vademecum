@@ -225,3 +225,20 @@ def test_a_deleted_page_is_not_suggested_back(connection, eligible_everything) -
     pages.delete_entry(connection, entry.id)
     found = learner.model(connection, now=NOW)
     assert all("sarcoidosis" not in unit["names"] for unit in found["units"])
+
+
+def test_today_recall_is_a_card_from_where_the_plan_points(connection, eligible_everything, monkeypatch) -> None:
+    """Feedback of 9 October: Today's one thing to recall replaces "worth a look"."""
+    from vademecum.storage import flashcards
+
+    weak, _ = _page(connection, "cirrhosis", specialty="gastroenterology")
+    other, _ = _page(connection, "asthma", specialty="pulmonology")
+    _flag(connection, "cirrhosis")
+    for entry in (weak, other):
+        flashcards.insert_cards(connection, entry_id=entry.id, topic=entry.topic, entry_version=entry.version,
+                                drafts=[{"front": f"{entry.topic} front?", "back": "b", "points": [], "point_ids": [], "hold_reason": ""}])
+    monkeypatch.setattr(flashcards, "eligible_card_ids", lambda c: [r["id"] for r in c.execute("SELECT id FROM flashcards")])
+    found = learner.recall_prompt(connection, now=NOW)
+    assert found["card"]["entry_id"] == weak.id and found["card"]["front"] == "cirrhosis front?"
+    assert found["unit"]["title"] == "Cirrhosis" and found["kind"] == "recall"
+    assert set(found["intervals"]) == {"again", "good"}

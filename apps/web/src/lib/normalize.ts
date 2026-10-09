@@ -12,6 +12,7 @@
  */
 
 import type {
+  TodayRecall,
   KnowledgeState,
   LearnerModel,
   LearnerStep,
@@ -776,8 +777,7 @@ export function coverSheet(value: unknown): CoverSheet {
     new_cases: arr(raw['new_cases']).map(caseEntry),
     page: raw['page'] && typeof raw['page'] === 'object' ? encyclopediaEntry(raw['page']) : null,
     encyclopedia: { ...encyclopediaCounts(encyclopedia), message: str(encyclopedia['message']) },
-    worth_a_look: points(raw['worth_a_look']),
-    worth_a_look_message: str(raw['worth_a_look_message']),
+    recall: todayRecall(raw['recall']),
     held: {
       points: num(held['points']),
       questions: num(held['questions']),
@@ -1517,6 +1517,12 @@ function learnerUnit(raw: unknown): LearnerUnit {
     evidence: strings(unit.evidence),
     next: learnerStep(unit.next)
   }
+}
+
+export function todayRecall(raw: unknown): TodayRecall {
+  const data = obj(raw)
+  const { counts: _counts, ...draw } = flashcardDraw(raw)
+  return { ...draw, unit: data.unit && typeof data.unit === 'object' ? learnerUnit(data.unit) : null }
 }
 
 export function learnerModel(raw: unknown): LearnerModel {

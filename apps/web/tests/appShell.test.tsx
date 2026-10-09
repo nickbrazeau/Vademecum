@@ -15,7 +15,7 @@ const EMPTY_SHEET = {
     message:
       'No curated-article source is configured, so there is nothing here yet. Vademecum does not fetch or generate articles on its own.'
   },
-  worth_a_look: [],
+  recall: { card: null, unit: null },
   recent_flags: [],
   tiers: [
     { tier: 'low', pile_count: 0, item_count: 0 },
@@ -62,7 +62,7 @@ describe('the quick-flag shortcut', () => {
     stubApi()
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByRole('heading', { name: /worth a look/i })
+    await screen.findByRole('heading', { name: /recall one thing/i })
 
     expect(screen.queryByRole('heading', { name: /flag a knowledge gap/i })).not.toBeInTheDocument()
     await user.keyboard('{Meta>}k{/Meta}')
@@ -158,7 +158,7 @@ describe('the cover sheet', () => {
   it('does not invent anything to fill an empty workspace', async () => {
     stubApi()
     render(<App />)
-    expect(await screen.findByRole('heading', { name: /worth a look/i })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: /recall one thing/i })).toBeVisible()
     expect(screen.queryByRole('list', { name: /generated points/i })).not.toBeInTheDocument()
   })
 })

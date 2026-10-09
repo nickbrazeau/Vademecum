@@ -13,10 +13,11 @@ goes on the Improvement Map and is weighed when Vademecum chooses what to show y
 
 **Today** opens on:
 
+- **one thing to recall**: a flashcard from the topic that needs it most. Think of the
+  answer, show it, then say how it went. Below it is the suggested next step for that topic;
 - one encyclopedia page to review;
 - new literature from the topics you watch;
-- new teaching cases from the series you follow;
-- learning points worth a look.
+- new teaching cases from the series you follow.
 
 Each section opens and closes. **I reviewed this page** moves on to the next page.
 

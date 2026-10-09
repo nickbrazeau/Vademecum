@@ -28,7 +28,8 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         meta=tool_meta(APP_URI, invoking="Opening Vademecum…", invoked="Vademecum"),
     )
     async def get_today() -> dict[str, Any]:
-        """The owner's cover sheet: learning points worth a look, what is held for
+        """The owner's cover sheet: one flashcard to recall from where the learner model
+        says it helps most (put the front, wait for an answer, then the back), what is held for
         review, unread literature updates, where the Tutor cycle stands, recent
         knowledge-gap flags and a summary of the source library. Start here when
         the owner asks what is new or what to look at. Nothing counts down and

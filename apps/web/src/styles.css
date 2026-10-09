@@ -1918,3 +1918,19 @@ details[open].strength-topic > summary::before {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
 }
+
+/* Today's one thing to recall (feedback of 9 October). */
+.today-recall .recall-front {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.75rem;
+}
+.today-recall .recall-back {
+  border-left: 3px solid var(--accent);
+  padding-left: 0.75rem;
+  margin: 0.75rem 0;
+}
+.today-recall .recall-next {
+  margin-top: 1rem;
+  color: var(--muted);
+}

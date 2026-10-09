@@ -9,8 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../src/App'
 
 const EMPTY_SHEET = {
-  worth_a_look: [],
-  worth_a_look_message: '',
+  recall: { card: null, unit: null },
   held: { points: 0, questions: 0, needs_re_review: 0, reasons: [] },
   literature: { unread: 0, updates: [], topic_count: 0, message: '' },
   tutor: { eligible: 0, held: 0, answered_total: 0, cycle: { cycle_number: 0, position: 0, total: 0, remaining: 0, exhausted: false }, message: '' },

@@ -972,13 +972,17 @@ export interface PodcastSource {
   entry_id?: string
 }
 
+export interface TodayRecall extends Omit<FlashcardDraw, 'counts'> {
+  unit: LearnerUnit | null
+}
+
 export interface CoverSheet {
   dashboard: Dashboard
   new_cases: CaseEntry[]
   page: EncyclopediaEntry | null
   encyclopedia: EncyclopediaCounts & { message: string }
-  worth_a_look: LearningPoint[]
-  worth_a_look_message: string
+  /** Today's one thing to recall (ADR 0031), from where the next few minutes help most. */
+  recall: TodayRecall
   held: { points: number; questions: number; needs_re_review: number; reasons: string[] }
   literature: { unread: number; updates: Update[]; topic_count: number; message: string }
   tutor: { eligible: number; held: number; answered_total: number; cycle: Cycle; message: string }
