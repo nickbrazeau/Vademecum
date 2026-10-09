@@ -219,7 +219,7 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceOn, lastTutorLine])
 
-  if (result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
+  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
   if (result.state === 'failed') {
     return (
       <section className="card" aria-labelledby="socratic-heading">

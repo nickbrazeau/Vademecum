@@ -62,3 +62,4 @@ dist-app/
 # The Worker in front of the seat (deploy/cloudflare/worker): its own install.
 deploy/cloudflare/worker/node_modules/
 deploy/cloudflare/worker/.wrangler/
+_site/

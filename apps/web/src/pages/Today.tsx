@@ -291,7 +291,7 @@ export function Today({
   }, [reloadToken])
 
   if (result.state === 'loading') {
-    return <p className="muted">Reading from this Mac…</p>
+    return <p className="muted">Reading from this computer…</p>
   }
   if (result.state === 'failed') {
     return <Unavailable error={result.error} onRetry={reload} />

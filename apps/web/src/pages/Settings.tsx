@@ -117,7 +117,7 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
     }
   }, [result])
 
-  if (result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
+  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
   if (result.state === 'failed') return <Unavailable error={result.error} onRetry={reload} />
   const preferences = result.value
   const visible = chosen ?? preferences.visible_tabs

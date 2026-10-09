@@ -42,7 +42,7 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
     onNavigate(name)
   }
 
-  if (result.state === 'loading' && draw === null) return <p className="muted">Reading from this Mac…</p>
+  if (result.state === 'loading' && draw === null) return <p className="muted">Reading from this computer…</p>
   if (result.state === 'failed' && draw === null) return <Unavailable error={result.error} onRetry={reload} />
   if (current === null) return null
 

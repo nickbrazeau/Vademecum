@@ -101,7 +101,7 @@ export function HubSettings({ onChanged }: { onChanged: () => void }) {
   const [chosen, setChosen] = useState<Record<string, boolean> | null>(null)
   const [hours, setHours] = useState<string | null>(null)
 
-  if (result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
+  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
   if (result.state === 'failed') {
     return (
       <section className="card" aria-labelledby="case-hub-heading">
@@ -269,7 +269,7 @@ export function CaseSeries({ embedded = false, reloadToken: outside = 0 }: { emb
             ) : null}
           </div>
         </form>
-        {result.state === 'loading' ? <p className="muted">Reading from this Mac…</p> : null}
+        {result.state === 'loading' ? <p className="muted">Reading from this computer…</p> : null}
         {result.state === 'failed' ? <Unavailable error={result.error} onRetry={reload} /> : null}
         {result.state === 'ready' && result.value.entries.length === 0 ? (
           <p className="muted">

@@ -428,7 +428,7 @@ export function Encyclopedia() {
             ) : null}
           </div>
         </form>
-        {result.state === 'loading' ? <p className="muted">Reading from this Mac…</p> : null}
+        {result.state === 'loading' ? <p className="muted">Reading from this computer…</p> : null}
         {result.state === 'failed' ? <Unavailable error={result.error} onRetry={reload} /> : null}
         {opening ? (
           <p className="failure" role="alert">

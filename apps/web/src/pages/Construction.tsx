@@ -39,7 +39,7 @@ export function Construction({ onNavigate }: { onNavigate?: (name: RouteName) =>
 
       <section className="card" aria-labelledby="held-heading">
         <h2 id="held-heading">Held for review</h2>
-        {sheet.result.state === 'loading' ? <p className="muted">Reading from this Mac…</p> : null}
+        {sheet.result.state === 'loading' ? <p className="muted">Reading from this computer…</p> : null}
         {sheet.result.state === 'failed' ? <Unavailable error={sheet.result.error} onRetry={sheet.reload} /> : null}
         {sheet.result.state === 'ready' ? (
           <>

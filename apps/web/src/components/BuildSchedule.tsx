@@ -27,7 +27,7 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
 
-  if (result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
+  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
   if (result.state === 'failed') {
     // A schedule that cannot be read is a quiet line, not an alarm: the rest
     // of the page is what the owner came for.

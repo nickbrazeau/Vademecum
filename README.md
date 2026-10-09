@@ -67,7 +67,7 @@ The installer sets up Python and the web app, asks where your source folder shou
 registers Vademecum with Codex and Claude Desktop, whichever you have. It needs macOS 14 or
 later and Python 3.12 or later; Node 20 or later is optional.
 
-Then follow the tutorials:
+Then follow the tutorials, also on the [project website](https://nickbrazeau.github.io/Vademecum/):
 
 1. [Install and connect your assistant](docs/tutorials/01-install.md)
 2. [Add your first sources](docs/tutorials/02-first-sources.md)

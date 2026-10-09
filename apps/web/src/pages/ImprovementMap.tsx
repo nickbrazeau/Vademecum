@@ -276,7 +276,7 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
     if (known) for (const unit of [...known.units, ...known.plan]) found.set(unit.key, unit)
     return found
   }, [known])
-  if (map.result.state === 'loading') return <p className="muted">Reading from this Mac…</p>
+  if (map.result.state === 'loading') return <p className="muted">Reading from this computer…</p>
   if (map.result.state === 'failed') {
     return <Unavailable error={map.result.error} onRetry={reloadBoth} />
   }
@@ -325,7 +325,7 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
         ) : learner.result.state === 'failed' ? (
           <p className="muted small">{learner.result.error.message}</p>
         ) : (
-          <p className="muted">Reading from this Mac…</p>
+          <p className="muted">Reading from this computer…</p>
         )}
       </section>
       <section className="card" aria-labelledby="map-heading">

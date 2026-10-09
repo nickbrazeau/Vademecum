@@ -32,6 +32,14 @@ MCP_PORT="${VADEMECUM_MCP_PORT:-8766}"
 say() { printf '\033[1m==>\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31m==> %s\033[0m\n' "$*" >&2; exit 1; }
 
+USAGE="usage: $0 [--http|--stdio|--tunnel|setup codex|setup claude|passphrase|status|revoke-all|invite|learners|disable HANDLE|reset HANDLE]"
+
+# A wrong argument is answered before anything else, virtualenv or not.
+case "${1:-}" in
+  "" | --http | --stdio | --tunnel | passphrase | status | revoke-all | invite | learners | disable | reset | setup) ;;
+  *) echo "$USAGE" >&2; exit 64 ;;
+esac
+
 [ -x "$PYTHON" ] || die "No virtualenv yet. Run ./scripts/dev.sh --check first."
 
 # The MCP package lives beside the API in the same virtualenv. An older venv
@@ -57,7 +65,7 @@ case "${1:-}" in
     exec "$PYTHON" -m vademecum_mcp setup "$@"
     ;;
   *)
-    echo "usage: $0 [--http|--stdio|--tunnel|setup codex|setup claude|passphrase|status|revoke-all|invite|learners|disable HANDLE|reset HANDLE]" >&2
+    echo "$USAGE" >&2
     exit 64
     ;;
 esac
