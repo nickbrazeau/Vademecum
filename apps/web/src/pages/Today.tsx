@@ -357,7 +357,7 @@ export function Today({
         </details>
       ) : null}
 
-      <details className="card toggle-card" aria-labelledby="recall-heading" open>
+      <details className="card toggle-card" aria-labelledby="recall-heading">
         <summary>
           <h2 id="recall-heading">Recall one thing</h2>
           {sheet.recall.unit ? <span className="muted small">{sheet.recall.unit.title}</span> : null}
