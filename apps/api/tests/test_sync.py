@@ -444,3 +444,29 @@ def test_a_batch_carries_the_parents_its_rows_point_at(connection) -> None:
     apply_migrations(fresh)
     applied = sync_store.apply_changes(fresh, changes, role="foris", directories={}, require_files=False)
     assert applied.applied >= 2 and fresh.execute("SELECT COUNT(*) FROM knowledge_gap_flags").fetchone()[0] == 1
+
+
+def test_a_batch_with_its_parents_still_fits_the_peers_limit(connection, monkeypatch) -> None:
+    """The parents a batch carries count against the peer's limit (it refuses a longer one)."""
+    from vademecum.storage import piles
+
+    monkeypatch.setattr(sync_store, "MAX_BATCH", 2)
+    connection.execute("UPDATE sync_state SET applying = 1 WHERE id = 1")
+    pile = piles.create_pile(connection, title="From the phone", tier="mid")
+    connection.execute("UPDATE sync_state SET applying = 0 WHERE id = 1")
+    for index in range(3):
+        connection.execute(
+            "INSERT INTO knowledge_gap_flags (id, text, topic, pile_id, status, created_at, updated_at, addressed_at)"
+            " VALUES (?, 'Unsure', 't', ?, 'open', '2026-10-09T00:00:00Z', '2026-10-09T00:00:00Z', NULL)",
+            (f"kgf_{index}", pile.id),
+        )
+    connection.commit()
+    since, seen = 0, 0
+    while True:
+        changes, through, done = sync_store.changes_since(connection, since)
+        assert len(changes) <= 2
+        seen += sum(1 for change in changes if change.table == "knowledge_gap_flags")
+        since = through
+        if done:
+            break
+    assert seen == 3

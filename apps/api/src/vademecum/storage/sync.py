@@ -313,6 +313,16 @@ def changes_since(
     covers every log entry read, filtered or not.
     """
     limit = max(1, min(limit, MAX_BATCH))
+    # The parents a batch carries count against the peer's limit: read fewer log entries
+    # until the batch, parents and all, fits.
+    while True:
+        changes, through, done = _read_batch(connection, since, limit, scope)
+        if len(changes) <= MAX_BATCH or limit == 1:
+            return changes, through, done
+        limit = max(1, limit // 2)
+
+
+def _read_batch(connection: sqlite3.Connection, since: int, limit: int, scope: Scope) -> tuple[list[Change], int, bool]:
     rows = connection.execute(
         "SELECT seq, table_name, row_key, op FROM sync_log WHERE seq > ? ORDER BY seq LIMIT ?",
         (since, limit + 1),
