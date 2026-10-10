@@ -89,6 +89,8 @@ SYNCED_TABLES: tuple[str, ...] = (
     "podcast_listens",
     # Edits and deletions asked for on the cloud copy, applied by the Mac (feedback of 10 October).
     "page_changes",
+    # The owner's thumbs on papers (feedback of 10 October).
+    "literature_ratings",
 )
 
 DOMI_OWNED: frozenset[str] = frozenset(

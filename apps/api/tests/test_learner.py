@@ -242,3 +242,18 @@ def test_today_recall_is_a_card_from_where_the_plan_points(connection, eligible_
     assert found["card"]["entry_id"] == weak.id and found["card"]["front"] == "cirrhosis front?"
     assert found["unit"]["title"] == "Cirrhosis" and found["kind"] == "recall"
     assert set(found["intervals"]) == {"again", "good"}
+
+
+def test_an_answered_recall_card_gives_way_to_another(connection, eligible_everything, monkeypatch) -> None:
+    """Feedback of 10 October: once answered, Today's card is replaced the next time it opens."""
+    from vademecum.storage import flashcards
+
+    weak, _ = _page(connection, "cirrhosis", specialty="gastroenterology")
+    _flag(connection, "cirrhosis")
+    flashcards.insert_cards(connection, entry_id=weak.id, topic=weak.topic, entry_version=weak.version,
+                            drafts=[{"front": f"cirrhosis front {i}?", "back": "b", "point_ids": [], "hold_reason": ""} for i in range(2)])
+    monkeypatch.setattr(flashcards, "eligible_card_ids", lambda c: [r["id"] for r in c.execute("SELECT id FROM flashcards")])
+    first = learner.recall_prompt(connection)
+    flashcards.record_review(connection, first["card"]["id"], "good")
+    second = learner.recall_prompt(connection)
+    assert second["card"] is not None and second["card"]["id"] != first["card"]["id"]

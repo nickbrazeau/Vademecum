@@ -665,6 +665,7 @@ export function update(value: unknown): Update {
   const raw = obj(value)
   return {
     id: str(raw['id']),
+    rating: raw['rating'] === 1 ? 1 : raw['rating'] === -1 ? -1 : 0,
     topic_id: str(raw['topic_id']),
     topic_label: str(raw['topic_label']),
     record_id: str(raw['record_id']),
@@ -701,6 +702,7 @@ export function literatureSettings(value: unknown): LiteratureSettings {
     weekly_enabled: bool(raw['weekly_enabled']),
     interval_hours: num(raw['interval_hours'], 168),
     preferred_journals: Array.isArray(raw['preferred_journals']) ? raw['preferred_journals'].map(String) : [],
+    suggested_journals: Array.isArray(raw['suggested_journals']) ? raw['suggested_journals'].map(String) : [],
     guidelines_first: raw['guidelines_first'] !== false,
     enabled: bool(raw['enabled']),
     running: bool(raw['running']),

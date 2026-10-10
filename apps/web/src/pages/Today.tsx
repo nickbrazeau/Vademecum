@@ -7,7 +7,7 @@
  * however often you open it.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { EditablePage } from './Encyclopedia'
 import { TodayRecall } from '../components/TodayRecall'
@@ -23,14 +23,30 @@ import { Loading } from '../components/Loading'
 
 function UpdateEntry({
   update,
-  onSettled
+  onSettled,
+  onNext
 }: {
   update: Update
   onSettled: (id: string) => void
+  /** Next article: this one is set aside and another takes its place (feedback of 10 October). */
+  onNext: (id: string) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<ApiError | null>(null)
+  const [rating, setRating] = useState(update.rating)
   const paper = update
+
+  // Thumbs tune what comes next; pressing the same one again clears it.
+  const rate = async (value: number) => {
+    const next = rating === value ? 0 : value
+    setFailure(null)
+    try {
+      await api.rateUpdate(update.id, next)
+      setRating(next)
+    } catch (error) {
+      setFailure(asApiError(error))
+    }
+  }
 
   const settle = async (state: UpdateState) => {
     setBusy(true)
@@ -95,22 +111,30 @@ function UpdateEntry({
       ) : null}
 
       <div className="actions">
-        <button
-          type="button"
-          className="button"
-          disabled={busy}
-          onClick={() => void settle('acknowledged')}
-        >
-          Acknowledge
+        <button type="button" className="button" disabled={busy} onClick={() => void settle('acknowledged')}>
+          Reviewed it
         </button>
         <button
           type="button"
           className="button ghost"
           disabled={busy}
-          onClick={() => void settle('dismissed')}
+          onClick={() =>
+            void (async () => {
+              await settle('dismissed')
+              onNext(update.id)
+            })()
+          }
         >
-          Dismiss
+          Next article
         </button>
+        <span className="thumbs" role="group" aria-label="More like this or less">
+          <button type="button" className={`button ghost small${rating === 1 ? ' on' : ''}`} aria-pressed={rating === 1} aria-label="More like this" onClick={() => void rate(1)}>
+            👍
+          </button>
+          <button type="button" className={`button ghost small${rating === -1 ? ' on' : ''}`} aria-pressed={rating === -1} aria-label="Less like this" onClick={() => void rate(-1)}>
+            👎
+          </button>
+        </span>
       </div>
     </li>
   )
@@ -281,9 +305,29 @@ export function Today({
   onNavigate?: (name: RouteName) => void
 }) {
   const { result, reload } = useLoad(() => api.today(), [reloadToken])
+  // Once Recall one thing has been answered, coming back to the app brings a fresh one
+  // (feedback of 10 October). A reload keeps the page on screen until the new one arrives.
+  const recallAnswered = useRef(false)
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState === 'visible' && recallAnswered.current) {
+        recallAnswered.current = false
+        reload()
+      }
+    }
+    document.addEventListener('visibilitychange', back)
+    window.addEventListener('focus', back)
+    return () => {
+      document.removeEventListener('visibilitychange', back)
+      window.removeEventListener('focus', back)
+    }
+  }, [reload])
   // Acknowledging removes an entry from this pass without re-reading the page
   // underneath the owner's hands.
   const [settled, setSettled] = useState<string[]>([])
+  // Papers brought in by Next article, shown in place of the one set aside.
+  const [extra, setExtra] = useState<Update[]>([])
+  const [fetchingMore, setFetchingMore] = useState(false)
   const [seenCases, setSeenCases] = useState<string[]>([])
   const [board, setBoard] = useState<Dashboard | null>(null)
 
@@ -300,9 +344,19 @@ export function Today({
   }
 
   const sheet: CoverSheet = result.value
-  const unread = sheet.literature.updates.filter(
+  const unread = [...sheet.literature.updates, ...extra].filter(
     (update) => update.state === 'unread' && !settled.includes(update.id)
   )
+  const nextArticle = async (id: string) => {
+    const shown = [...sheet.literature.updates, ...extra].map((update) => update.id).concat(id)
+    try {
+      const found = await api.nextUpdate(shown)
+      if (found.update && !shown.includes(found.update.id)) setExtra((current) => [...current, found.update!])
+      setFetchingMore(found.update === null && found.fetching)
+    } catch {
+      /* the one set aside is gone either way; nothing to add */
+    }
+  }
   const cases = sheet.new_cases.filter((entry) => !seenCases.includes(entry.id))
   const go = (name: RouteName) => (event: MouseEvent) => {
     if (onNavigate === undefined) return
@@ -339,10 +393,16 @@ export function Today({
                 key={update.id}
                 update={update}
                 onSettled={(id) => setSettled((current) => [...current, id])}
+                onNext={(id) => void nextArticle(id)}
               />
             ))}
           </ul>
         )}
+        {fetchingMore ? (
+          <p className="muted small" role="status">
+            Looking for more papers on your topics; they appear here when found.
+          </p>
+        ) : null}
       </details>
 
       {cases.length > 0 ? (
@@ -364,7 +424,14 @@ export function Today({
           <h2 id="recall-heading">Recall one thing</h2>
           {sheet.recall.unit ? <span className="muted small">{sheet.recall.unit.title}</span> : null}
         </summary>
-        <TodayRecall recall={sheet.recall} onNavigate={onNavigate} />
+        <TodayRecall
+          key={sheet.recall.card?.id ?? 'none'}
+          recall={sheet.recall}
+          onNavigate={onNavigate}
+          onAnswered={() => {
+            recallAnswered.current = true
+          }}
+        />
       </details>
     </div>
   )

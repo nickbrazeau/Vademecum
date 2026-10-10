@@ -1942,3 +1942,14 @@ details[open].strength-topic > summary::before {
   min-height: var(--tap);
   justify-content: center;
 }
+
+/* Thumbs on a paper (feedback of 10 October): pressed reads as chosen. */
+.thumbs {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+.thumbs .button.on {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}

@@ -333,6 +333,8 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/literature/check",
         "/api/literature/updates",
         "/api/literature/updates/{update_id}",
+        "/api/literature/updates/next",
+        "/api/literature/updates/{update_id}/rating",
         "/api/literature/settings",
         "/api/literature/suggestions",
         # Connection state and ChatGPT sign-in.

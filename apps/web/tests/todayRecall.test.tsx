@@ -53,3 +53,15 @@ describe('Recall one thing', () => {
     expect(screen.getByText(/Nothing to recall yet/)).toBeInTheDocument()
   })
 })
+
+describe('Recall one thing, refreshed', () => {
+  it('reports an answer so Today can bring a fresh card on return', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ review: {}, next: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    const answered = vi.fn()
+    const user = userEvent.setup()
+    render(<TodayRecall recall={todayRecall(RECALL)} onAnswered={answered} />)
+    await user.click(screen.getByRole('button', { name: 'Show answer' }))
+    await user.click(screen.getByRole('button', { name: /Again/ }))
+    await waitFor(() => expect(answered).toHaveBeenCalledTimes(1))
+  })
+})

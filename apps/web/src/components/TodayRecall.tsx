@@ -13,7 +13,16 @@ import type { RouteName } from '../lib/router'
 import type { TodayRecall as Recall } from '../lib/types'
 import { StateBadge, StepButton } from './StudyNext'
 
-export function TodayRecall({ recall, onNavigate }: { recall: Recall; onNavigate?: (name: RouteName) => void }) {
+export function TodayRecall({
+  recall,
+  onNavigate,
+  onAnswered
+}: {
+  recall: Recall
+  onNavigate?: (name: RouteName) => void
+  /** Told once the card is answered, so Today can bring a fresh one when the app comes back. */
+  onAnswered?: () => void
+}) {
   const [shown, setShown] = useState(false)
   const [answered, setAnswered] = useState<'again' | 'good' | null>(null)
   const [busy, setBusy] = useState(false)
@@ -39,6 +48,7 @@ export function TodayRecall({ recall, onNavigate }: { recall: Recall; onNavigate
     try {
       await api.flashcardReview(card.id, rating)
       setAnswered(rating)
+      onAnswered?.()
     } catch (error) {
       setFailure(asApiError(error))
     } finally {

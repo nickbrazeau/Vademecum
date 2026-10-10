@@ -468,6 +468,8 @@ export interface CorrectionNote {
  */
 export interface Update {
   id: string
+  /** The owner's thumbs on this paper: 1, -1 or 0 (feedback of 10 October). */
+  rating: number
   topic_id: string
   topic_label: string
   record_id: string
@@ -496,6 +498,8 @@ export interface LiteratureSettings {
   interval_hours: number
   /** Which records come first: practice guidelines, and these journals (PubMed title abbreviations). */
   preferred_journals: string[]
+  /** Journals the owner's thumbs favour and does not yet prefer (feedback of 10 October). */
+  suggested_journals: string[]
   guidelines_first: boolean
   enabled: boolean
   running: boolean

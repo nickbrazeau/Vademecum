@@ -518,6 +518,9 @@ def most_needed_entry(connection: sqlite3.Connection, *, kind: str, not_entry: s
     return None if best is None else best[3]
 
 
+RECALL_REST_HOURS = 12
+
+
 def recall_prompt(connection: sqlite3.Connection, *, now: datetime | None = None) -> dict[str, Any]:
     """Today's one thing to recall (feedback of 9 October, replacing "worth a look"): a
     flashcard from the first step in the plan whose page has cards, the one ready longest
@@ -532,6 +535,16 @@ def recall_prompt(connection: sqlite3.Connection, *, now: datetime | None = None
         return {"card": None, "unit": None}
     eligible = set(eligible_card_ids(connection))
     plans = srs.schedules(connection)
+    # A card answered in the last RECALL_REST_HOURS is not asked again until it is due, so an
+    # answered card gives way to another the next time Today opens (feedback of 10 October).
+    rested = {
+        card_id
+        for card_id, plan_for in plans.items()
+        if plan_for.last_at is not None
+        and (moment - plan_for.last_at).total_seconds() < RECALL_REST_HOURS * 3600
+        and (plan_for.due_at is None or plan_for.due_at > moment)
+    }
+    eligible -= rested
     for unit in plan:
         if not unit["entry_id"] or not unit["cards_ready"]:
             continue

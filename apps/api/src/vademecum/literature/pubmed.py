@@ -244,7 +244,7 @@ class PubMedProvider:
         # means plain searches, as before.
         self.preference_reader: Callable[[], dict[str, Any]] | None = None
 
-    def search(self, query: str) -> list[Article]:
+    def search(self, query: str, offset: int = 0) -> list[Article]:
         """Guidelines and the preferred journals first, then everything else.
 
         Two searches when preferences say so: the topic narrowed to practice
@@ -258,9 +258,9 @@ class PubMedProvider:
         identifiers: list[str] = []
         narrow = preferred_filter(preferences)
         if narrow:
-            identifiers.extend(self._esearch(f"({term}) AND ({narrow})"))
+            identifiers.extend(self._esearch(f"({term}) AND ({narrow})", offset))
         if len(identifiers) < self._max_results:
-            for pmid in self._esearch(term):
+            for pmid in self._esearch(term, offset):
                 if pmid not in identifiers:
                     identifiers.append(pmid)
         identifiers = identifiers[: self._max_results]
@@ -305,17 +305,18 @@ class PubMedProvider:
 
     # -- calls ----------------------------------------------------------------
 
-    def _esearch(self, term: str) -> list[str]:
-        payload = self._fetcher.get(
-            ESEARCH_PATH,
-            {
-                "db": "pubmed",
-                "retmode": "json",
-                "retmax": str(self._max_results),
-                "sort": "date",
-                "term": term,
-            },
-        )
+    def _esearch(self, term: str, offset: int = 0) -> list[str]:
+        # `offset` reads further back once the newest results are all known (feedback of 10 October).
+        params = {
+            "db": "pubmed",
+            "retmode": "json",
+            "retmax": str(self._max_results),
+            "sort": "date",
+            "term": term,
+        }
+        if offset > 0:
+            params["retstart"] = str(int(offset))
+        payload = self._fetcher.get(ESEARCH_PATH, params)
         try:
             document = json.loads(payload.decode("utf-8", "replace"))
         except (ValueError, AttributeError) as exc:

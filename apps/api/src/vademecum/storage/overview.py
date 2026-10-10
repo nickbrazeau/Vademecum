@@ -73,13 +73,15 @@ def cover_sheet(
     tutor = tutor_overview(connection)
 
     try:
-        updates = literature_store.list_updates(
-            connection, state="unread", limit=LITERATURE_LIMIT
+        # Best first, as the owner's thumbs have shaped it (feedback of 10 October).
+        updates = literature_store.ranked_updates(
+            connection, limit=LITERATURE_LIMIT
         )
         unread = literature_store.unread_count(connection)
+        rated = literature_store.ratings(connection)
         topic_count = len(literature_store.list_topics(connection))
     except sqlite3.Error:  # pragma: no cover - schema is always present
-        updates, unread, topic_count = [], 0, 0
+        updates, unread, topic_count, rated = [], 0, 0, {}
 
     from . import encyclopedia as encyclopedia_store
 
@@ -108,7 +110,7 @@ def cover_sheet(
         },
         "literature": {
             "unread": unread,
-            "updates": [update.as_dict() for update in updates],
+            "updates": [{**update.as_dict(), "rating": rated.get(update.record_id, 0)} for update in updates],
             "topic_count": topic_count,
             "message": NO_LITERATURE if topic_count == 0 else "",
         },

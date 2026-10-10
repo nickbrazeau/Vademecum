@@ -114,6 +114,43 @@ def list_updates(
     ]
 
 
+@router.get("/updates/next")
+async def next_update(
+    request: Request,
+    exclude: str = "",
+    connection: sqlite3.Connection = Depends(get_connection),
+) -> dict:
+    """Next article (feedback of 10 October): the best unread paper not already on screen.
+    When few are left, a check runs in the background so there is always another."""
+    import asyncio
+
+    shown = tuple(item for item in exclude.split(",") if item)[:50]
+    found = store.ranked_updates(connection, limit=1, exclude=shown)
+    backlog = store.unread_backlog(connection)
+    fetching = False
+    watcher = get_watcher(request)
+    if watcher is not None and backlog - len(shown) < 6:
+        tasks = getattr(request.app.state, "literature_refill", None)
+        if tasks is None or tasks.done():
+            request.app.state.literature_refill = asyncio.create_task(watcher.check_now(None))
+        fetching = True
+    rated = store.ratings(connection)
+    update = {**found[0].as_dict(), "rating": rated.get(found[0].record_id, 0)} if found else None
+    return {"update": update, "fetching": fetching}
+
+
+@router.put("/updates/{update_id}/rating")
+def rate_update(
+    update_id: str,
+    payload: schemas.PaperRating,
+    connection: sqlite3.Connection = Depends(get_connection),
+) -> dict:
+    """Thumbs on a paper: what Today shows next leans towards what was liked."""
+    update = store.get_update(connection, update_id)
+    store.set_rating(connection, update.record_id, payload.rating)
+    return {"record_id": update.record_id, "rating": payload.rating}
+
+
 @router.patch("/updates/{update_id}")
 def set_update_state(
     update_id: str,
@@ -135,6 +172,8 @@ def get_settings(
         "running": bool(watcher and watcher.running),
         "provider": PROVIDER,
         "unread": store.unread_count(connection),
+        # Journals the owner's thumbs favour, offered (feedback of 10 October).
+        "suggested_journals": store.suggested_journals(connection),
     }
 
 

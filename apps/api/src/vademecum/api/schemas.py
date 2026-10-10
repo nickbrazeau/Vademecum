@@ -382,6 +382,12 @@ class UpdateState(Strict):
     state: Literal["unread", "acknowledged", "dismissed"]
 
 
+class PaperRating(Strict):
+    """Thumbs up (1), down (-1), or neither (0) on a paper (feedback of 10 October)."""
+
+    rating: Literal[-1, 0, 1]
+
+
 class ErrorDetail(BaseModel):
     field: str
     problem: str

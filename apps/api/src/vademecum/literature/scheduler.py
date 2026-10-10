@@ -517,8 +517,10 @@ class LiteratureWatcher:
                 "failure_category": "unstarted",
             }
 
+        # Once a topic's newest results are all known, read further back (feedback of 10 October).
+        depth = store.search_depth(connection, topic.id)
         try:
-            articles = self._provider.search(topic.query)
+            articles = self._provider.search(topic.query, offset=depth) if depth else self._provider.search(topic.query)
         except QueryError:
             return self._fail(connection, check.id, topic, "invalid_query")
         except ProviderError as exc:
@@ -542,6 +544,12 @@ class LiteratureWatcher:
             )
             return self._fail(connection, check.id, topic, "storage")
 
+        try:
+            store.note_search_depth(
+                connection, topic.id, found_new=int(counts.get("new_to_topic", 0)), step=max(1, int(counts.get("returned", 0)))
+            )
+        except Exception as exc:  # noqa: BLE001 - a depth not noted only means the same window next time
+            logger.error("literature_depth_failed topic=%s error=%s", topic.id, type(exc).__name__)
         try:
             store.finish_check(
                 connection,

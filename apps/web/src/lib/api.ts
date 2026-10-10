@@ -357,6 +357,15 @@ export const api = {
       method: 'POST',
       ...body(topicId === undefined ? {} : { topic_id: topicId })
     }).then(normalize.checkReport),
+  /** Thumbs on a paper: 1, -1, or 0 to clear (feedback of 10 October). */
+  rateUpdate: (updateId: string, rating: number) =>
+    request<{ rating: number }>(`/literature/updates/${updateId}/rating`, { method: 'PUT', ...body({ rating }) }),
+  /** Next article: the best unread paper not already shown; more are fetched when few remain. */
+  nextUpdate: (exclude: string[]) =>
+    request<{ update: unknown; fetching: boolean }>(`/literature/updates/next${query({ exclude: exclude.join(',') || undefined })}`).then((data) => ({
+      update: data.update ? normalize.update(data.update) : null,
+      fetching: data.fetching === true
+    })),
   setUpdateState: (updateId: string, state: UpdateState) =>
     request<Update>(`/literature/updates/${updateId}`, { method: 'PATCH', ...body({ state }) }).then(normalize.update),
   literatureSettings: () => request<LiteratureSettings>('/literature/settings').then(normalize.literatureSettings),

@@ -294,6 +294,22 @@ export function LiteratureSettings({ onChecked }: { onChecked: () => void }) {
               </li>
             ))}
           </ul>
+          {current.suggested_journals.length > 0 ? (
+            <p className="small">
+              From your thumbs up:{' '}
+              {current.suggested_journals.map((journal) => (
+                <button
+                  key={journal}
+                  type="button"
+                  className="button ghost small"
+                  disabled={busy}
+                  onClick={() => void savePreferences({ preferred_journals: [...current.preferred_journals, journal] })}
+                >
+                  Prefer {journal}
+                </button>
+              ))}
+            </p>
+          ) : null}
           <label className="field">
             <span>Add a journal (PubMed abbreviation, e.g. "N Engl J Med")</span>
             <input

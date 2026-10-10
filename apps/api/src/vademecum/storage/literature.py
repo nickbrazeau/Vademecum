@@ -468,6 +468,7 @@ def record_articles(
         "new_to_library": 0,
         "already_known": 0,
         "recently_published": 0,
+        "new_to_topic": 0,
     }
     changed_status: list[dict[str, Any]] = []
 
@@ -554,12 +555,13 @@ def record_articles(
             # first_seen_at: rediscovering an *unchanged* record is not a reason
             # to mark it unread again. Only a status change is, and that is done
             # below, deliberately and with a reason attached.
-            tx.execute(
+            linked = tx.execute(
                 "INSERT OR IGNORE INTO literature_topic_records"
                 " (id, topic_id, record_id, check_id, state, first_seen_at, updated_at)"
                 " VALUES (?, ?, ?, ?, 'unread', ?, ?)",
                 (new_id("ltr"), topic_id, record_id, check_id, now, now),
             )
+            counts["new_to_topic"] += linked.rowcount or 0
 
         # This topic's rows point at the check that just ran. A record another
         # topic also linked is resurfaced too -- the paper was withdrawn for
@@ -1172,3 +1174,134 @@ def _plus_hours(value: str, hours: float) -> str:
 
 def _plus_seconds(value: str, seconds: float) -> str:
     return _format(_parse_timestamp(value) + timedelta(seconds=seconds))
+
+
+# --- the owner's thumbs, and what Today shows next (feedback of 10 October) -----------
+
+RATING_HALF_LIFE_DAYS = 90.0
+_PRIORITY_BONUS = {"guideline": 0.6, "trial": 0.4, "major_journal": 0.3}
+DEPTH_KEY = "literature_depth"
+DEPTH_STEP_MAX = 250
+
+
+def set_rating(connection: sqlite3.Connection, record_id: str, rating: int) -> None:
+    """Thumbs up (1), down (-1), or neither (0, which clears it)."""
+    with transaction(connection) as tx:
+        if rating == 0:
+            tx.execute("DELETE FROM literature_ratings WHERE record_id = ?", (record_id,))
+            return
+        if rating not in (-1, 1):
+            raise ValueError("a rating is 1, -1 or 0")
+        tx.execute(
+            "INSERT INTO literature_ratings (record_id, rating, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(record_id) DO UPDATE SET rating = excluded.rating, updated_at = excluded.updated_at",
+            (record_id, rating, utc_now()),
+        )
+
+
+def ratings(connection: sqlite3.Connection) -> dict[str, int]:
+    return {row["record_id"]: int(row["rating"]) for row in connection.execute("SELECT record_id, rating FROM literature_ratings")}
+
+
+def _days_since(stamp: str | None, now: datetime) -> float:
+    if not stamp:
+        return 365.0
+    try:
+        moment = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return 365.0
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return max(0.0, (now - moment).total_seconds() / 86400)
+
+
+def _affinity(connection: sqlite3.Connection, now: datetime) -> dict[str, dict[str, float]]:
+    """What the owner's thumbs say they like: by journal, topic and publication type, each
+    rating fading by half every RATING_HALF_LIFE_DAYS."""
+    taste: dict[str, dict[str, float]] = {"journal": {}, "topic": {}, "type": {}}
+    rows = connection.execute(
+        "SELECT r.rating, r.updated_at, l.journal, l.publication_types,"
+        " (SELECT topic_id FROM literature_topic_records t WHERE t.record_id = l.id LIMIT 1) AS topic_id"
+        " FROM literature_ratings r JOIN literature_records l ON l.id = r.record_id"
+    ).fetchall()
+    for row in rows:
+        weight = int(row["rating"]) * 0.5 ** (_days_since(row["updated_at"], now) / RATING_HALF_LIFE_DAYS)
+        journal = (row["journal"] or "").strip().casefold()
+        if journal:
+            taste["journal"][journal] = taste["journal"].get(journal, 0.0) + weight
+        if row["topic_id"]:
+            taste["topic"][row["topic_id"]] = taste["topic"].get(row["topic_id"], 0.0) + weight
+        try:
+            kinds = json.loads(row["publication_types"] or "[]")
+        except ValueError:
+            kinds = []
+        for kind in kinds if isinstance(kinds, list) else []:
+            key = str(kind).casefold()
+            taste["type"][key] = taste["type"].get(key, 0.0) + weight
+    return taste
+
+
+def ranked_updates(
+    connection: sqlite3.Connection, *, limit: int, exclude: tuple[str, ...] | list[str] = (), now: datetime | None = None
+) -> list[Update]:
+    """Unread papers, best first: newer first, guidelines and trials up, and above all
+    what the owner's thumbs say they want. A paper they turned down is not shown."""
+    moment = now or datetime.now(timezone.utc)
+    taste = _affinity(connection, moment)
+    rated = ratings(connection)
+    skip = set(exclude)
+    scored: list[tuple[float, str, Update]] = []
+    for update in list_updates(connection, state="unread", limit=500):
+        if update.id in skip or rated.get(update.record_id) == -1:
+            continue
+        score = 0.5 ** (_days_since(update.first_seen_at, moment) / 30.0)
+        score += _PRIORITY_BONUS.get(update.priority, 0.0)
+        score += 0.6 * taste["journal"].get((update.journal or "").strip().casefold(), 0.0)
+        score += 0.4 * taste["topic"].get(update.topic_id, 0.0)
+        score += 0.2 * sum(taste["type"].get(str(kind).casefold(), 0.0) for kind in update.publication_types)
+        scored.append((score, update.first_seen_at, update))
+    scored.sort(key=lambda item: -item[0])
+    return [update for _score, _seen, update in scored[: max(0, int(limit))]]
+
+
+def suggested_journals(connection: sqlite3.Connection, *, now: datetime | None = None) -> list[str]:
+    """Journals the owner has liked papers from at least twice, net of dislikes, and does not
+    yet prefer: offered as preferred journals, never added without them."""
+    moment = now or datetime.now(timezone.utc)
+    preferred = {journal.casefold() for journal in get_settings(connection).get("preferred_journals", [])}
+    names: dict[str, str] = {}
+    for row in connection.execute("SELECT DISTINCT journal FROM literature_records WHERE journal != ''"):
+        names.setdefault(row["journal"].strip().casefold(), row["journal"].strip())
+    liked = _affinity(connection, moment)["journal"]
+    return [names.get(key, key) for key, weight in sorted(liked.items(), key=lambda item: -item[1]) if weight >= 1.5 and key not in preferred][:5]
+
+
+def unread_backlog(connection: sqlite3.Connection) -> int:
+    row = connection.execute("SELECT COUNT(*) AS n FROM literature_topic_records WHERE state = 'unread'").fetchone()
+    return int(row["n"] or 0)
+
+
+def search_depth(connection: sqlite3.Connection, topic_id: str) -> int:
+    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (DEPTH_KEY,)).fetchone()
+    try:
+        return int((json.loads(row["value"]) if row else {}).get(topic_id, 0))
+    except (ValueError, TypeError, AttributeError):
+        return 0
+
+
+def note_search_depth(connection: sqlite3.Connection, topic_id: str, *, found_new: int, step: int) -> None:
+    """Once a topic's newest results are all known, the next check reads further back,
+    so Next article always has somewhere to go (feedback of 10 October)."""
+    row = connection.execute("SELECT value FROM app_state WHERE key = ?", (DEPTH_KEY,)).fetchone()
+    try:
+        depths = json.loads(row["value"]) if row else {}
+    except ValueError:
+        depths = {}
+    current = int(depths.get(topic_id, 0) or 0)
+    depths[topic_id] = 0 if found_new else min(DEPTH_STEP_MAX, current + step)
+    with transaction(connection) as tx:
+        tx.execute(
+            "INSERT INTO app_state (key, value, updated_at) VALUES (?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (DEPTH_KEY, json.dumps(depths, separators=(",", ":")), utc_now()),
+        )
