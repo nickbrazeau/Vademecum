@@ -804,6 +804,8 @@ export interface EncyclopediaList {
   specialties: Specialty[]
   counts: EncyclopediaCounts
   can_compile: boolean
+  /** Edit and delete: everywhere; away from the Mac they are applied there at its next sync (feedback of 10 October). */
+  can_edit: boolean
   running: boolean
   last_refresh: EncyclopediaRefresh | null
   note: string

@@ -1934,3 +1934,11 @@ details[open].strength-topic > summary::before {
   margin-top: 1rem;
   color: var(--muted);
 }
+
+/* Today and Settings in the tab list: always shown, no switch (feedback of 10 October). */
+.tab-fixed {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--tap);
+  justify-content: center;
+}

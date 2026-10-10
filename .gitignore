@@ -14,7 +14,7 @@ logs/
 # Everything else in this repository is public.
 private/
 Feedback_*
-.claude/settings.local.json
+.claude/
 
 # Local tool state
 .wrangler/

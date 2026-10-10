@@ -22,7 +22,7 @@ from ..storage import encyclopedia as store
 from ..storage import learner
 from ..storage import map as map_store
 from ..storage.sources import ConflictError
-from .deps import get_connection, get_model_mode
+from .deps import get_connection, get_model_mode, get_settings_dep
 from .routes_sources import CLAUDE_DESTINATION, CODEX_DESTINATION
 from .schemas import RecordId, Strict
 
@@ -113,6 +113,8 @@ def _state(request: Request, connection: sqlite3.Connection, mode: str) -> dict[
     return {
         "counts": store.entry_counts(connection),
         "can_compile": mode in ("codex", "claude"),
+        # Edit and delete work everywhere; away from the Mac they are applied there at its next sync.
+        "can_edit": True,
         "running": task is not None and not task.done(),
         "last_refresh": store.get_last_refresh(connection),
         "note": "" if mode in ("codex", "claude") else WAITING,
@@ -236,6 +238,11 @@ def reveal_file(entry_id: str, request: Request, open_it: bool = False, connecti
     return {"path": relative}
 
 
+def _away(request: Request) -> bool:
+    """This is the cloud copy, whose pages are the Mac's: changes are recorded for the Mac."""
+    return get_settings_dep(request).sync_role_name == "foris"
+
+
 @router.delete("/{entry_id}")
 def delete_page(entry_id: str, request: Request, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
     """Delete a page, its questions, cards and Markdown file, and never write it again
@@ -243,6 +250,13 @@ def delete_page(entry_id: str, request: Request, connection: sqlite3.Connection 
     the phone at the next sync. Learning points and sources stay."""
     from ..storage import page_files
 
+    if _away(request):
+        # Away from the Mac (feedback of 10 October): recorded for the Mac, and gone here at once.
+        from ..storage import page_changes
+
+        store.get_entry(connection, entry_id)
+        page_changes.record(connection, entry_id, "delete")
+        return {"deleted": store.delete_entry(connection, entry_id), "applied_on_the_mac": "at its next sync"}
     if mode not in ("codex", "claude"):
         raise ConflictError("on_the_mac", "Pages are deleted on the Mac, where the encyclopedia is written; the phone follows at the next sync.")
     gone = store.delete_entry(connection, entry_id)
@@ -251,22 +265,38 @@ def delete_page(entry_id: str, request: Request, connection: sqlite3.Connection 
 
 
 @router.put("/{entry_id}")
-def edit_entry(entry_id: str, payload: PageEditIn, request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
-    """The owner's own edit, in Markdown, kept beside the compiled text and written to the page's file."""
-    from ..storage import page_files
+def edit_entry(
+    entry_id: str,
+    payload: PageEditIn,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    mode: str = Depends(get_model_mode),
+) -> dict[str, Any]:
+    """The owner's own edit, in Markdown, kept beside the compiled text and written to the page's file.
+    Away from the Mac it shows here at once and is recorded for the Mac (feedback of 10 October)."""
+    from ..storage import page_changes, page_files
 
     store.get_entry(connection, entry_id)
+    if _away(request):
+        page_changes.record(connection, entry_id, "edit", payload.body_md)
     page_files.set_edit(connection, entry_id, payload.body_md)
     _sync_files(request)
     return _page_payload(connection, store.get_entry(connection, entry_id))
 
 
 @router.delete("/{entry_id}/edit")
-def revert_entry(entry_id: str, request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+def revert_entry(
+    entry_id: str,
+    request: Request,
+    connection: sqlite3.Connection = Depends(get_connection),
+    mode: str = Depends(get_model_mode),
+) -> dict[str, Any]:
     """Drop the owner's edit; the compiled page shows again, and its file follows."""
-    from ..storage import page_files
+    from ..storage import page_changes, page_files
 
     store.get_entry(connection, entry_id)
+    if _away(request):
+        page_changes.record(connection, entry_id, "revert")
     page_files.set_edit(connection, entry_id, "")
     _sync_files(request)
     return _page_payload(connection, store.get_entry(connection, entry_id))

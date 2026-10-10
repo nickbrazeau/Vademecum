@@ -61,7 +61,7 @@ def db(app):
     return connect(app.state.database_path)
 
 
-def run_sync(home_app, away: TestClient, scope: str = "full") -> dict:
+def run_sync(home_app, away: TestClient, scope: str = "full", after_pull=None) -> dict:
     connection = db(home_app)
     try:
         return sync_once(
@@ -70,6 +70,7 @@ def run_sync(home_app, away: TestClient, scope: str = "full") -> dict:
             source_dir=home_app.state.source_dir,
             role="domi",
             scope=scope,
+            after_pull=after_pull,
         )
     finally:
         connection.close()
@@ -527,3 +528,30 @@ def test_an_upload_without_its_checksum_is_refused(pair) -> None:
         connection.close()
     refused = away.put(f"/api/sync/podcast-audio/{episode.id}", content=b"x", headers={"X-Vademecum-Sync": TOKEN}).json()
     assert refused == {"stored": False, "reason": "digest"}
+
+
+def test_a_page_edited_or_deleted_on_the_cloud_copy_is_applied_on_the_mac(pair) -> None:
+    """Feedback of 10 October: edit and delete work away from the Mac; the Mac, whose pages
+    they are, applies them at its next sync, and the result goes back."""
+    from vademecum.storage import encyclopedia as pages
+    from vademecum.storage import page_changes
+
+    _home, home_app, away, away_app = pair
+    connection = db(home_app)
+    try:
+        kept = pages.upsert_entry(connection, topic="sepsis", title="Sepsis", specialty_id=None, summary="s", sections=[], point_ids=[], points_hash_value="1")
+        gone = pages.upsert_entry(connection, topic="gout", title="Gout", specialty_id=None, summary="s", sections=[], point_ids=[], points_hash_value="1")
+    finally:
+        connection.close()
+    run_sync(home_app, away)
+    assert away.put(f"/api/encyclopedia/{kept.id}", json={"body_md": "# Sepsis\n\nMy own words."}).status_code == 200
+    assert away.delete(f"/api/encyclopedia/{gone.id}").json()["deleted"]["topic"] == "gout"
+    run_sync(home_app, away, after_pull=lambda conn: page_changes.apply_waiting(conn, None))
+    connection = db(home_app)
+    try:
+        assert "My own words." in pages.get_entry(connection, kept.id).body_md
+        assert connection.execute("SELECT COUNT(*) FROM encyclopedia_entries WHERE id = ?", (gone.id,)).fetchone()[0] == 0
+        assert "gout" in pages.deleted_pages(connection)
+        assert page_changes.waiting(connection) == []
+    finally:
+        connection.close()

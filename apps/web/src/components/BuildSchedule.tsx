@@ -12,6 +12,7 @@ import { ApiError, api, asApiError } from '../lib/api'
 import { momentLabel } from '../lib/format'
 import type { BuildSchedule as Schedule } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
+import { Loading } from './Loading'
 
 const STATUS_LABEL: Record<string, string> = {
   succeeded: 'built',
@@ -27,7 +28,7 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [busy, setBusy] = useState(false)
 
-  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
+  if (result.state === 'loading') return <Loading />
   if (result.state === 'failed') {
     // A schedule that cannot be read is a quiet line, not an alarm: the rest
     // of the page is what the owner came for.

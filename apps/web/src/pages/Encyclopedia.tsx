@@ -13,6 +13,7 @@ import { momentLabel } from '../lib/format'
 import type { EncyclopediaEntry, EncyclopediaList, Specialty } from '../lib/types'
 import { takePendingPage } from '../lib/pageLink'
 import { useLoad } from '../lib/useLoad'
+import { Loading } from '../components/Loading'
 
 export function CompileCard({ state, onChanged }: { state: EncyclopediaList; onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
@@ -183,7 +184,7 @@ export function DissectionCard({ onChanged }: { onChanged: () => void }) {
  * the compiled text and written to the page's file in the source folder, where
  * any editor can change it too; the next scan reads that change back.
  */
-function EditablePage({
+export function EditablePage({
   page,
   onSaved,
   canEdit,
@@ -218,7 +219,7 @@ function EditablePage({
   // encyclopedia does not write it again; it can be brought back from Construction.
   const remove = async () => {
     const sure = window.confirm(
-      `Delete “${page.title}”? Its board questions, flashcards and Markdown file go too, and it is not written again. Your learning points and sources stay, and you can bring it back from Construction.`
+      `Delete “${page.title}”? Its board questions, flashcards and Markdown file go too, and it is not written again. Your learning points and sources stay, and you can bring it back from Foundation.`
     )
     if (!sure) return
     setBusy(true)
@@ -379,7 +380,7 @@ export function Encyclopedia() {
           <EditablePage
             page={open}
             onSaved={setOpen}
-            canEdit={result.state === 'ready' && result.value.can_compile}
+            canEdit={result.state === 'ready' && result.value.can_edit}
             onDeleted={() => {
               setOpen(null)
               reload()
@@ -428,7 +429,7 @@ export function Encyclopedia() {
             ) : null}
           </div>
         </form>
-        {result.state === 'loading' ? <p className="muted">Reading from this computer…</p> : null}
+        {result.state === 'loading' ? <Loading /> : null}
         {result.state === 'failed' ? <Unavailable error={result.error} onRetry={reload} /> : null}
         {opening ? (
           <p className="failure" role="alert">

@@ -39,6 +39,55 @@ function href(unit: LearnerUnit): string {
   }
 }
 
+/** Somewhere to go for a topic, whatever its suggested step (feedback of 10 October). */
+type Option = 'board' | 'socratic' | 'read'
+
+const OPTIONS: { kind: Option; label: string }[] = [
+  { kind: 'board', label: 'Board questions' },
+  { kind: 'socratic', label: 'Talk it through' },
+  { kind: 'read', label: 'Encyclopedia page' }
+]
+
+function optionHref(entryId: string, kind: Option): string {
+  const id = encodeURIComponent(entryId)
+  return kind === 'read' ? `/encyclopedia?page=${id}` : `/tutor?mode=${kind === 'board' ? 'questions' : 'socratic'}&page=${id}`
+}
+
+export function goTo(unit: LearnerUnit, kind: Option, onNavigate: (name: RouteName) => void): void {
+  if (!unit.entry_id) return
+  if (kind === 'read') {
+    openPageLater(unit.entry_id)
+    onNavigate('encyclopedia')
+  } else {
+    openTutorLater({ mode: kind === 'board' ? 'questions' : 'socratic', entryId: unit.entry_id, title: unit.title })
+    onNavigate('tutor')
+  }
+}
+
+/** The three ways into a topic; the one the model suggests stands out. */
+export function TopicOptions({ unit, onNavigate }: { unit: LearnerUnit; onNavigate?: (name: RouteName) => void }) {
+  if (!unit.entry_id) return <StepButton unit={unit} onNavigate={onNavigate} />
+  const entryId = unit.entry_id
+  return (
+    <div className="actions topic-options">
+      {OPTIONS.map((option) => (
+        <a
+          key={option.kind}
+          className={`button small${option.kind === unit.next.kind ? ' primary' : ''}`}
+          href={optionHref(entryId, option.kind)}
+          onClick={(event) => {
+            if (!onNavigate) return
+            event.preventDefault()
+            goTo(unit, option.kind, onNavigate)
+          }}
+        >
+          {option.label}
+        </a>
+      ))}
+    </div>
+  )
+}
+
 export function goToStep(unit: LearnerUnit, onNavigate: (name: RouteName) => void): void {
   const entryId = unit.entry_id
   if (unit.next.kind === 'read' && entryId) {
@@ -85,7 +134,7 @@ export function StudyNext({ model, onNavigate }: { model: LearnerModel; onNaviga
           </div>
           <p className="small">{unit.next.why}</p>
           {unit.evidence.length > 0 ? <p className="muted small">{unit.evidence.join(' ')}</p> : null}
-          <StepButton unit={unit} onNavigate={onNavigate} />
+          <TopicOptions unit={unit} onNavigate={onNavigate} />
         </li>
       ))}
     </ol>

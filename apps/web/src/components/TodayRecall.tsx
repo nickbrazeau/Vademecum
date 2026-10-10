@@ -61,7 +61,8 @@ export function TodayRecall({ recall, onNavigate }: { recall: Recall; onNavigate
   return (
     <div className="today-recall">
       <p className="small">
-        <strong>{unit.title}</strong> <StateBadge state={unit.state} label={unit.state_label} />
+        <strong>{unit.title}</strong>
+        {unit.state === 'untried' ? null : <StateBadge state={unit.state} label={unit.state_label} />}
       </p>
       {card ? (
         <>

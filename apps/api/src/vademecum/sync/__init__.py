@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -193,8 +194,10 @@ def sync_once(
     source_dir: Path,
     role: sync_store.Role = "domi",
     scope: sync_store.Scope = "full",
+    after_pull: Callable[[sqlite3.Connection], Any] | None = None,
 ) -> dict[str, Any]:
     """One round: pull the peer's changes and apply them, then push ours.
+    ``after_pull`` runs between the two, so what it changes goes out in the same round.
 
     Returns counts. Raises SyncError when the peer cannot be reached or
     answers badly; nothing partial is left behind, because each batch is one
@@ -240,6 +243,9 @@ def sync_once(
         sync_store.record_sync(connection, peer_node_id=peer_id, pulled_through=cursor, note="pulling")
         if page.get("done", True) or result.deferred:
             break
+
+    if after_pull is not None:
+        after_pull(connection)
 
     # --- push ---------------------------------------------------------------
     pushed = 0

@@ -15,6 +15,7 @@ import { CaseSeries, HubSettings } from './CaseSeries'
 import { Model } from './Model'
 import { Switch } from '../components/Switch'
 import { momentLabel } from '../lib/format'
+import { Loading } from '../components/Loading'
 
 /** How many reviews make a day enough, shown on Today (ADR 0026). */
 function DailyGoal({ initial }: { initial: number }) {
@@ -117,7 +118,7 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
     }
   }, [result])
 
-  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
+  if (result.state === 'loading') return <Loading />
   if (result.state === 'failed') return <Unavailable error={result.error} onRetry={reload} />
   const preferences = result.value
   const visible = chosen ?? preferences.visible_tabs
@@ -164,13 +165,15 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
           <legend className="visually-hidden">Sections to show</legend>
           {tabs.map((tab, index) => (
             <div key={tab.name} className="tab-row">
-              <Switch
-                label={tab.label}
-                checked={tab.fixed || visible.includes(tab.name)}
-                disabled={tab.fixed || busy}
-                onChange={(on) => toggle(tab.name, on)}
-                hint={tab.fixed ? `always shown, ${tab.name === 'today' ? 'first' : 'last'}` : undefined}
-              />
+              {tab.fixed ? (
+                // Today and Settings are never switched off (feedback of 10 October): no switch to suggest otherwise.
+                <span className="tab-fixed">
+                  <span>{tab.label}</span>
+                  <span className="muted small">Always shown, {tab.name === 'today' ? 'first' : 'last'}</span>
+                </span>
+              ) : (
+                <Switch label={tab.label} checked={visible.includes(tab.name)} disabled={busy} onChange={(on) => toggle(tab.name, on)} />
+              )}
               {tab.fixed ? null : (
                 <span className="tab-move">
                   <button

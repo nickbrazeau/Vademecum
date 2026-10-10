@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
-import { EncyclopediaPage } from '../components/EncyclopediaPage'
+import { EditablePage } from './Encyclopedia'
 import { TodayRecall } from '../components/TodayRecall'
 import { PaperLink } from '../components/PaperLink'
 import { Unavailable } from '../components/Unavailable'
@@ -19,6 +19,7 @@ import { ReviewDashboard } from '../components/ReviewDashboard'
 import type { CaseEntry, CoverSheet, Dashboard, EncyclopediaEntry, Update, UpdateState } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import type { RouteName } from '../lib/router'
+import { Loading } from '../components/Loading'
 
 function UpdateEntry({
   update,
@@ -186,7 +187,8 @@ function PageToReview({
         </p>
       ) : (
         <>
-          <EncyclopediaPage page={page} />
+          {/* Edit and delete right here (feedback of 10 October), as on the Encyclopedia tab. */}
+          <EditablePage page={page} canEdit onSaved={setPage} onDeleted={() => void another()} />
           {failure ? (
             <p className="failure" role="alert">
               {failure.message}
@@ -264,7 +266,7 @@ function NewCase({ entry, onDone }: { entry: CaseEntry; onDone: (id: string) => 
       ) : null}
       <div className="actions">
         <button type="button" className="button ghost small" disabled={busy} onClick={() => void done()}>
-          Seen it
+          Reviewed it
         </button>
       </div>
     </li>
@@ -291,7 +293,7 @@ export function Today({
   }, [reloadToken])
 
   if (result.state === 'loading') {
-    return <p className="muted">Reading from this computer…</p>
+    return <Loading />
   }
   if (result.state === 'failed') {
     return <Unavailable error={result.error} onRetry={reload} />

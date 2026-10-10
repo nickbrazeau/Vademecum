@@ -1222,6 +1222,7 @@ export function encyclopediaList(raw: unknown): EncyclopediaList {
     }),
     counts: encyclopediaCounts(data.counts),
     can_compile: data.can_compile === true,
+    can_edit: data.can_edit === true || data.can_compile === true,
     running: data.running === true,
     last_refresh: encyclopediaRefresh(data.last_refresh),
     note: str(data.note),

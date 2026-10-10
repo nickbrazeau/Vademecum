@@ -36,6 +36,7 @@ import type { Attempt, AttemptOutcome, Cycle, TutorNext, TutorQuestion } from '.
 import { useLoad } from '../lib/useLoad'
 import { takePendingTutor } from '../lib/pageLink'
 import type { TutorFocus } from '../lib/pageLink'
+import { Loading } from '../components/Loading'
 
 const OUTCOME_LABEL: Record<AttemptOutcome, string> = {
   correct: 'Correct',
@@ -216,7 +217,7 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
 /** Board questions when there are any; otherwise the open-answer questions a Build made. */
 function Questions({ onNavigate, entryId, need = false }: { onNavigate?: (name: RouteName) => void; entryId?: string; need?: boolean }) {
   const board = useLoad(() => api.boardNext(entryId, need ? 'need' : undefined), [entryId, need])
-  if (board.result.state === 'loading') return <p className="muted">Reading from this computer…</p>
+  if (board.result.state === 'loading') return <Loading />
   // A board question is asked only when it is whole: five options and a stem.
   // Anything less is not a question, and the open-answer bank is asked instead.
   const candidate = board.result.state === 'ready' ? board.result.value.question : null
@@ -263,9 +264,9 @@ function OpenTutor({ onNavigate, boardReason }: { onNavigate?: (name: RouteName)
     setRefusal('')
   }, [result])
 
-  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
+  if (result.state === 'loading') return <Loading />
   if (result.state === 'failed') return <Unavailable error={result.error} onRetry={reload} />
-  if (view === null) return <p className="muted">Reading from this computer…</p>
+  if (view === null) return <Loading />
 
   const goSources = (event: MouseEvent) => {
     if (onNavigate === undefined) return

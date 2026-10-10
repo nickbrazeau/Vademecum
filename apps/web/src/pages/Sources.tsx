@@ -28,6 +28,7 @@ import {
 } from '../lib/types'
 import type { LearningItem, Pile, Tier, Coverage } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
+import { Loading } from '../components/Loading'
 
 /**
  * The older plain-text notes.
@@ -382,7 +383,7 @@ export function Sources() {
         </form>
       </section>
 
-      {result.state === 'loading' ? <p className="muted">Reading from this computer…</p> : null}
+      {result.state === 'loading' ? <Loading /> : null}
       {result.state === 'failed' ? <Unavailable error={result.error} onRetry={reload} /> : null}
       {result.state === 'ready'
         ? TIERS.map((option) => {

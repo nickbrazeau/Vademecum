@@ -16,6 +16,7 @@ import { canDictate, canSpeak, dictate, speak } from '../lib/speech'
 import type { SocraticOverview, SocraticSession } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { PhiWarning } from './PhiWarning'
+import { Loading } from './Loading'
 
 // Launching the tutor in ChatGPT or Claude from here (feedback of 5 October). The prompt
 // names the tools, so the assistant records each exchange, and asks it to say so plainly
@@ -219,7 +220,7 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceOn, lastTutorLine])
 
-  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
+  if (result.state === 'loading') return <Loading />
   if (result.state === 'failed') {
     return (
       <section className="card" aria-labelledby="socratic-heading">

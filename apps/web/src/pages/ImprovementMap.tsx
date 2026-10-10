@@ -20,6 +20,7 @@ import type { EncyclopediaEntry, Flag, KnowledgeState, LearnerModel, LearnerUnit
 import { useLoad } from '../lib/useLoad'
 import { openPageLater, openTutorLater } from '../lib/pageLink'
 import type { RouteName } from '../lib/router'
+import { Loading } from '../components/Loading'
 
 function FlagList({ flags, onChanged }: { flags: Flag[]; onChanged: () => void }) {
   const [failure, setFailure] = useState<ApiError | null>(null)
@@ -276,7 +277,7 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
     if (known) for (const unit of [...known.units, ...known.plan]) found.set(unit.key, unit)
     return found
   }, [known])
-  if (map.result.state === 'loading') return <p className="muted">Reading from this computer…</p>
+  if (map.result.state === 'loading') return <Loading />
   if (map.result.state === 'failed') {
     return <Unavailable error={map.result.error} onRetry={reloadBoth} />
   }
@@ -318,16 +319,22 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
 
   return (
     <div className="stack">
-      <section className="card" aria-labelledby="next-heading">
-        <h2 id="next-heading">Where to go next</h2>
+      {/* Closed until asked for (feedback of 10 October). */}
+      <details className="card toggle-card" aria-labelledby="next-heading">
+        <summary>
+          <h2 id="next-heading">Where to go next</h2>
+          {learner.result.state === 'ready' && learner.result.value.plan.length > 0 ? (
+            <span className="muted small">{learner.result.value.plan[0]!.title}</span>
+          ) : null}
+        </summary>
         {learner.result.state === 'ready' ? (
           <StudyNext model={learner.result.value} onNavigate={onNavigate} />
         ) : learner.result.state === 'failed' ? (
           <p className="muted small">{learner.result.error.message}</p>
         ) : (
-          <p className="muted">Reading from this computer…</p>
+          <Loading />
         )}
-      </section>
+      </details>
       <section className="card" aria-labelledby="map-heading">
         <h2 id="map-heading">
           Where the gaps are<sup aria-hidden="true">*</sup>

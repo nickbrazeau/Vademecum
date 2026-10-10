@@ -15,6 +15,7 @@ import type { RouteName } from '../lib/router'
 import { canSpeak, speak } from '../lib/speech'
 import type { EncyclopediaEntry, PodcastEpisode, PodcastVoice } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
+import { Loading } from '../components/Loading'
 
 const STATUS_LABEL: Record<PodcastEpisode['status'], string> = {
   draft: 'writing the script',
@@ -373,7 +374,7 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
     }
   }
 
-  if (result.state === 'loading') return <p className="muted">Reading from this computer…</p>
+  if (result.state === 'loading') return <Loading />
   if (result.state === 'failed') return <Unavailable error={result.error} onRetry={reload} />
   const list = result.value
   const voiceList = voices.result.state === 'ready' ? voices.result.value.voices : []

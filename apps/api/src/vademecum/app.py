@@ -349,7 +349,15 @@ def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) ->
     peer = Peer(HttpTransport(settings.sync_peer_url), settings.sync_token)
     connection = connect(database_path)
     try:
-        result = sync_once(connection, peer=peer, source_dir=source_dir, role=settings.sync_role_name, scope=settings.sync_scope)
+        from .storage import page_changes
+
+        # Page edits and deletions made on the cloud copy are applied to the Mac's own pages
+        # as soon as they arrive, so the result goes back in the same round (feedback of 10 October).
+        folder = current_sources_dir(settings)
+        result = sync_once(
+            connection, peer=peer, source_dir=source_dir, role=settings.sync_role_name, scope=settings.sync_scope,
+            after_pull=lambda conn: page_changes.apply_waiting(conn, folder),
+        )
         # Listened to on the phone: retired here too. Then the newest unheard
         # episodes' audio goes to the cloud copy, so the phone plays them (ADR 0027).
         podcasts.retire_audio(connection, podcasts.podcasts_dir(source_dir), role=settings.sync_role_name)

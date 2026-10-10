@@ -48,7 +48,7 @@ describe('flashcards', () => {
     expect(screen.queryByText('2 mmol/L.')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Show the answer' }))
     expect(screen.getByText('2 mmol/L.')).toBeInTheDocument()
-    expect(screen.getByText('Lactate above 2 is abnormal')).toBeInTheDocument()
+    expect(screen.queryByText(/Where this comes from/)).not.toBeInTheDocument()  // dropped, feedback of 10 October
     await userEvent.click(screen.getByRole('button', { name: /^Got it/ }))
     expect(await screen.findByText('First-line vasopressor in septic shock?')).toBeInTheDocument()
     expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ card_id: 'card_1', rating: 'good', practise: false })
@@ -89,9 +89,9 @@ describe('settings', () => {
     })
     const saved: { visible_tabs: string[] }[] = []
     render(<Settings onSaved={(visible) => saved.push(visible)} />)
-    const today = await screen.findByLabelText(/Today/)
-    expect(today).toBeChecked()
-    expect(today).toBeDisabled()
+    // Today and Settings show as always on, with no switch at all (feedback of 10 October).
+    expect(await screen.findByText(/Always shown, first/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Today/)).not.toBeInTheDocument()
     await userEvent.click(screen.getByLabelText('Podcast'))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true))
@@ -122,7 +122,7 @@ describe('tab order', () => {
       'PUT /api/preferences': { visible_tabs: TABS.map((tab) => tab.name), order: TABS.map((tab) => tab.name), tabs: TABS }
     })
     render(<Settings />)
-    await screen.findByLabelText(/Today/)
+    await screen.findByText(/Always shown, first/)
     expect(screen.queryByRole('button', { name: 'Move Today up' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Move Tutor up' })).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Move Flashcards up' }))

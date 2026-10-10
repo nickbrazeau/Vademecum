@@ -16,6 +16,7 @@ import type { RouteName } from '../lib/router'
 import type { FlashcardDraw } from '../lib/types'
 import { openPageLater } from '../lib/pageLink'
 import { useLoad } from '../lib/useLoad'
+import { Loading } from '../components/Loading'
 
 export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
   const { result, reload } = useLoad(() => api.flashcardNext(), [])
@@ -42,7 +43,7 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
     onNavigate(name)
   }
 
-  if (result.state === 'loading' && draw === null) return <p className="muted">Reading from this computer…</p>
+  if (result.state === 'loading' && draw === null) return <Loading />
   if (result.state === 'failed' && draw === null) return <Unavailable error={result.error} onRetry={reload} />
   if (current === null) return null
 
@@ -151,30 +152,6 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
                 {card.title || card.topic}
               </a>
             </p>
-            {current.citations.length > 0 ? (
-              <details className="support-details">
-                <summary>
-                  Where this comes from: {current.citations.length} learning point{current.citations.length === 1 ? '' : 's'} from your sources
-                </summary>
-                <ul className="list small">
-                  {current.citations.map((citation) => (
-                    <li key={citation.id}>
-                      <span className="title">{citation.claim}</span>
-                      <span className="muted small"> · {citation.support_label}</span>
-                      {citation.sources.slice(0, 2).map((source) => (
-                        <blockquote key={`${source.source_id}-${source.locator}`} className="quote">
-                          {source.quote}
-                          <footer className="muted small">
-                            {source.display_name}
-                            {source.locator ? ` · ${source.locator}` : null}
-                          </footer>
-                        </blockquote>
-                      ))}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
             <div className="actions">
               <button type="button" className="button" disabled={busy} onClick={() => void rate('again')}>
                 Again{current.intervals.again ? <span className="muted small"> · {current.intervals.again}</span> : null}
