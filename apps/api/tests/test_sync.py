@@ -511,3 +511,19 @@ def test_rows_from_a_restored_peer_are_queued_to_go_back_to_it(pair) -> None:
         assert sync_store.relog_unlogged(connection) == 0, "once is enough"
     finally:
         connection.close()
+
+
+def test_an_upload_without_its_checksum_is_refused(pair) -> None:
+    """Feedback of 10 October: a body with no checksum replaced an episode's audio."""
+    _home, _home_app, away, away_app = pair
+    from vademecum.storage import podcasts
+
+    connection = db(away_app)
+    try:
+        episode = podcasts.create_episode(connection, title="E", entry_ids=[])
+        connection.execute("UPDATE podcast_episodes SET audio_name = ? WHERE id = ?", (f"{episode.id}.m4a", episode.id))
+        connection.commit()
+    finally:
+        connection.close()
+    refused = away.put(f"/api/sync/podcast-audio/{episode.id}", content=b"x", headers={"X-Vademecum-Sync": TOKEN}).json()
+    assert refused == {"stored": False, "reason": "digest"}

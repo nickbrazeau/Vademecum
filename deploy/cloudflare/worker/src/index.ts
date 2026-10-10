@@ -31,10 +31,11 @@ const MAX_LIST = 1000
 
 export class VademecumSeat extends Container<Env> {
   defaultPort = 8766
-  // Idle for five minutes and the container stops; it is billed only while
-  // it runs, and waking takes a few seconds (the records come back from the
-  // bucket).
-  sleepAfter = '5m'
+  // Idle for 45 minutes and the container stops; it is billed only while it runs.
+  // Five minutes was shorter than the Mac's sync interval, so it slept between most
+  // rounds and came back on its last save each time (feedback of 10 October); while
+  // the Mac is awake it now stays awake, and sleeps through the night.
+  sleepAfter = '45m'
   enableInternet = true
 
   constructor(ctx: DurableObject['ctx'], env: Env) {

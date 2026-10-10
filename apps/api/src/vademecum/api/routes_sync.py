@@ -224,7 +224,9 @@ async def figure_put(
 # Hashing and writing up to 80 MB happen off the event loop, so a large upload from the
 # Mac never stalls the requests the phone is making at the same moment.
 def _digest_matches(data: bytes, digest: str) -> bool:
-    return not digest or hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest)
+    # Required, not optional: an upload with no checksum once replaced a whole episode's
+    # audio with one byte (feedback of 10 October). The Mac always sends one.
+    return bool(digest) and hmac.compare_digest(hashlib.sha256(data).hexdigest(), digest)
 
 
 def _write_whole(directory: Path, name: str, data: bytes) -> None:

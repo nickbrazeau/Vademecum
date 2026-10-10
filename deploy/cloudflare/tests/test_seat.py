@@ -50,13 +50,15 @@ def test_a_fresh_container_restores_the_databases_first_and_the_files_later(tmp_
     data = tmp_path / "data"
     assert seat.restore_databases(data, store) == "fresh"
 
-    store.objects["db/vademecum.sqlite3"] = b"records"
-    store.objects["mcp/access.sqlite3"] = b"access"
+    records = b"SQLite format 3\x00records"
+    access = b"SQLite format 3\x00access"
+    store.objects["db/vademecum.sqlite3"] = records
+    store.objects["mcp/access.sqlite3"] = access
     store.objects["attachments/sources/abc.pdf"] = b"%PDF-"
     data2 = tmp_path / "data2"
     assert seat.restore_databases(data2, store) == "restored"
-    assert (data2 / "vademecum.sqlite3").read_bytes() == b"records"
-    assert (data2 / "mcp" / "access.sqlite3").read_bytes() == b"access"
+    assert (data2 / "vademecum.sqlite3").read_bytes() == records
+    assert (data2 / "mcp" / "access.sqlite3").read_bytes() == access
     assert not (data2 / "attachments").exists(), "files come later, in the background"
     assert seat.restore_files(data2, store) == 1
     assert (data2 / "attachments" / "sources" / "abc.pdf").read_bytes() == b"%PDF-"
@@ -236,3 +238,55 @@ def test_the_sign_in_database_is_noticed_when_it_or_its_log_changes(tmp_path: Pa
     assert seat.snapshot_database(data, store, *seat.ACCESS) == "db"
     assert seat.snapshot_database(data, store, *seat.ACCESS) == "unchanged"
     assert "mcp/access.sqlite3" in store.objects
+
+
+def test_a_stored_database_that_cannot_be_restored_stops_the_seat_rather_than_starting_empty(tmp_path: Path, monkeypatch) -> None:
+    """Feedback of 10 October: a failed restore started an empty copy with a new identity."""
+    monkeypatch.setattr(seat, "RESTORE_PAUSE", 0.0)
+    store = MemoryStore()
+    store.objects["db/vademecum.sqlite3"] = b"not a database, a torn upload"
+    try:
+        seat.restore_databases(tmp_path / "data", store)
+    except seat.RestoreFailed:
+        pass
+    else:
+        raise AssertionError("it must refuse")
+    assert not (tmp_path / "data" / "vademecum.sqlite3").exists()
+
+
+def test_parts_whose_checksum_does_not_match_are_not_restored(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(seat, "PART_BYTES", 64 * 1024)
+    monkeypatch.setattr(seat, "RESTORE_PAUSE", 0.0)
+    store = MemoryStore()
+    data = tmp_path / "data"
+    _database(data / "vademecum.sqlite3", 200)
+    seat._uploaded.clear()
+    seat.snapshot(data, store)
+    part = next(key for key in store.objects if ".part-" in key)
+    store.objects[part] = store.objects[part][:-10] + b"0123456789"  # one part from another save
+    try:
+        seat.restore_databases(tmp_path / "fresh", store)
+    except seat.RestoreFailed:
+        pass
+    else:
+        raise AssertionError("mismatched parts must not be restored")
+
+
+def test_a_new_multipart_save_never_overwrites_the_parts_of_the_last(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(seat, "PART_BYTES", 64 * 1024)
+    store = MemoryStore()
+    data = tmp_path / "data"
+    _database(data / "vademecum.sqlite3", 200)
+    seat._uploaded.clear()
+    seat.snapshot(data, store)
+    first = {key for key in store.objects if ".part-" in key}
+    _database(data / "vademecum.sqlite3", 210)
+    seat._uploaded.clear()
+    seat.snapshot(data, store)
+    second = {key for key in store.objects if ".part-" in key}
+    assert first and second and not (first & second), "fresh names each time; the old parts went after"
+    with sqlite3.connect(data / "vademecum.sqlite3") as db:
+        expected = db.execute("SELECT COUNT(*) FROM t").fetchone()[0]
+    seat.restore_databases(tmp_path / "fresh", store)
+    with sqlite3.connect(tmp_path / "fresh" / "vademecum.sqlite3") as db:
+        assert db.execute("SELECT COUNT(*) FROM t").fetchone()[0] == expected

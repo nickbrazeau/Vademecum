@@ -154,6 +154,9 @@ def put_object(store: Store, key: str, path: Path) -> bool:
             if stale == f"{key}.manifest" or ".part-" in stale:
                 store.delete(stale)
         return True
+    # Each save writes its parts under a name of its own, and the old parts go only once
+    # the new manifest is in: a save cut off half-way never mixes old parts with new.
+    generation = time.strftime("%Y%m%d%H%M%S", time.gmtime()) + f"{time.monotonic_ns() % 1000000:06d}"
     parts: list[str] = []
     with path.open("rb") as handle:
         index = 0
@@ -161,7 +164,7 @@ def put_object(store: Store, key: str, path: Path) -> bool:
             block = handle.read(PART_BYTES)
             if not block:
                 break
-            part_key = f"{key}.part-{index:04d}"
+            part_key = f"{key}.{generation}.part-{index:04d}"
             if not store.put(part_key, block):
                 return False
             parts.append(part_key)
@@ -170,6 +173,9 @@ def put_object(store: Store, key: str, path: Path) -> bool:
     if not store.put(f"{key}.manifest", manifest):
         return False
     store.delete(key)  # the single-object copy, if one was ever made, is now the stale one
+    for stale, _size in store.list(f"{key}."):
+        if ".part-" in stale and stale not in parts:
+            store.delete(stale)
     return True
 
 
@@ -194,7 +200,23 @@ def get_object(store: Store, key: str) -> bytes | None:
         if piece is None:
             return None
         pieces.append(piece)
-    return b"".join(pieces)
+    whole = b"".join(pieces)
+    expected = json.loads(manifest.decode("utf-8")).get("sha256")
+    if expected:
+        import hashlib
+
+        if hashlib.sha256(whole).hexdigest() != expected:
+            say(f"{key}: the parts do not match their manifest; not restoring them")
+            return None
+    return whole
+
+
+RESTORE_ATTEMPTS = 4
+RESTORE_PAUSE = 5.0
+
+
+class RestoreFailed(RuntimeError):
+    pass
 
 
 def restore_databases(data: Path, store: Store) -> str:
@@ -205,8 +227,23 @@ def restore_databases(data: Path, store: Store) -> str:
     found = False
     for relative, prefix in DATABASES:
         target = data / relative
-        payload = get_object(store, f"{prefix}/{target.name}")
+        key = f"{prefix}/{target.name}"
+        listed = [name for name, _size in store.list(key) if name == key or name.startswith(f"{key}.")]
+        payload = None
+        for attempt in range(RESTORE_ATTEMPTS):
+            payload = get_object(store, key)
+            if payload is not None and payload.startswith(b"SQLite format 3\x00"):
+                break
+            payload = None
+            if not listed:
+                break  # nothing stored: a genuinely new copy
+            say(f"{key}: restore attempt {attempt + 1} failed; trying again")
+            time.sleep(RESTORE_PAUSE * (attempt + 1))
         if payload is None:
+            if listed:
+                # Starting empty over a store that holds the records would hand out a new
+                # identity and lose everything since (feedback of 10 October): refuse.
+                raise RestoreFailed(f"{key} is in the store but could not be restored")
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(payload)
@@ -271,9 +308,16 @@ ACCESS = ("mcp/access.sqlite3", "mcp")
 ACCESS_CHECK_SECONDS = 5
 
 
-def access_signature(data: Path) -> tuple[tuple[int, int], ...]:
-    """What changes when the sign-in database does: the file and its write-ahead log."""
-    base = data / ACCESS[0]
+# The records themselves are saved a minute after they last changed, so the copy in the
+# store is never more than about a minute behind while the seat is awake; the save at
+# shutdown is a last resort, not the plan (feedback of 10 October).
+RECORDS = ("vademecum.sqlite3", "db")
+RECORDS_QUIET_SECONDS = 60
+
+
+def access_signature(data: Path, relative: str = ACCESS[0]) -> tuple[tuple[int, int], ...]:
+    """What changes when a database does: the file and its write-ahead log."""
+    base = data / relative
     signature = []
     for path in (base, base.with_name(base.name + "-wal")):
         try:
@@ -380,7 +424,11 @@ def run() -> int:
         return 2
     store = store_from_environment()
     assert store is not None
-    say(f"records: {restore_databases(DATA, store)}")
+    try:
+        say(f"records: {restore_databases(DATA, store)}")
+    except RestoreFailed as exc:
+        say(f"STOPPING: {exc}. Not starting on an empty copy; the next start tries again.")
+        return 1
     api = subprocess.Popen([sys.executable, "-m", "vademecum"], env=api_environment())
     if not wait_for(API_PORT, "/api/health"):
         say("the API did not answer; stopping")
@@ -410,6 +458,9 @@ def run() -> int:
     last = time.monotonic()
     last_access_check = time.monotonic()
     access_seen = access_signature(DATA)
+    records_saved = access_signature(DATA, RECORDS[0])
+    records_now = records_saved
+    records_changed_at = time.monotonic()
     while not stopping:
         time.sleep(1)
         if api.poll() is not None or gateway.poll() is not None:
@@ -424,6 +475,13 @@ def run() -> int:
                     access_seen = now_seen
                 if outcome == "db":
                     say("sign-ins saved")
+            current = access_signature(DATA, RECORDS[0])
+            if current != records_now:
+                records_now, records_changed_at = current, time.monotonic()
+            elif records_now != records_saved and time.monotonic() - records_changed_at >= RECORDS_QUIET_SECONDS:
+                outcome = snapshot_database(DATA, store, *RECORDS)
+                if outcome != "failed":
+                    records_saved = records_now
         if time.monotonic() - last >= INTERVAL:
             say(f"snapshot: {snapshot(DATA, store)}")
             last = time.monotonic()
