@@ -12,13 +12,12 @@ import { api } from './lib/api'
 import { inChat, onToolResult } from './lib/host'
 import { freshAddress, newerBuild as servedNewerBuild, reloadTarget, typedSomething } from './lib/updateCheck'
 import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
-import { Construction } from './pages/Construction'
+import { Foundation } from './pages/Foundation'
 import { Encyclopedia } from './pages/Encyclopedia'
 import { Flashcards } from './pages/Flashcards'
 import { ImprovementMap } from './pages/ImprovementMap'
 import { Podcasts } from './pages/Podcasts'
 import { Settings } from './pages/Settings'
-import { Sources } from './pages/Sources'
 import { Today } from './pages/Today'
 import { Tutor } from './pages/Tutor'
 
@@ -27,10 +26,9 @@ const TITLES = {
   tutor: 'Tutor',
   flashcards: 'Flashcards',
   encyclopedia: 'Encyclopedia',
-  sources: 'Sources',
+  foundation: 'Foundation',
   map: 'Improvement Map',
   podcasts: 'Podcast',
-  construction: 'Construction',
   settings: 'Settings'
 } as const
 
@@ -243,12 +241,11 @@ export function App() {
         <h2 className="visually-hidden">{TITLES[route]}</h2>
         {route === 'today' ? <Today reloadToken={reloadToken} onNavigate={navigate} /> : null}
         {route === 'tutor' ? <Tutor onNavigate={navigate} /> : null}
-        {route === 'sources' ? <Sources /> : null}
+        {route === 'foundation' ? <Foundation /> : null}
         {route === 'map' ? <ImprovementMap reloadToken={reloadToken} onNavigate={navigate} /> : null}
         {route === 'encyclopedia' ? <Encyclopedia /> : null}
         {route === 'flashcards' ? <Flashcards onNavigate={navigate} /> : null}
         {route === 'podcasts' ? <Podcasts onNavigate={navigate} /> : null}
-        {route === 'construction' ? <Construction onNavigate={navigate} /> : null}
         {route === 'settings' ? <Settings onSaved={applyPreferences} showModel={!behindGateway && !compact && !hostMode} /> : null}
       </main>
 

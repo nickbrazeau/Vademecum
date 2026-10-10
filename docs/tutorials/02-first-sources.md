@@ -25,8 +25,9 @@ There are two ways to add material:
 
 ## What happens next
 
-1. **Read in.** Each file is read and its text and pictures are stored. **Construction**
-   shows what is waiting, what is being read, and how much of each source has been built.
+1. **Read in.** Each file is read and its text and pictures are stored. **Foundation**
+   shows what is waiting, what is being read, how much of each source has been built, and why
+   anything is not yet done.
 2. **Learning points.** The Mac's assistant turns passages into short learning points. Each
    point quotes the passage it came from, and the quote is checked against the source.
 3. **Encyclopedia.** Points are compiled into one page per topic. Every paragraph names the
@@ -34,7 +35,8 @@ There are two ways to add material:
 4. **Questions and cards.** Board-style questions and flashcards are written from each page,
    then checked against the page before they are asked.
 
-This runs in the background on a timer while the Mac is awake. It uses your assistant's plan,
-so a large folder is built over days, not minutes.
+Once you turn on **Build in the background** (on Foundation), the Mac builds whenever it is
+awake, one batch at a time, and carries on where it left off after sleeping. It uses your
+assistant's plan, so a large folder is built over days, not minutes. You can pause it at any time.
 
 Next: [A day with Vademecum](03-a-day-with-vademecum.md).

@@ -1,42 +1,58 @@
 /**
- * Construction (ADR 0026): what is being built, and what is held back.
- *
- * The dissection agent working through the piles, the compile that turns their
- * points into pages, questions and cards, and the points and questions held
- * for review -- the workshop, kept off Today.
+ * Foundation (feedback of 10 October): Sources and Construction as one page. What is
+ * waiting, being read in and built, and why; adding a source; the builder; the piles;
+ * what is held back; pages deleted; and the local data.
  */
 
 import { useState } from 'react'
-import type { MouseEvent } from 'react'
+import { AddSourceDialog } from '../components/AddSourceDialog'
+import { BuildSchedule } from '../components/BuildSchedule'
 import { ConstructionProgress } from '../components/ConstructionProgress'
 import { DeletedPages } from '../components/DeletedPages'
 import { FolderDrop } from '../components/FolderDrop'
+import { Loading } from '../components/Loading'
+import { LocalData } from '../components/LocalData'
 import { Unavailable } from '../components/Unavailable'
 import { api } from '../lib/api'
-import type { RouteName } from '../lib/router'
 import { useLoad } from '../lib/useLoad'
 import { CompileCard, DissectionCard } from './Encyclopedia'
-import { Loading } from '../components/Loading'
+import { Piles } from './Sources'
 
-export function Construction({ onNavigate }: { onNavigate?: (name: RouteName) => void }) {
+export function Foundation() {
   const [token, setToken] = useState(0)
+  const [adding, setAdding] = useState(false)
   const pages = useLoad(() => api.encyclopediaList(), [token])
   const sheet = useLoad(() => api.today(), [token])
   const changed = () => setToken((value) => value + 1)
-
-  const go = (name: RouteName) => (event: MouseEvent) => {
-    if (onNavigate === undefined) return
-    event.preventDefault()
-    onNavigate(name)
-  }
+  const onTheMac = pages.result.state === 'ready' && pages.result.value.can_compile
 
   return (
     <div className="stack">
       <ConstructionProgress reloadToken={token} />
-      {/* On the Mac, where the source folder is. */}
-      {pages.result.state === 'ready' && pages.result.value.can_compile ? <FolderDrop onPlaced={changed} /> : null}
+      {/* On the Mac, straight into the source folder; elsewhere, uploaded to this copy. */}
+      {onTheMac ? (
+        <FolderDrop onPlaced={changed} />
+      ) : pages.result.state === 'ready' ? (
+        <section className="card" aria-labelledby="add-source-card-heading">
+          <h2 id="add-source-card-heading">Add a source</h2>
+          <p className="muted small">PDF, PowerPoint, Word, Markdown, text or a picture; or paste a note.</p>
+          <button type="button" className="button primary" onClick={() => setAdding(true)}>
+            Add a source
+          </button>
+          <AddSourceDialog
+            open={adding}
+            onClose={() => {
+              setAdding(false)
+              changed()
+            }}
+            onPhone
+          />
+        </section>
+      ) : null}
+      <BuildSchedule onBuilt={changed} />
       <DissectionCard onChanged={changed} />
       {pages.result.state === 'ready' ? <CompileCard state={pages.result.value} onChanged={changed} /> : null}
+      <Piles reloadToken={token} />
 
       <section className="card" aria-labelledby="held-heading">
         <h2 id="held-heading">Held for review</h2>
@@ -62,10 +78,7 @@ export function Construction({ onNavigate }: { onNavigate?: (name: RouteName) =>
                   </ul>
                 ) : null}
                 <p className="muted small">
-                  <a href="/sources" onClick={go('sources')}>
-                    Open Sources
-                  </a>{' '}
-                  to see which pile they came from.
+                  Open a pile below to see which file they came from.
                 </p>
               </>
             )}
@@ -76,7 +89,8 @@ export function Construction({ onNavigate }: { onNavigate?: (name: RouteName) =>
           </>
         ) : null}
       </section>
-      {pages.result.state === 'ready' && pages.result.value.can_compile ? <DeletedPages onChanged={changed} /> : null}
+      {onTheMac ? <DeletedPages onChanged={changed} /> : null}
+      <LocalData />
     </div>
   )
 }

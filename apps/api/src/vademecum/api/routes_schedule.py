@@ -24,7 +24,7 @@ from .routes_sources import CLAUDE_DESTINATION, CODEX_DESTINATION
 router = APIRouter(prefix="/build/schedule", tags=["schedule"])
 
 STANDING_CONSENT = (
-    "With the schedule on, each run sends the next unbuilt excerpts of every pile -- their text, "
+    "With building in the background on, each batch sends the next unbuilt excerpts of a pile -- their text, "
     "filenames, confidence labels and locations -- and the follow-up checks' claims, questions and "
     "retrieved abstracts, without a further prompt, until you turn it off. "
     + "In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
@@ -38,6 +38,10 @@ class ScheduleIn(BaseModel):
     enabled: bool
     times: Annotated[list[str], Field(min_length=1, max_length=store.MAX_TIMES)]
     batches_per_run: Annotated[int, Field(ge=1, le=store.MAX_BATCHES_PER_RUN)] = 3
+    # Build whenever the Mac is awake (ADR 0033); False keeps to the times above.
+    continuous: bool | None = None
+    # Pause the background builder for this many hours; 0 resumes it.
+    pause_hours: Annotated[float, Field(ge=0, le=72)] | None = None
 
 
 def get_scheduler(request: Request) -> BuildScheduler:
@@ -62,7 +66,19 @@ def write_schedule(
     scheduler: BuildScheduler = Depends(get_scheduler),
 ) -> dict[str, Any]:
     try:
-        store.set_schedule(connection, enabled=payload.enabled, times=payload.times, batches_per_run=payload.batches_per_run)
+        pause: str | None | bool = False
+        if payload.pause_hours is not None:
+            from datetime import datetime, timedelta
+
+            pause = None if payload.pause_hours == 0 else (datetime.now().astimezone() + timedelta(hours=payload.pause_hours)).isoformat(timespec="minutes")
+        store.set_schedule(
+            connection,
+            enabled=payload.enabled,
+            times=payload.times,
+            batches_per_run=payload.batches_per_run,
+            continuous=payload.continuous,
+            paused_until=pause,
+        )
     except store.InvalidSchedule as exc:
         raise ConflictError("invalid_schedule", exc.message) from None
     scheduler.reschedule()

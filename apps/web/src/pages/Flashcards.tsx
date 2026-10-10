@@ -126,7 +126,7 @@ export function Flashcards({ onNavigate }: { onNavigate?: (name: RouteName) => v
             Encyclopedia
           </a>
           , which is compiled from what a Build makes in{' '}
-          <a href="/sources" onClick={go('sources')}>
+          <a href="/foundation" onClick={go('foundation')}>
             Sources
           </a>
           .

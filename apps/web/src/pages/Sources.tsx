@@ -8,8 +8,6 @@
 
 import { useState } from 'react'
 import { BuildPanel } from '../components/BuildPanel'
-import { BuildSchedule } from '../components/BuildSchedule'
-import { LocalData } from '../components/LocalData'
 import { PointCard } from '../components/PointCard'
 import { ConfidenceBadge } from '../components/ConfidenceBadge'
 import { PhiWarning } from '../components/PhiWarning'
@@ -312,9 +310,10 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function Sources() {
+/** The piles, by tier confidence, each opening to its files, build and material (part of Foundation). */
+export function Piles({ reloadToken = 0 }: { reloadToken?: number } = {}) {
   const [token, setToken] = useState(0)
-  const { result, reload } = useLoad(() => api.listPiles(), [token])
+  const { result, reload } = useLoad(() => api.listPiles(), [token, reloadToken])
   const [openPile, setOpenPile] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [tier, setTier] = useState<Tier>('mid')
@@ -336,10 +335,8 @@ export function Sources() {
 
   return (
     <div className="stack">
-      <BuildSchedule onBuilt={refresh} />
-
       <section className="card" aria-labelledby="new-pile-heading">
-        <h2 id="new-pile-heading">New pile</h2>
+        <h2 id="new-pile-heading">An empty pile</h2>
         <form
           className="stack"
           onSubmit={(event) => {
@@ -433,7 +430,6 @@ export function Sources() {
             )
           })
         : null}
-      <LocalData />
 
     </div>
   )

@@ -60,7 +60,7 @@ export function TodayRecall({
     return (
       <p className="muted">
         Nothing to recall yet. Once pages and their flashcards are built from your{' '}
-        <a href="/sources" onClick={go('sources')}>
+        <a href="/foundation" onClick={go('foundation')}>
           sources
         </a>
         , one appears here each day, from where it helps most.

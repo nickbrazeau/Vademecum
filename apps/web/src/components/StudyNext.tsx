@@ -35,7 +35,7 @@ function href(unit: LearnerUnit): string {
     case 'flashcards':
       return '/flashcards'
     default:
-      return '/sources'
+      return '/foundation'
   }
 }
 
@@ -99,7 +99,7 @@ export function goToStep(unit: LearnerUnit, onNavigate: (name: RouteName) => voi
   } else if (unit.next.kind === 'flashcards') {
     onNavigate('flashcards')
   } else {
-    onNavigate('sources')
+    onNavigate('foundation')
   }
 }
 

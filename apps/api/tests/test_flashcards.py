@@ -128,10 +128,24 @@ def test_a_tab_added_after_the_owner_chose_is_shown(connection) -> None:
 
     connection.execute(
         "INSERT INTO app_state (key, value, updated_at) VALUES ('preferences', ?, '2026-10-01T00:00:00Z')",
-        (json.dumps({"visible_tabs": ["today", "tutor", "settings"]}),),
+        (json.dumps({"visible_tabs": ["today", "tutor", "settings"], "known_tabs": ["today", "tutor", "flashcards", "encyclopedia", "map", "podcasts", "settings"]}),),
     )
     connection.commit()
-    assert preferences.get_preferences(connection)["visible_tabs"] == ["today", "tutor", "construction", "settings"]
+    assert preferences.get_preferences(connection)["visible_tabs"] == ["today", "tutor", "foundation", "settings"]
+
+
+def test_a_saved_choice_of_sources_or_construction_means_foundation(connection) -> None:
+    """Feedback of 10 October: the two pages became one."""
+    import json
+
+    connection.execute(
+        "INSERT INTO app_state (key, value, updated_at) VALUES ('preferences', ?, '2026-10-01T00:00:00Z')",
+        (json.dumps({"visible_tabs": ["today", "sources", "settings"], "order": ["today", "construction", "tutor", "sources"], "known_tabs": ["sources", "construction"]}),),
+    )
+    connection.commit()
+    found = preferences.get_preferences(connection)
+    assert "foundation" in found["visible_tabs"] and "sources" not in found["order"] and "construction" not in found["order"]
+    assert found["order"][1] == "foundation"
 
 
 def test_preferences_over_the_api(tmp_path: Path) -> None:
@@ -151,10 +165,10 @@ def test_the_new_tables_sync_and_export() -> None:
 
 
 def test_the_owner_orders_the_tabs_between_today_and_settings(connection) -> None:
-    moved = preferences.set_visible_tabs(connection, ["tutor", "map", "sources"], ["settings", "map", "today", "tutor", "bogus"])
+    moved = preferences.set_visible_tabs(connection, ["tutor", "map", "foundation"], ["settings", "map", "today", "tutor", "bogus"])
     assert moved["order"][0] == "today" and moved["order"][-1] == "settings"
     assert moved["order"][1:3] == ["map", "tutor"], "the owner's order first, then the rest in catalogue order"
-    assert moved["visible_tabs"] == ["today", "map", "tutor", "sources", "settings"]
+    assert moved["visible_tabs"] == ["today", "map", "tutor", "foundation", "settings"]
     assert [tab["name"] for tab in moved["tabs"]] == moved["order"]
     again = preferences.set_visible_tabs(connection, ["tutor"])
     assert again["order"] == moved["order"], "choosing tabs again keeps the order"

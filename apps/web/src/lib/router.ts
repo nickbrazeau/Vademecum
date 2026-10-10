@@ -13,12 +13,11 @@ export type RouteName =
   | 'encyclopedia'
   | 'map'
   | 'podcasts'
-  | 'construction'
-  | 'sources'
+  | 'foundation'
   | 'settings'
 
 /**
- * The tabs, in the owner's order (ADR 0026): Sources second to last, Settings
+ * The tabs, in the owner's order (ADR 0026): Foundation second to last, Settings
  * last. The Model page lives inside Settings, and the Case Series reaches
  * Today when a new case is published, so neither is a tab of its own.
  */
@@ -29,8 +28,7 @@ export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'encyclopedia', path: '/encyclopedia', label: 'Encyclopedia' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
   { name: 'podcasts', path: '/podcasts', label: 'Podcast' },
-  { name: 'construction', path: '/construction', label: 'Construction' },
-  { name: 'sources', path: '/sources', label: 'Sources' },
+  { name: 'foundation', path: '/foundation', label: 'Foundation' },
   { name: 'settings', path: '/settings', label: 'Settings' }
 ]
 
@@ -38,12 +36,13 @@ export const ROUTES: { name: RouteName; path: string; label: string }[] = [
 export const FIXED_ROUTES: RouteName[] = ['today', 'settings']
 
 /**
- * Piles were renamed to Sources. A bookmark or a pinned tab from before the
- * rename still has to land somewhere correct, so the old path is kept as an
- * alias rather than 404ing into Today.
+ * Old addresses still land somewhere correct: Piles became Sources, and Sources and
+ * Construction became Foundation (feedback of 10 October).
  */
 export const ALIASES: Record<string, RouteName> = {
-  '/piles': 'sources',
+  '/piles': 'foundation',
+  '/sources': 'foundation',
+  '/construction': 'foundation',
   '/model': 'settings',
   '/cases': 'settings'
 }

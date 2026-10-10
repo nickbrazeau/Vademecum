@@ -1062,6 +1062,17 @@ export interface ConstructionSource {
   percent: number
   points: number
   added_at: string
+  /** Why it is not yet fully built, in a sentence; empty once built (feedback of 10 October). */
+  reason?: string
+}
+
+/** What the background builder is doing (ADR 0033). */
+export interface BuilderStatus {
+  state: 'starting' | 'building' | 'idle' | 'waiting' | 'limited' | 'paused' | 'blocked' | 'off'
+  reason: string
+  next_attempt_at: string | null
+  last_error: string
+  batches: number
 }
 
 export interface ConstructionProgress {
@@ -1069,7 +1080,9 @@ export interface ConstructionProgress {
     present: boolean
     files: number
     waiting_count: number
-    waiting: { pile: string; filename: string }[]
+    waiting: { pile: string; filename: string; reason?: string }[]
+    /** Copies, under another name, of files already read in (feedback of 10 October). */
+    duplicates?: { pile: string; filename: string; reason: string }[]
     scanning: boolean
     last_scan: {
       at: string
@@ -1080,6 +1093,7 @@ export interface ConstructionProgress {
     } | null
   }
   sources: { counts: Record<'not_started' | 'partly' | 'built' | 'unreadable', number>; total: number; items: ConstructionSource[] }
+  builder?: { enabled: boolean; builder?: BuilderStatus } | null
 }
 
 export interface MapPage {
@@ -1281,6 +1295,10 @@ export interface BuildSchedule {
   next_run_at: string | null
   last_run: ScheduledRun | null
   disclosure: string
+  /** Build whenever the Mac is awake (ADR 0033); false keeps to the times. */
+  continuous: boolean
+  paused_until: string | null
+  builder: BuilderStatus | null
 }
 
 /** The Case Series hub (ADR 0022): other people's cases, by title and link. */

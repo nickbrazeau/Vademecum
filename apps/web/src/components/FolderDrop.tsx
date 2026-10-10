@@ -61,7 +61,7 @@ export function FolderDrop({ onPlaced }: { onPlaced?: () => void }) {
 
   return (
     <section className="card" aria-labelledby="folder-drop-heading">
-      <h2 id="folder-drop-heading">New pile</h2>
+      <h2 id="folder-drop-heading">Add a source</h2>
       <form onSubmit={(event) => void submit(event)}>
         <label className="field">
           <span>Pile name</span>

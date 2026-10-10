@@ -1,6 +1,6 @@
 # ADR 0018 — Builds on a timer
 
-- Status: accepted
+- Status: accepted; its default superseded by ADR 0033 (building whenever the Mac is awake)
 - Date: 2026-10-03
 - Extends: [0006](0006-codex-app-server-bridge.md), [0007](0007-source-intake-verification-and-public-literature.md)
 - Amends: [0002](0002-local-first-boundary.md) rule on explicit action, with a standing consent

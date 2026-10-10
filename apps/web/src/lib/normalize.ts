@@ -906,7 +906,10 @@ export function buildSchedule(raw: unknown): import('./types').BuildSchedule {
     running: data.running === true,
     next_run_at: typeof data.next_run_at === 'string' ? data.next_run_at : null,
     last_run: lastRun && Array.isArray(lastRun.piles) ? lastRun : null,
-    disclosure: typeof data.disclosure === 'string' ? data.disclosure : ''
+    disclosure: typeof data.disclosure === 'string' ? data.disclosure : '',
+    continuous: data.continuous !== false,
+    paused_until: typeof data.paused_until === 'string' ? data.paused_until : null,
+    builder: data.builder && typeof data.builder === 'object' ? (data.builder as import('./types').BuilderStatus) : null
   }
 }
 

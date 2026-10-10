@@ -62,11 +62,21 @@ def get_schedule(connection: sqlite3.Connection) -> dict[str, Any]:
         "times": times,
         "batches_per_run": max(1, min(batches, MAX_BATCHES_PER_RUN)),
         "consent_at": stored.get("consent_at"),
+        # Build whenever the Mac is awake (feedback of 10 October, ADR 0033), rather than
+        # at the times above; on unless the owner chose the timer.
+        "continuous": bool(stored.get("continuous", True)),
+        "paused_until": stored.get("paused_until"),
     }
 
 
 def set_schedule(
-    connection: sqlite3.Connection, *, enabled: bool, times: list[str], batches_per_run: int
+    connection: sqlite3.Connection,
+    *,
+    enabled: bool,
+    times: list[str],
+    batches_per_run: int,
+    continuous: bool | None = None,
+    paused_until: str | None | bool = False,
 ) -> dict[str, Any]:
     cleaned = normalise_times(times)
     if not 1 <= batches_per_run <= MAX_BATCHES_PER_RUN:
@@ -77,8 +87,22 @@ def set_schedule(
         consent_at = utc_now()
     if not enabled:
         consent_at = None
+    keep_continuous = current["continuous"] if continuous is None else bool(continuous)
+    # False means "leave the pause as it is"; None clears it; a timestamp sets it.
+    pause = current["paused_until"] if paused_until is False else paused_until
     with transaction(connection) as tx:
-        _write(tx, KEY_SCHEDULE, {"enabled": enabled, "times": cleaned, "batches_per_run": batches_per_run, "consent_at": consent_at})
+        _write(
+            tx,
+            KEY_SCHEDULE,
+            {
+                "enabled": enabled,
+                "times": cleaned,
+                "batches_per_run": batches_per_run,
+                "consent_at": consent_at,
+                "continuous": keep_continuous,
+                "paused_until": pause,
+            },
+        )
     return get_schedule(connection)
 
 

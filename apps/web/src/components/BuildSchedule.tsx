@@ -1,10 +1,11 @@
 /**
- * Builds on a timer (ADR 0018).
+ * Building in the background (ADR 0033, feedback of 10 October; the timer of ADR 0018 is
+ * still an option).
  *
- * The switch is a standing consent: the disclosure above it says what every
- * run will send, and turning it on records the moment. "Build now" is the
- * same consent given once. In host mode there is nobody to do the turns on
- * a timer, and the panel says so instead of offering the switch.
+ * The switch is a standing consent: the disclosure above it says what each batch will
+ * send, and turning it on records the moment. On, the Mac builds whenever it is awake,
+ * one batch at a time, and says what it is doing; it can be paused. In host mode there is
+ * nobody to do the turns, and the panel says so instead of offering the switch.
  */
 
 import { useState } from 'react'
@@ -13,14 +14,7 @@ import { momentLabel } from '../lib/format'
 import type { BuildSchedule as Schedule } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { Loading } from './Loading'
-
-const STATUS_LABEL: Record<string, string> = {
-  succeeded: 'built',
-  nothing_to_build: 'nothing new to build',
-  busy: 'a build was already running',
-  timed_out: 'did not finish in time',
-  failed: 'failed'
-}
+import { Switch } from './Switch'
 
 export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
   const { result, reload } = useLoad(() => api.buildSchedule(), [])
@@ -34,13 +28,17 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
     // of the page is what the owner came for.
     return (
       <section className="card" aria-labelledby="build-schedule-heading" id="build-schedule">
-        <h2 id="build-schedule-heading">Builds on a timer</h2>
+        <h2 id="build-schedule-heading">Build in the background</h2>
         <p className="muted small">Not readable right now. {result.error.message}</p>
       </section>
     )
   }
   const schedule: Schedule = result.value
   const timesText = times ?? schedule.times.join(', ')
+  const parsedTimes = timesText
+    .split(/[,\s]+/)
+    .map((value) => value.trim())
+    .filter((value) => value !== '')
 
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true)
@@ -55,44 +53,50 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
       setBusy(false)
     }
   }
-
-  const parsedTimes = timesText
-    .split(/[,\s]+/)
-    .map((value) => value.trim())
-    .filter((value) => value !== '')
-
-  const save = (enabled: boolean) =>
-    act(() => api.saveBuildSchedule({ enabled, times: parsedTimes, batches_per_run: schedule.batches_per_run }))
+  const save = (input: { enabled?: boolean; continuous?: boolean; pause_hours?: number }) =>
+    act(() =>
+      api.saveBuildSchedule({
+        enabled: input.enabled ?? schedule.enabled,
+        times: parsedTimes.length ? parsedTimes : schedule.times,
+        batches_per_run: schedule.batches_per_run,
+        continuous: input.continuous ?? schedule.continuous,
+        ...(input.pause_hours !== undefined ? { pause_hours: input.pause_hours } : {})
+      })
+    )
+  const paused = schedule.paused_until !== null
 
   return (
     <section className="card" aria-labelledby="build-schedule-heading" id="build-schedule">
-      <h2 id="build-schedule-heading">Builds on a timer</h2>
+      <h2 id="build-schedule-heading">Build in the background</h2>
       {!schedule.can_run ? (
         <p className="muted">{schedule.blocked_reason}</p>
       ) : (
         <>
           <p className="muted small">{schedule.disclosure}</p>
-          <label htmlFor="build-times">Times of day (24-hour, comma-separated)</label>
-          <input
-            id="build-times"
-            type="text"
-            value={timesText}
+          <Switch
+            label="Build whenever the Mac is awake"
+            checked={schedule.enabled}
             disabled={busy}
-            onChange={(event) => setTimes(event.target.value)}
+            onChange={(on) => void save({ enabled: on })}
+            hint={schedule.consent_at && schedule.enabled ? `consent given ${momentLabel(schedule.consent_at)}` : undefined}
           />
-          <p className="muted small">
-            Up to {schedule.batches_per_run} batch{schedule.batches_per_run === 1 ? '' : 'es'} per pile per run.{' '}
-            {schedule.enabled && schedule.next_run_at ? `Next run ${schedule.next_run_at.replace('T', ' ')}.` : 'Off.'}
-            {schedule.consent_at ? ` Consent given ${momentLabel(schedule.consent_at)}.` : null}
-          </p>
+          {schedule.enabled && schedule.continuous && schedule.builder ? (
+            <p className="small" role="status">
+              {schedule.builder.reason}
+              {schedule.builder.batches ? ` ${schedule.builder.batches} batch${schedule.builder.batches === 1 ? '' : 'es'} built since the Mac started.` : ''}
+            </p>
+          ) : null}
           <div className="actions">
-            <button type="button" className="button primary" disabled={busy} onClick={() => void save(!schedule.enabled)}>
-              {schedule.enabled ? 'Turn the schedule off' : 'Turn the schedule on'}
-            </button>
-            {schedule.enabled && times !== null ? (
-              <button type="button" className="button ghost" disabled={busy} onClick={() => void save(true)}>
-                Save times
-              </button>
+            {schedule.enabled && schedule.continuous ? (
+              paused ? (
+                <button type="button" className="button" disabled={busy} onClick={() => void save({ pause_hours: 0 })}>
+                  Resume building
+                </button>
+              ) : (
+                <button type="button" className="button ghost" disabled={busy} onClick={() => void save({ pause_hours: 2 })}>
+                  Pause for 2 hours
+                </button>
+              )
             ) : null}
             <button
               type="button"
@@ -100,22 +104,30 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
               disabled={busy || schedule.running}
               onClick={() => void act(() => api.runBuildsNow())}
             >
-              {schedule.running ? 'Building…' : 'Build now'}
+              {schedule.running ? 'Building…' : 'Build every pile now'}
             </button>
           </div>
+          <details className="support-details">
+            <summary>Only at set times instead</summary>
+            <Switch
+              label="Build only at the times below"
+              checked={!schedule.continuous}
+              disabled={busy}
+              onChange={(on) => void save({ continuous: !on })}
+            />
+            <label htmlFor="build-times">Times of day (24-hour, comma-separated)</label>
+            <input id="build-times" type="text" value={timesText} disabled={busy} onChange={(event) => setTimes(event.target.value)} />
+            {times !== null ? (
+              <button type="button" className="button ghost small" disabled={busy} onClick={() => void save({})}>
+                Save times
+              </button>
+            ) : null}
+            {!schedule.continuous && schedule.enabled && schedule.next_run_at ? (
+              <p className="muted small">Next run {schedule.next_run_at.replace('T', ' ')}.</p>
+            ) : null}
+          </details>
         </>
       )}
-      {schedule.last_run ? (
-        <p className="muted small">
-          Last run {momentLabel(schedule.last_run.at)}
-          {schedule.last_run.ran
-            ? ': ' +
-              schedule.last_run.piles
-                .map((pile) => `${pile.title}: ${STATUS_LABEL[pile.status] ?? pile.status}${pile.points ? `, ${pile.points} point${pile.points === 1 ? '' : 's'}` : ''}`)
-                .join('; ')
-            : `: ${schedule.last_run.note}`}
-        </p>
-      ) : null}
       {failure ? (
         <p className="failure" role="alert">
           {failure.message}

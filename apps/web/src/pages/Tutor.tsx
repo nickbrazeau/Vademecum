@@ -271,7 +271,7 @@ function OpenTutor({ onNavigate, boardReason }: { onNavigate?: (name: RouteName)
   const goSources = (event: MouseEvent) => {
     if (onNavigate === undefined) return
     event.preventDefault()
-    onNavigate('sources')
+    onNavigate('foundation')
   }
 
   if (question === null) {
@@ -283,7 +283,7 @@ function OpenTutor({ onNavigate, boardReason }: { onNavigate?: (name: RouteName)
           <p className="muted">
             Board questions are written from the Encyclopedia, which is compiled from the learning
             points a Build makes from files you add in{' '}
-            <a href="/sources" onClick={goSources}>
+            <a href="/foundation" onClick={goSources}>
               Sources
             </a>
             .

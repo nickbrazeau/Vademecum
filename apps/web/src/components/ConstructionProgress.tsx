@@ -9,6 +9,7 @@ import { api } from '../lib/api'
 import { momentLabel } from '../lib/format'
 import type { ConstructionSource } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
+import { Loading } from './Loading'
 
 const STATE_LABEL: Record<ConstructionSource['state'], string> = {
   not_started: 'Not built yet',
@@ -26,7 +27,10 @@ export function ConstructionProgress({ reloadToken = 0 }: { reloadToken?: number
 
   // While files are waiting or a scan is running, look again every twenty seconds.
   const ready = result.state === 'ready' && result.value?.folder !== undefined && result.value?.sources !== undefined
-  const busy = ready && result.state === 'ready' && (result.value.folder.waiting_count > 0 || result.value.folder.scanning)
+  const busy =
+    ready &&
+    result.state === 'ready' &&
+    (result.value.folder.waiting_count > 0 || result.value.folder.scanning || result.value.builder?.builder?.state === 'building')
   useEffect(() => {
     if (!busy) return undefined
     const timer = window.setInterval(reload, 20_000)
@@ -41,9 +45,10 @@ export function ConstructionProgress({ reloadToken = 0 }: { reloadToken?: number
     )
   }, [result, filter, query])
 
-  if (result.state === 'loading') return <p className="muted">Reading…</p>
+  if (result.state === 'loading') return <Loading />
   if (result.state === 'failed' || !ready) return null
   const { folder, sources } = result.value
+  const builder = result.value.builder
   const counts = sources.counts
   const total = Math.max(1, folder.waiting_count + sources.total)
   const share = (n: number) => `${(100 * n) / total}%`
@@ -75,6 +80,17 @@ export function ConstructionProgress({ reloadToken = 0 }: { reloadToken?: number
         <span className="key built" /> built · <span className="key partly" /> partly · <span className="key read" /> read in, not built yet ·{' '}
         <span className="key waiting" /> waiting
       </p>
+      {/* What the builder is doing, so a file not yet built always has a reason (feedback of 10 October). */}
+      {builder ? (
+        <p className="small builder-status" role="status">
+          <strong>Building: </strong>
+          {!builder.enabled ? 'off. Turn on building in the background below.' : builder.builder?.reason || 'starting.'}
+          {builder.builder?.next_attempt_at && builder.builder.state !== 'building' ? ` Next try ${momentLabel(builder.builder.next_attempt_at)}.` : ''}
+        </p>
+      ) : null}
+      {builder?.builder?.last_error && builder.builder.state === 'waiting' ? (
+        <p className="muted small">Last problem: {builder.builder.last_error}</p>
+      ) : null}
       {folder.last_scan ? (
         <p className="muted small">
           Last scan {momentLabel(folder.last_scan.at)}: {folder.last_scan.stored} read in
@@ -101,12 +117,27 @@ export function ConstructionProgress({ reloadToken = 0 }: { reloadToken?: number
             {folder.waiting.map((item) => (
               <li key={`${item.pile}/${item.filename}`}>
                 {item.filename} <span className="muted">· {item.pile}</span>
+                {item.reason ? <span className="muted small item-reason">{item.reason}</span> : null}
               </li>
             ))}
           </ul>
           {folder.waiting_count > folder.waiting.length ? <p className="muted small">and {folder.waiting_count - folder.waiting.length} more.</p> : null}
         </details>
       ) : null}
+      {folder.duplicates && folder.duplicates.length > 0 ? (
+        <details className="support-details">
+          <summary>Already here under another name ({folder.duplicates.length})</summary>
+          <ul className="list small">
+            {folder.duplicates.map((item) => (
+              <li key={`${item.pile}/${item.filename}`}>
+                {item.filename} <span className="muted">· {item.pile}</span>
+                <span className="muted small item-reason">{item.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      <p className="muted small">PDF, PowerPoint (.pptx), Word (.docx), Markdown, text and pictures are read in and built.</p>
       <details className="support-details">
         <summary>Every source, and how far it is built ({sources.total})</summary>
         <div className="chips" role="group" aria-label="Show">
@@ -134,6 +165,7 @@ export function ConstructionProgress({ reloadToken = 0 }: { reloadToken?: number
                 <th scope="row">
                   <span className="title">{item.filename}</span>
                   <span className="muted small"> · {item.pile}</span>
+                  {item.reason ? <span className="muted small item-reason">{item.reason}</span> : null}
                 </th>
                 <td>{item.state === 'unreadable' ? STATE_LABEL.unreadable : `${item.percent}%`}</td>
                 <td>{item.points}</td>

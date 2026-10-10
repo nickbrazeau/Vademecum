@@ -61,7 +61,7 @@ export function BoardTutor({
             Encyclopedia
           </a>
           , which is compiled from the learning points a Build makes in{' '}
-          <a href="/sources" onClick={go('sources')}>
+          <a href="/foundation" onClick={go('foundation')}>
             Sources
           </a>
           .

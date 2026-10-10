@@ -9,7 +9,7 @@ import { UploadPanel } from '../src/components/UploadPanel'
 import { answerDraftKey, loadDraft } from '../src/lib/drafts'
 import { api } from '../src/lib/api'
 import { coverage } from '../src/lib/normalize'
-import { Sources } from '../src/pages/Sources'
+import { Piles as Sources } from '../src/pages/Sources'
 import { Today } from '../src/pages/Today'
 import { Tutor } from '../src/pages/Tutor'
 

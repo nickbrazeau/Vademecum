@@ -27,7 +27,10 @@ def test_the_next_due_time_is_the_next_of_the_times_after_now() -> None:
 
 
 def test_times_are_checked_and_consent_is_recorded_only_while_on(connection) -> None:
-    assert store.get_schedule(connection) == {"enabled": False, "times": ["07:00", "12:00", "18:00"], "batches_per_run": 3, "consent_at": None}
+    assert store.get_schedule(connection) == {
+        "enabled": False, "times": ["07:00", "12:00", "18:00"], "batches_per_run": 3, "consent_at": None,
+        "continuous": True, "paused_until": None,
+    }
     with pytest.raises(store.InvalidSchedule):
         store.normalise_times(["7am"])
     with pytest.raises(store.InvalidSchedule):
@@ -63,8 +66,14 @@ def test_the_schedule_is_read_set_and_disclosed(codex_client) -> None:
     assert bad.status_code == 409 and bad.json()["error"]["code"] == "invalid_schedule"
 
     on = client.put("/api/build/schedule", json={"enabled": True, "times": ["07:00", "18:00"], "batches_per_run": 2}).json()
-    assert on["enabled"] is True and on["times"] == ["07:00", "18:00"] and on["next_run_at"]
-    assert on["consent_at"] is not None
+    assert on["enabled"] is True and on["continuous"] is True and on["next_run_at"] is None, "builds whenever awake, by default"
+    assert on["consent_at"] is not None and on["builder"]["state"]
+    timer = client.put("/api/build/schedule", json={"enabled": True, "times": ["07:00", "18:00"], "continuous": False}).json()
+    assert timer["continuous"] is False and timer["times"] == ["07:00", "18:00"] and timer["next_run_at"]
+    paused = client.put("/api/build/schedule", json={"enabled": True, "times": ["07:00"], "pause_hours": 2}).json()
+    assert paused["paused_until"]
+    resumed = client.put("/api/build/schedule", json={"enabled": True, "times": ["07:00"], "pause_hours": 0}).json()
+    assert resumed["paused_until"] is None
 
 
 def test_run_now_builds_every_pile_and_records_what_it_did(codex_client) -> None:
@@ -108,3 +117,25 @@ def test_host_mode_refuses_to_run_and_says_why(tmp_path) -> None:
         refused = client.post("/api/build/schedule/run")
         assert refused.status_code == 409 and refused.json()["error"]["code"] == "needs_codex"
         assert NEEDS_CODEX.split(".")[0] in refused.json()["error"]["message"]
+
+
+def test_in_the_background_a_new_file_is_built_without_pressing_anything(codex_client) -> None:
+    """ADR 0033 (feedback of 10 October): with consent given, the Mac builds whenever it is
+    awake, one batch at a time, and says what it is doing."""
+    import time
+
+    client, _app = codex_client
+    pile = client.post("/api/piles", json={"title": "Sepsis", "tier": "mid"}).json()
+    assert upload(client, pile["id"], "lecture.txt", LECTURE.encode()).status_code == 201
+    client.put("/api/build/schedule", json={"enabled": True, "times": ["07:00"]})
+    for _ in range(300):
+        if len(client.get("/api/points").json()) == 1:
+            break
+        time.sleep(0.05)
+    assert len(client.get("/api/points").json()) == 1, "built in the background"
+    for _ in range(100):
+        builder = client.get("/api/build/schedule").json()["builder"]
+        if builder["state"] == "idle":
+            break
+        time.sleep(0.05)
+    assert builder["state"] == "idle" and "Everything read in has been built" in builder["reason"]

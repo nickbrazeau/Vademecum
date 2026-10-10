@@ -79,16 +79,17 @@ describe('the quick-flag shortcut', () => {
 })
 
 describe('the shell', () => {
-  it('offers the tabs in the owner’s order, with Construction and Settings, and no Case Series tab', () => {
+  it('offers the tabs in the owner’s order, with Foundation and Settings, and no Case Series tab', () => {
     stubApi()
     render(<App />)
     const nav = screen.getByRole('navigation', { name: /sections/i })
     expect(nav).toHaveTextContent('Today')
-    expect(nav).toHaveTextContent('Sources')
+    expect(nav).toHaveTextContent('Foundation')
+    expect(nav).not.toHaveTextContent('Sources')
     expect(nav).toHaveTextContent('Tutor')
     expect(nav).toHaveTextContent('Improvement Map')
     expect(nav).not.toHaveTextContent('Case Series')
-    expect(nav).toHaveTextContent('Construction')
+    expect(nav).not.toHaveTextContent('Construction')
     expect(nav).toHaveTextContent('Encyclopedia')
     expect(nav).toHaveTextContent('Flashcards')
     expect(nav).toHaveTextContent('Settings')
@@ -98,9 +99,9 @@ describe('the shell', () => {
     stubApi()
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('link', { name: 'Sources' }))
-    expect(window.location.pathname).toBe('/sources')
-    expect(await screen.findByRole('heading', { name: /new pile/i })).toBeVisible()
+    await user.click(screen.getByRole('link', { name: 'Foundation' }))
+    expect(window.location.pathname).toBe('/foundation')
+    expect(await screen.findByRole('heading', { name: /an empty pile/i })).toBeVisible()
   })
 
   it('says it is educational, not a substitute for clinical judgment', () => {

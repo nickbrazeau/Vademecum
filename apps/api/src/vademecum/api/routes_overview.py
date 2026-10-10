@@ -79,7 +79,19 @@ def construction(request: Request, connection: sqlite3.Connection = Depends(get_
     built (feedback of 6 October). Names files and piles, never a path."""
     from ..storage import construction as progress
 
+    import json as _json
+
     folder = getattr(request.app.state, "sources_folder", None)
-    data = progress.progress(connection, folder)
+    # The folder scan's record of each file's contents, so a copy under another name is known
+    # without reading it again; and what the background builder is doing (feedback of 10 October).
+    cache = None
+    cache_path = request.app.state.settings.resolve_data_dir() / "scan-cache.json"
+    try:
+        cache = _json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.is_file() else None
+    except (OSError, ValueError):
+        cache = None
+    scheduler = getattr(request.app.state, "build_scheduler", None)
+    builder = scheduler.describe(connection) if scheduler is not None else None
+    data = progress.progress(connection, folder, cache=cache, builder=builder)
     data["folder"]["scanning"] = bool(getattr(request.app.state, "scanning", False))
     return data

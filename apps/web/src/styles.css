@@ -1953,3 +1953,11 @@ details[open].strength-topic > summary::before {
   background: var(--accent-tint);
   border-color: var(--accent);
 }
+
+/* Foundation: each file's reason on a line of its own (feedback of 10 October). */
+.item-reason {
+  display: block;
+}
+.builder-status {
+  margin: 0.5rem 0;
+}

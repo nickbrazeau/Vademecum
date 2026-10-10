@@ -23,12 +23,20 @@ TABS: tuple[dict[str, Any], ...] = (
     {"name": "encyclopedia", "label": "Encyclopedia", "fixed": False},
     {"name": "map", "label": "Improvement Map", "fixed": False},
     {"name": "podcasts", "label": "Podcast", "fixed": False},
-    {"name": "construction", "label": "Construction", "fixed": False},
-    {"name": "sources", "label": "Sources", "fixed": False},
+    # Sources and Construction became one page, Foundation (feedback of 10 October).
+    {"name": "foundation", "label": "Foundation", "fixed": False},
     {"name": "settings", "label": "Settings", "fixed": True},
 )
 TAB_NAMES = tuple(tab["name"] for tab in TABS)
 FIXED = tuple(tab["name"] for tab in TABS if tab["fixed"])
+# Tabs that were merged or renamed: a saved choice naming the old one means the new.
+RENAMED = {"sources": "foundation", "construction": "foundation"}
+
+
+def _renamed(names: Any) -> list[str] | None:
+    if not isinstance(names, list):
+        return None
+    return list(dict.fromkeys(RENAMED.get(str(name), str(name)) for name in names))
 
 
 def _read(connection: sqlite3.Connection) -> dict[str, Any]:
@@ -39,7 +47,12 @@ def _read(connection: sqlite3.Connection) -> dict[str, Any]:
         data = json.loads(row["value"])
     except ValueError:
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    for field in ("visible_tabs", "order", "known_tabs"):
+        if field in data:
+            data[field] = _renamed(data[field])
+    return data
 
 
 DEFAULT_DAILY_GOAL = 20
@@ -109,7 +122,7 @@ def get_preferences(connection: sqlite3.Connection) -> dict[str, Any]:
     else:
         wanted = {str(name) for name in chosen}
         # A tab added after the owner chose is shown until they choose again.
-        known = set(stored.get("known_tabs") or [name for name in TAB_NAMES if name != "construction"])
+        known = set(stored.get("known_tabs") or TAB_NAMES)
         visible = [name for name in order if name in wanted or name in FIXED or name not in known]
     by_name = {tab["name"]: tab for tab in TABS}
     return {
@@ -123,6 +136,8 @@ def get_preferences(connection: sqlite3.Connection) -> dict[str, Any]:
 
 def set_visible_tabs(connection: sqlite3.Connection, names: list[str], order: list[str] | None = None) -> dict[str, Any]:
     stored = _read(connection)
+    names = _renamed(names) or []
+    order = _renamed(order) if order is not None else None
     new_order = ordered(order if order is not None else (stored.get("order") if isinstance(stored.get("order"), list) else None))
     wanted = {str(name) for name in names} | set(FIXED)
     visible = [name for name in new_order if name in wanted]

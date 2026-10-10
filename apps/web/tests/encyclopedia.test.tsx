@@ -8,7 +8,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EncyclopediaPage } from '../src/components/EncyclopediaPage'
-import { Construction } from '../src/pages/Construction'
+import { Foundation as Construction } from '../src/pages/Foundation'
 import { Encyclopedia } from '../src/pages/Encyclopedia'
 import { Tutor } from '../src/pages/Tutor'
 import { Today } from '../src/pages/Today'

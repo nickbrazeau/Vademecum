@@ -47,7 +47,7 @@ Where your data lives:
 
 - **Your material**: the source folder you chose.
 - **Your records**: `~/Library/Application Support/Vademecum`. Export and backup are at the foot
-  of **Sources**.
+  of **Foundation**.
 
 Never put patient identifiers in the folder or in the chat.
 

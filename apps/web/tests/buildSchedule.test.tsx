@@ -1,6 +1,7 @@
 /**
- * Builds on a timer (ADR 0018): a disclosure before the switch, a Build now
- * button, and a plain refusal in host mode.
+ * Building in the background (ADR 0033; the timer of ADR 0018 as an option): a disclosure
+ * before the switch, the builder's status, pause and resume, Build every pile now, and a
+ * plain refusal in host mode.
  */
 
 import { render, screen, waitFor } from '@testing-library/react'
@@ -19,6 +20,9 @@ const SCHEDULE = {
   running: false,
   next_run_at: null,
   last_run: null,
+  continuous: true,
+  paused_until: null,
+  builder: { state: 'idle', reason: 'Everything read in has been built.', next_attempt_at: null, last_error: '', batches: 0 },
   disclosure: 'With the schedule on, each run sends the next unbuilt excerpts of every pile without a further prompt, until you turn it off.'
 }
 
@@ -43,20 +47,29 @@ function stubApi(schedule: Record<string, unknown>) {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('the build schedule panel', () => {
-  it('shows the disclosure before the switch and turns the schedule on with the times given', async () => {
+  it('shows the disclosure before the switch and turns building in the background on', async () => {
     const calls = stubApi(SCHEDULE)
     render(<BuildSchedule />)
     expect(await screen.findByText(/without a further prompt/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Turn the schedule on' }))
+    await userEvent.click(screen.getByLabelText(/Build whenever the Mac is awake/))
     await waitFor(() => expect(calls.some((c) => c.init?.method === 'PUT')).toBe(true))
     const put = calls.find((c) => c.init?.method === 'PUT')
-    expect(JSON.parse(put!.init!.body as string)).toEqual({ enabled: true, times: ['07:00', '12:00', '18:00'], batches_per_run: 3 })
+    expect(JSON.parse(put!.init!.body as string)).toEqual({ enabled: true, times: ['07:00', '12:00', '18:00'], batches_per_run: 3, continuous: true })
+  })
+
+  it('says what the builder is doing, and pauses it for two hours', async () => {
+    const calls = stubApi({ ...SCHEDULE, enabled: true, builder: { ...SCHEDULE.builder, state: 'building', reason: 'Building from Sepsis.', batches: 4 } })
+    render(<BuildSchedule />)
+    expect(await screen.findByText(/Building from Sepsis\. 4 batches built/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Pause for 2 hours' }))
+    await waitFor(() => expect(calls.some((c) => c.init?.method === 'PUT')).toBe(true))
+    expect(JSON.parse(calls.find((c) => c.init?.method === 'PUT')!.init!.body as string).pause_hours).toBe(2)
   })
 
   it('offers Build now, which posts once', async () => {
     const calls = stubApi(SCHEDULE)
     render(<BuildSchedule />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Build now' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Build every pile now' }))
     await waitFor(() => expect(calls.filter((c) => c.init?.method === 'POST')).toHaveLength(1))
     expect(calls.find((c) => c.init?.method === 'POST')!.url).toBe('/api/build/schedule/run')
   })
@@ -65,15 +78,6 @@ describe('the build schedule panel', () => {
     stubApi({ ...SCHEDULE, model_mode: 'host', can_run: false, blocked_reason: 'Scheduled builds need the Mac’s own Codex connection.' })
     render(<BuildSchedule />)
     expect(await screen.findByText(/need the Mac’s own Codex connection/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /schedule/ })).toBeNull()
-  })
-
-  it('describes the last run in words', async () => {
-    stubApi({
-      ...SCHEDULE,
-      last_run: { at: '2026-10-03T12:00:00Z', reason: 'scheduled', ran: true, note: '', piles: [{ pile_id: 'p', title: 'Sepsis', batches: 2, points: 5, status: 'succeeded', detail: '' }] }
-    })
-    render(<BuildSchedule />)
-    expect(await screen.findByText(/Sepsis: built, 5 points/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Build whenever the Mac is awake/)).toBeNull()
   })
 })

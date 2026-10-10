@@ -11,7 +11,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { itemDraftKey, loadDraft, saveDraft } from '../src/lib/drafts'
 import { MAX_ITEM_BODY_LENGTH } from '../src/lib/types'
-import { Sources as Piles } from '../src/pages/Sources'
+import { Piles } from '../src/pages/Sources'
 
 const PILE = {
   id: 'pil_1',
