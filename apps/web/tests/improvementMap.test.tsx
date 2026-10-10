@@ -285,3 +285,31 @@ describe('the Improvement Map page', () => {
     expect(screen.queryByRole('group', { name: 'Topic graph' })).not.toBeInTheDocument()
   })
 })
+
+describe('specialties folded and shaped (feedback of 10 October)', () => {
+  const card = (topic: string): TopicGap => ({ topic, open_flags: 1, addressed_flags: 0, last_flagged_at: null, cluster: null, specialty: { id: 'cardiology', name: 'Cardiology', assigned_by: 'owner' } })
+
+  it('folds a specialty with three or more topics into one node, joining their links, until it is opened', async () => {
+    const { fold, SPECIALTY_PREFIX } = await import('../src/components/TopicGraph')
+    const built = buildGraph([card('Heart failure'), card('Atrial fibrillation'), card('Endocarditis'), flu], [], [
+      { a: 'Heart failure', b: 'Atrial fibrillation', weight: 2 },
+      { a: 'Endocarditis', b: 'Influenza', weight: 1 }
+    ], { openOnly: true })
+    const folded = fold(built, new Set(), [{ id: 'cardiology', name: 'Cardiology' }])
+    const node = folded.nodes.find((entry) => entry.id === `${SPECIALTY_PREFIX}cardiology`)!
+    expect(node.kind).toBe('specialty')
+    expect(node.members).toHaveLength(3)
+    expect(node.open).toBe(3)
+    expect(folded.nodes.map((entry) => entry.label)).toEqual(['Cardiology', 'Influenza'])
+    expect(folded.links).toHaveLength(1)
+    const opened = fold(built, new Set(['cardiology']), [{ id: 'cardiology', name: 'Cardiology' }])
+    expect(opened.nodes.map((entry) => entry.label).sort()).toEqual(['Atrial fibrillation', 'Endocarditis', 'Heart failure', 'Influenza'])
+  })
+
+  it('gives each of the fourteen specialties a shape of its own', async () => {
+    const { shapeFor } = await import('../src/components/TopicGraph')
+    const fourteen = Array.from({ length: 14 }, (_, index) => ({ id: `s${index}` }))
+    const paths = new Set(fourteen.map((entry) => shapeFor(entry.id, fourteen)(10)))
+    expect(paths.size).toBe(14)
+  })
+})

@@ -30,9 +30,12 @@ export interface GraphNode extends SimulationNodeDatum {
   specialty: string | null
   /** What the newest exam report said about this area (ADR 0020), if it named it. */
   standing: 'below' | 'at' | 'above' | null
-  /** A topic, or an encyclopedia page a flagged topic is about (feedback of 6 October). */
-  kind?: 'topic' | 'page'
+  /** A topic, an encyclopedia page a flagged topic is about (feedback of 6 October), or a
+   *  specialty folded into one node until it is opened (feedback of 10 October). */
+  kind?: 'topic' | 'page' | 'specialty'
   entryId?: string
+  /** For a folded specialty: the nodes inside it. */
+  members?: GraphNode[]
 }
 
 export interface GraphLink extends SimulationLinkDatum<GraphNode> {
@@ -42,6 +45,9 @@ export interface GraphLink extends SimulationLinkDatum<GraphNode> {
 }
 
 export const PAGE_PREFIX = 'page:'
+export const SPECIALTY_PREFIX = 'spec:'
+/** A specialty with at least this many nodes is folded into one until opened. */
+export const FOLD_AT = 3
 
 /** The legend key for topics with no specialty; also what the filter hides them by. */
 export const UNASSIGNED = '__unassigned__'
@@ -52,6 +58,101 @@ const NO_PAGES: MapPage[] = []
 const NO_PAGE_LINKS: { topic: string; entry_id: string }[] = []
 const NO_LINKS: TopicLink[] = []
 
+// --- shapes, one per specialty (feedback of 10 October) ----------------------------------
+
+/** A closed path for a regular polygon or star of radius r, pointing up unless turned. */
+function polygon(sides: number, r: number, turn = 0, inner = 0): string {
+  const points: string[] = []
+  const count = inner ? sides * 2 : sides
+  for (let i = 0; i < count; i += 1) {
+    const radius = inner && i % 2 === 1 ? r * inner : r
+    const angle = -Math.PI / 2 + turn + (i * 2 * Math.PI) / count
+    points.push(`${(radius * Math.cos(angle)).toFixed(2)},${(radius * Math.sin(angle)).toFixed(2)}`)
+  }
+  return `M${points.join('L')}Z`
+}
+
+const SHAPES: ((r: number) => string)[] = [
+  (r) => `M${-r},0a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`, // circle
+  (r) => polygon(4, r * 1.15, Math.PI / 4), // square
+  (r) => polygon(4, r * 1.2), // diamond
+  (r) => polygon(3, r * 1.3), // triangle up
+  (r) => polygon(3, r * 1.3, Math.PI), // triangle down
+  (r) => polygon(5, r * 1.15), // pentagon
+  (r) => polygon(6, r * 1.1), // hexagon
+  (r) => polygon(8, r * 1.08), // octagon
+  (r) => polygon(5, r * 1.35, 0, 0.5), // five-pointed star
+  (r) => polygon(4, r * 1.35, 0, 0.45), // four-pointed star
+  (r) => polygon(6, r * 1.3, 0, 0.6), // six-pointed star
+  (r) => polygon(5, r * 1.15, Math.PI), // pentagon, turned
+  (r) => polygon(6, r * 1.1, Math.PI / 6), // hexagon, flat
+  (r) => polygon(3, r * 1.3, Math.PI / 2) // triangle pointing right
+]
+
+/** The shape that stands for a specialty: fixed by its place in the list; a circle for none. */
+export function shapeFor(specialty: string | null, specialties: Pick<Specialty, 'id'>[]): (r: number) => string {
+  const index = specialty === null ? -1 : specialties.findIndex((entry) => entry.id === specialty)
+  return index < 0 ? SHAPES[0]! : SHAPES[index % SHAPES.length]!
+}
+
+const KNOWLEDGE_ORDER: (KnowledgeState | 'none')[] = ['forming', 'fading', 'untried', 'holding', 'none']
+
+/**
+ * Specialties folded into one node each until opened (feedback of 10 October): the node
+ * carries its members' open flags and points, and the links to and from its members join
+ * at it. Topics with no specialty, and opened specialties, are drawn as they are.
+ */
+export function fold(
+  built: { nodes: GraphNode[]; links: GraphLink[] },
+  opened: ReadonlySet<string>,
+  specialties: Pick<Specialty, 'id' | 'name'>[]
+): { nodes: GraphNode[]; links: GraphLink[] } {
+  const groups = new Map<string, GraphNode[]>()
+  for (const node of built.nodes) {
+    if (node.specialty === null || opened.has(node.specialty)) continue
+    groups.set(node.specialty, [...(groups.get(node.specialty) ?? []), node])
+  }
+  const into = new Map<string, GraphNode>()
+  const nodes: GraphNode[] = []
+  for (const [specialty, members] of groups) {
+    if (members.length < FOLD_AT) continue
+    const folded: GraphNode = {
+      id: `${SPECIALTY_PREFIX}${specialty}`,
+      label: specialties.find((entry) => entry.id === specialty)?.name ?? specialty,
+      open: members.reduce((sum, node) => sum + node.open, 0),
+      addressed: members.reduce((sum, node) => sum + node.addressed, 0),
+      points: members.reduce((sum, node) => sum + node.points, 0),
+      specialty,
+      standing: members.some((node) => node.standing === 'below') ? 'below' : null,
+      kind: 'specialty',
+      members
+    }
+    nodes.push(folded)
+    for (const member of members) into.set(member.id, folded)
+  }
+  for (const node of built.nodes) if (!into.has(node.id)) nodes.push(node)
+  const merged = new Map<string, GraphLink>()
+  for (const link of built.links) {
+    const a = typeof link.source === 'object' ? (link.source as GraphNode).id : String(link.source)
+    const b = typeof link.target === 'object' ? (link.target as GraphNode).id : String(link.target)
+    const from = into.get(a)?.id ?? a
+    const to = into.get(b)?.id ?? b
+    if (from === to) continue
+    const key = from < to ? `${from}|${to}` : `${to}|${from}`
+    const existing = merged.get(key)
+    if (existing) existing.weight += link.weight
+    else merged.set(key, { source: from, target: to, weight: link.weight, kind: link.kind })
+  }
+  // The layout takes links between the nodes themselves.
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  const joined = [...merged.values()].filter((link) => byId.has(String(link.source)) && byId.has(String(link.target)))
+  for (const link of joined) {
+    link.source = byId.get(String(link.source))!
+    link.target = byId.get(String(link.target))!
+  }
+  return { nodes, links: joined }
+}
+
 /** Whether a node is drawn under the current legend filter. */
 export function isShown(node: Pick<GraphNode, 'specialty'>, hidden: ReadonlySet<string>): boolean {
   return !hidden.has(node.specialty ?? UNASSIGNED)
@@ -61,8 +162,9 @@ export function isShown(node: Pick<GraphNode, 'specialty'>, hidden: ReadonlySet<
 const HIT_RADIUS = 22
 const LAYOUT_TICKS = 300
 
-export function radiusFor(node: Pick<GraphNode, 'open' | 'addressed' | 'points'> & { kind?: GraphNode['kind'] }): number {
+export function radiusFor(node: Pick<GraphNode, 'open' | 'addressed' | 'points'> & { kind?: GraphNode['kind']; members?: GraphNode[] }): number {
   if (node.kind === 'page') return 7
+  if (node.kind === 'specialty') return Math.min(34, 14 + 2.5 * Math.sqrt(node.members?.length ?? 1) + 1.5 * Math.sqrt(node.open))
   return 8 + 3.5 * node.open + Math.min(6, 1.5 * node.addressed) + Math.min(6, 0.75 * node.points)
 }
 
@@ -284,7 +386,8 @@ export function layout(
 
 /** The layout as the server stores it: every node, graph units, two decimals. */
 export function positionsOf(nodes: GraphNode[]): MapPosition[] {
-  return nodes.map((node) => ({
+  // A folded specialty is a view, not a topic: its place is not remembered.
+  return nodes.filter((node) => node.kind !== 'specialty').map((node) => ({
     topic: node.id,
     x: Math.round((node.x ?? 0) * 100) / 100,
     y: Math.round((node.y ?? 0) * 100) / 100
@@ -378,14 +481,16 @@ export function TopicGraph({
   const height = 480
   // Re-arrange: lay out afresh by specialty, forgetting the remembered positions once.
   const [fresh, setFresh] = useState(0)
+  // Specialties opened from their folded node; folded is the starting view (feedback of 10 October).
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set())
   const graph = useMemo(() => {
-    const built = buildGraph(topics, covered, links, { openOnly, reports, pages, pageLinks, pageEdges })
+    const built = fold(buildGraph(topics, covered, links, { openOnly, reports, pages, pageLinks, pageEdges }), opened, specialties)
     const simulation = layout(built.nodes, built.links, width, height, fresh > 0 ? [] : positions)
     return { ...built, simulation }
     // `positions` is deliberately not a dependency: it is the memory the layout
     // starts from, and re-running on every save would make the graph twitch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topics, covered, links, openOnly, reports, pages, pageLinks, pageEdges, fresh])
+  }, [topics, covered, links, openOnly, reports, pages, pageLinks, pageEdges, fresh, opened, specialties])
 
   // Live after it settles: a drag wakes the simulation and neighbours follow; when it
   // comes to rest again the layout is remembered.
@@ -487,6 +592,11 @@ export function TopicGraph({
   }
 
   const tapNode = (node: GraphNode) => {
+    if (node.kind === 'specialty' && node.specialty) {
+      const id = node.specialty
+      setOpened((current) => new Set([...current, id]))
+      return
+    }
     if (node.kind === 'page' && node.entryId && onOpenPage) {
       onOpenPage(node.entryId)
       return
@@ -570,6 +680,11 @@ export function TopicGraph({
         <button type="button" className="button small" onClick={() => setView(fitted)}>
           Fit
         </button>
+        {opened.size > 0 ? (
+          <button type="button" className="button small" onClick={() => setOpened(new Set())}>
+            Fold specialties
+          </button>
+        ) : null}
         <button type="button" className="button small" onClick={() => setFresh((value) => value + 1)}>
           Re-arrange
         </button>
@@ -617,12 +732,18 @@ export function TopicGraph({
           {graph.nodes.map((node) => {
             if (!isShown(node, hidden)) return null
             const r = radiusFor(node)
+            const knowing =
+              colourBy !== 'knowledge'
+                ? null
+                : node.kind === 'specialty'
+                  ? KNOWLEDGE_ORDER.find((state) => (node.members ?? []).some((member) => (knowledgeOf?.(member) ?? 'none') === state)) ?? 'none'
+                  : knowledgeOf?.(node) ?? 'none'
             const isSelected = selected === node.id
             const dim = neighbours !== null && !neighbours.has(node.id)
             return (
               <g
                 key={node.id}
-                className={`topic-node ${node.kind === 'page' ? 'page-node' : ''} ${colourBy === 'knowledge' ? `know-${knowledgeOf?.(node) ?? 'none'}` : specialtyClass(node.specialty)} ${node.standing ? `standing-${node.standing}` : ''} ${isSelected ? 'selected' : ''} ${dim ? 'dim' : ''}`}
+                className={`topic-node ${node.kind === 'page' ? 'page-node' : ''}${node.kind === 'specialty' ? ' specialty-node' : ''} ${knowing !== null ? `know-${knowing}` : specialtyClass(node.specialty)} ${node.standing ? `standing-${node.standing}` : ''} ${isSelected ? 'selected' : ''} ${dim ? 'dim' : ''}`}
                 transform={`translate(${node.x ?? 0} ${node.y ?? 0})`}
                 role="button"
                 tabIndex={0}
@@ -630,7 +751,9 @@ export function TopicGraph({
                 aria-label={
                   node.kind === 'page'
                     ? `Encyclopedia page ${node.label}: open it`
-                    : `${node.label}: ${node.open} open, ${node.addressed} addressed, ${node.points} points${node.standing ? `, exam standing ${node.standing}` : ''}${colourBy === 'knowledge' ? `, ${KNOWLEDGE_WORDS[knowledgeOf?.(node) ?? 'none']}` : ''}`
+                    : node.kind === 'specialty'
+                      ? `${node.label}: ${node.members?.length ?? 0} topics, ${node.open} open flags; open it to see them`
+                      : `${node.label}: ${node.open} open, ${node.addressed} addressed, ${node.points} points${node.standing ? `, exam standing ${node.standing}` : ''}${knowing !== null ? `, ${KNOWLEDGE_WORDS[knowing]}` : ''}`
                 }
                 onPointerDown={(event) => onNodePointerDown(event, node)}
                 onKeyDown={(event) => {
@@ -644,10 +767,15 @@ export function TopicGraph({
                 {isSelected ? <circle className="topic-ring" r={r + 5} /> : null}
                 {node.standing === 'below' ? <circle className="standing-ring" r={r + 4} /> : null}
                 {node.kind === 'page' ? (
-                  <rect className="topic-dot page-dot" x={-r} y={-r} width={r * 2} height={r * 2} rx={2} />
+                  <rect className="topic-dot page-dot" x={-r} y={-r} width={r * 2} height={r * 2} rx={3} />
                 ) : (
-                  <circle className="topic-dot" r={r} strokeWidth={node.open > 0 ? 2 : 1} />
+                  <path className="topic-dot" d={shapeFor(node.specialty, specialties)(r)} strokeWidth={node.kind === 'specialty' ? 3 : node.open > 0 ? 2 : 1} />
                 )}
+                {node.kind === 'specialty' ? (
+                  <text className="topic-count" y={4} textAnchor="middle">
+                    {node.members?.length ?? 0}
+                  </text>
+                ) : null}
                 <text className="topic-label" y={r + 13} textAnchor="middle">
                   {node.label}
                 </text>
@@ -671,7 +799,7 @@ export function TopicGraph({
       <ul className="graph-legend" aria-label="Specialties shown">
         {present.map((entry) => (
           <li key={entry.id} className={`spec-${entry.id}`}>
-            <LegendToggle id={entry.id} label={entry.name} hidden={hidden.has(entry.id)} onToggle={onToggleSpecialty} />
+            <LegendToggle id={entry.id} label={entry.name} hidden={hidden.has(entry.id)} onToggle={onToggleSpecialty} shape={shapeFor(entry.id, specialties)} />
           </li>
         ))}
         {hasUnassigned ? (
@@ -692,12 +820,14 @@ function LegendToggle({
   id,
   label,
   hidden,
-  onToggle
+  onToggle,
+  shape
 }: {
   id: string
   label: string
   hidden: boolean
   onToggle?: (id: string) => void
+  shape?: (r: number) => string
 }) {
   return (
     <button
@@ -707,7 +837,13 @@ function LegendToggle({
       onClick={() => onToggle?.(id)}
       disabled={onToggle === undefined}
     >
-      <span className="legend-swatch" aria-hidden="true" />
+      {shape ? (
+        <svg className="legend-shape" viewBox="-10 -10 20 20" width="16" height="16" aria-hidden="true">
+          <path d={shape(7)} />
+        </svg>
+      ) : (
+        <span className="legend-swatch" aria-hidden="true" />
+      )}
       {label}
     </button>
   )

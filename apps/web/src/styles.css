@@ -2017,3 +2017,25 @@ details[open].strength-topic > summary::before {
 .note-preview {
   min-height: 8rem;
 }
+
+/* Map shapes and folded specialties (feedback of 10 October). */
+.topic-node.specialty-node .topic-dot {
+  stroke-width: 3;
+}
+.topic-count {
+  font: 600 11px/1 ui-sans-serif, -apple-system, 'Helvetica Neue', sans-serif;
+  fill: var(--ink);
+  pointer-events: none;
+}
+.page-dot {
+  stroke-dasharray: 2 1.5;
+}
+.legend-shape {
+  flex: none;
+  vertical-align: middle;
+}
+.legend-shape path {
+  fill: color-mix(in srgb, var(--spec, var(--muted)) 22%, var(--card));
+  stroke: var(--spec, var(--muted));
+  stroke-width: 1.5;
+}
