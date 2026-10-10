@@ -1,22 +1,15 @@
 /**
- * The Case Series hub (ADR 0022).
- *
- * Other people's teaching cases in one place: the NEJM's Case Records and
- * Clinical Problem-Solving, the Clinical Problem Solvers, The Curbsiders.
- * Each entry is a title, a link to the original, who made it, and the study
- * notes the Mac wrote beside it: a one-liner, teaching points that each rest
- * on a quote from the publisher's notes, and think-first prompts. The hub is
- * kept updated on a timer the owner switches on here, having read what that
- * sends; it never invents a summary from a title.
+ * Where the Case Series comes from (ADR 0022; feedback of 10 October), in Settings: the
+ * series the Mac gathers teaching cases from, each switched on or off, feeds the owner
+ * adds, and the timer. New cases themselves appear on Today, with the study notes the Mac
+ * wrote beside them; there is no list of every case here.
  */
 
 import { useState } from 'react'
-import type { FormEvent } from 'react'
 import { TransmissionDisclosure } from '../components/TransmissionDisclosure'
-import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
-import { dateLabel, momentLabel } from '../lib/format'
-import type { CaseEntry, CaseSettings } from '../lib/types'
+import { momentLabel } from '../lib/format'
+import type { CaseSettings } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { Switch } from '../components/Switch'
 import { Loading } from '../components/Loading'
@@ -32,66 +25,89 @@ export const CASES_DISCLOSURE = {
     'PubMed (NCBI), the two podcast sites, and the Mac’s own model connection (Codex or Claude, on your sign-in). No API key is used, and none of your material, notes, flags or answers is included.'
 }
 
-const SERIES_ORDER = ['nejm_cpc', 'nejm_cps', 'cps', 'curbsiders']
-
-function CaseCard({ entry }: { entry: CaseEntry }) {
+/**
+ * A feed of one's own (feedback of 10 October): the address is checked here, the one host
+ * it would contact is named, and only on a yes is anything contacted.
+ */
+function AddFeed({ disabled, onAdded }: { disabled: boolean; onAdded: () => void }) {
+  const [url, setUrl] = useState('')
+  const [ask, setAsk] = useState<{ url: string; host: string; ask: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<ApiError | null>(null)
+  const [done, setDone] = useState('')
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true)
+    setFailure(null)
+    try {
+      await action()
+    } catch (error) {
+      setFailure(asApiError(error))
+    } finally {
+      setBusy(false)
+    }
+  }
   return (
-    <li className="case-entry">
-      <p className="badges">
-        <span className="badge">{entry.series_short}</span>
-        {entry.subseries ? <span className="badge">{entry.subseries}</span> : null}
-      </p>
-      <p className="title">
-        <a href={entry.url} target="_blank" rel="noopener noreferrer">
-          {entry.title}
-        </a>
-      </p>
-      <p className="muted small">
-        {entry.published_on ? `${dateLabel(entry.published_on)} · ` : null}
-        {entry.credit ? `By ${entry.credit} · ` : null}
-        {entry.publisher}
-      </p>
-      {entry.one_liner ? <p className="body">{entry.one_liner}</p> : null}
-      {entry.points.length > 0 ? (
-        <>
-          <h4>Teaching points</h4>
-          <ol className="steps case-points">
-            {entry.points.map((point) => (
-              <li key={point.point}>
-                <p>{point.point}</p>
-                {point.quote ? (
-                  <details className="support-details">
-                    <summary>From the notes</summary>
-                    <blockquote className="quote">{point.quote}</blockquote>
-                  </details>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        </>
+    <div className="add-feed">
+      <label className="field">
+        <span>Add a feed of teaching cases (an RSS, podcast or Atom address)</span>
+        <input
+          type="url"
+          value={url}
+          placeholder="https://"
+          disabled={disabled || busy}
+          onChange={(event) => {
+            setUrl(event.target.value)
+            setAsk(null)
+            setDone('')
+          }}
+        />
+      </label>
+      {ask === null ? (
+        <button
+          type="button"
+          className="button small"
+          disabled={disabled || busy || url.trim().length < 9}
+          onClick={() => void run(async () => setAsk(await api.proposeFeed(url.trim())))}
+        >
+          Check this address
+        </button>
+      ) : (
+        <div className="confirm-feed" role="group" aria-label="Confirm the feed">
+          <p className="small">{ask.ask}</p>
+          <div className="actions">
+            <button
+              type="button"
+              className="button primary small"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  const added = await api.addFeed(ask.url)
+                  setDone(`Added, with ${added.new} case${added.new === 1 ? '' : 's'}.`)
+                  setAsk(null)
+                  setUrl('')
+                  onAdded()
+                })
+              }
+            >
+              Yes, add it
+            </button>
+            <button type="button" className="button ghost small" disabled={busy} onClick={() => setAsk(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {done ? (
+        <p className="ok small" role="status">
+          {done}
+        </p>
       ) : null}
-      {entry.think_first.length > 0 ? (
-        <>
-          <h4>Think first</h4>
-          <ul className="case-prompts">
-            {entry.think_first.map((prompt) => (
-              <li key={prompt}>{prompt}</li>
-            ))}
-          </ul>
-        </>
+      {failure ? (
+        <p className="failure small" role="alert">
+          {failure.message}
+        </p>
       ) : null}
-      {entry.status === 'synthesised' && entry.points.length === 0 && entry.snippet === '' ? (
-        <p className="muted small">The publisher offers only the title here, so there are prompts and no teaching points. The case itself is one click away.</p>
-      ) : null}
-      {entry.status === 'new' ? <p className="muted small">Teaching points not written yet.</p> : null}
-      {entry.status === 'failed' ? <p className="muted small">{entry.status_detail}</p> : null}
-      {entry.snippet && entry.points.length === 0 ? <p className="muted small">{entry.snippet}</p> : null}
-      <p className="small">
-        <a href={entry.url} target="_blank" rel="noopener noreferrer">
-          Open the original
-        </a>
-      </p>
-    </li>
+    </div>
   )
 }
 
@@ -154,18 +170,25 @@ export function HubSettings({ onChanged }: { onChanged: () => void }) {
       <TransmissionDisclosure disclosure={CASES_DISCLOSURE} />
       {settings.note ? <p className="muted small">{settings.note}</p> : null}
       <fieldset className="case-series-picker">
-        <legend>Series to follow</legend>
+        <legend>Where cases come from</legend>
         {settings.catalogue.map((entry) => (
-          <Switch
-            key={entry.id}
-            label={entry.name}
-            hint={entry.publisher}
-            checked={series[entry.id] !== false}
-            disabled={busy}
-            onChange={(on) => setChosen({ ...series, [entry.id]: on })}
-          />
+          <div key={entry.id} className="case-source">
+            <Switch
+              label={entry.name}
+              hint={entry.custom ? `your feed · contacts ${entry.host}` : entry.publisher}
+              checked={series[entry.id] !== false}
+              disabled={busy}
+              onChange={(on) => setChosen({ ...series, [entry.id]: on })}
+            />
+            {entry.custom ? (
+              <button type="button" className="button ghost small" disabled={busy} onClick={() => void act(() => api.removeFeed(entry.id))}>
+                Remove
+              </button>
+            ) : null}
+          </div>
         ))}
       </fieldset>
+      <AddFeed disabled={busy} onAdded={() => void act(async () => undefined)} />
       <label htmlFor="case-hours">Hours between refreshes</label>
       <input
         id="case-hours"
@@ -204,91 +227,5 @@ export function HubSettings({ onChanged }: { onChanged: () => void }) {
         </p>
       ) : null}
     </section>
-  )
-}
-
-export function CaseSeries({ embedded = false, reloadToken: outside = 0 }: { embedded?: boolean; reloadToken?: number } = {}) {
-  const [series, setSeries] = useState('')
-  const [typed, setTyped] = useState('')
-  const [q, setQ] = useState('')
-  const [reloadToken, setReloadToken] = useState(0)
-  const { result, reload } = useLoad(
-    () => api.listCases({ series: series || undefined, q: q || undefined }),
-    [series, q, reloadToken, outside]
-  )
-
-  const search = (event: FormEvent) => {
-    event.preventDefault()
-    setQ(typed.trim())
-  }
-
-  return (
-    <div className="stack">
-      {embedded ? null : <HubSettings onChanged={() => setReloadToken((value) => value + 1)} />}
-
-      <section className="card" aria-labelledby="case-list-heading">
-        <h2 id="case-list-heading">Cases</h2>
-        {result.state === 'ready' ? (
-          <div className="chips" role="group" aria-label="Series">
-            <button type="button" className={`chip${series === '' ? ' on' : ''}`} onClick={() => setSeries('')}>
-              All ({result.value.counts.total})
-            </button>
-            {SERIES_ORDER.map((identifier) => {
-              const entry = result.value.catalogue.find((item) => item.id === identifier)
-              if (!entry) return null
-              return (
-                <button
-                  key={identifier}
-                  type="button"
-                  className={`chip${series === identifier ? ' on' : ''}`}
-                  onClick={() => setSeries(identifier)}
-                >
-                  {entry.short} ({result.value.counts.by_series[identifier] ?? 0})
-                </button>
-              )
-            })}
-          </div>
-        ) : null}
-        <form className="case-search" onSubmit={search}>
-          <label htmlFor="case-search">Search titles and teaching points</label>
-          <input id="case-search" type="search" value={typed} onChange={(event) => setTyped(event.target.value)} />
-          <div className="actions">
-            <button type="submit" className="button">
-              Search
-            </button>
-            {q ? (
-              <button
-                type="button"
-                className="button ghost"
-                onClick={() => {
-                  setTyped('')
-                  setQ('')
-                }}
-              >
-                Clear
-              </button>
-            ) : null}
-          </div>
-        </form>
-        {result.state === 'loading' ? <Loading /> : null}
-        {result.state === 'failed' ? <Unavailable error={result.error} onRetry={reload} /> : null}
-        {result.state === 'ready' && result.value.entries.length === 0 ? (
-          <p className="muted">
-            {result.value.counts.total === 0
-              ? 'Nothing gathered yet. Turn the hub on above, or press Refresh now.'
-              : 'Nothing matches that series or search.'}
-          </p>
-        ) : null}
-        {result.state === 'ready' && result.value.entries.length > 0 ? (
-          <ul className="list case-list">
-            {result.value.entries.map((entry) => (
-              <CaseCard key={entry.id} entry={entry} />
-            ))}
-          </ul>
-        ) : null}
-      </section>
-
-      <p className="muted small">Cases sourced from Open Education Materials.</p>
-    </div>
   )
 }

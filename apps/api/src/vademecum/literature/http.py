@@ -131,11 +131,15 @@ class HttpsFetcher:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         connection_factory: Callable[[str, float], _Connection] = _open_connection,
+        owner_confirmed: frozenset[str] = frozenset(),
     ) -> None:
         # Before anything else, and long before a socket: an unknown host is
         # refused at construction so a misconfigured caller cannot even hold a
         # client pointed somewhere else.
-        if host not in ALLOWED_HOSTS:
+        # Beyond the fixed list, only a host the owner named and confirmed for a feed of
+        # their own (feedback of 10 October), passed in by the one caller that holds it.
+        self._allowed = ALLOWED_HOSTS | owner_confirmed
+        if host not in self._allowed:
             raise ProviderError("blocked_host")
         self._host = host
         self._timeout = timeout
@@ -159,7 +163,7 @@ class HttpsFetcher:
     def get(self, path: str, params: dict[str, str]) -> bytes:
         # Re-checked per call. The allowlist is the boundary, not a constructor
         # argument, and it costs nothing to assert it where the socket opens.
-        if self._host not in ALLOWED_HOSTS:
+        if self._host not in self._allowed:
             raise ProviderError("blocked_host")
         sent = {str(key): str(value) for key, value in params.items()}
         if self._ncbi_key:

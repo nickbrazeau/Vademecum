@@ -1304,7 +1304,16 @@ export function boardAnswer(raw: unknown): BoardAnswer {
 function caseCatalogue(raw: unknown): CaseCatalogueEntry[] {
   return arr(raw).map((item) => {
     const data = obj(item)
-    return { id: str(data.id), name: str(data.name), short: str(data.short), publisher: str(data.publisher), home: str(data.home) }
+    return {
+      id: str(data.id),
+      name: str(data.name),
+      short: str(data.short),
+      publisher: str(data.publisher),
+      home: str(data.home),
+      custom: Boolean(data.custom),
+      url: data.url === undefined ? undefined : str(data.url),
+      host: data.host === undefined ? undefined : str(data.host)
+    }
   })
 }
 

@@ -328,3 +328,102 @@ def build_fetch_groups(
             FetchGroup(spec.series, frozenset({spec.series}), lambda f=site, s=spec: fetch_wordpress(f, s))
         )
     return groups
+
+
+# --- feeds the owner added (feedback of 10 October) ----------------------------------
+
+_ATOM = "{http://www.w3.org/2005/Atom}"
+_CONTENT = "{http://purl.org/rss/1.0/modules/content/}encoded"
+
+
+def feed_parts(url: str) -> tuple[str, str, dict[str, str]]:
+    """(host, path, query) of a feed address; only https, with a host and no credentials."""
+    from urllib.parse import parse_qsl, urlsplit
+
+    parts = urlsplit(url.strip())
+    if parts.scheme != "https" or not parts.hostname or parts.username or parts.password or parts.port not in (None, 443):
+        raise ValueError("A feed address starts with https:// and names a site.")
+    return parts.hostname.lower(), parts.path or "/", dict(parse_qsl(parts.query))
+
+
+def _feed_date(value: str) -> str | None:
+    from email.utils import parsedate_to_datetime
+
+    text = (value or "").strip()
+    if _DATE.match(text):
+        return text[:10]
+    try:
+        return parsedate_to_datetime(text).date().isoformat()
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def parse_feed(payload: bytes, series: str) -> tuple[str, list[CaseItem]]:
+    """The feed's title and its newest items, from RSS 2.0 or Atom: a title, an https link,
+    a date and the plain text of the notes. Entities are refused as for PubMed."""
+    root = _parse_xml(payload)
+    items: list[CaseItem] = []
+    if root.tag == f"{_ATOM}feed":
+        title = _clean(root.findtext(f"{_ATOM}title") or "", 120)
+        for entry in root.iter(f"{_ATOM}entry"):
+            link = ""
+            for candidate in entry.findall(f"{_ATOM}link"):
+                if candidate.get("rel", "alternate") == "alternate":
+                    link = candidate.get("href", "")
+                    break
+            notes = entry.findtext(f"{_ATOM}content") or entry.findtext(f"{_ATOM}summary") or ""
+            items.append(_feed_item(series, title, entry.findtext(f"{_ATOM}id") or link, entry.findtext(f"{_ATOM}title") or "", link, entry.findtext(f"{_ATOM}updated") or entry.findtext(f"{_ATOM}published") or "", notes))
+    else:
+        channel = root.find("channel")
+        if channel is None:
+            raise ProviderError(MALFORMED)
+        title = _clean(channel.findtext("title") or "", 120)
+        for entry in channel.iter("item"):
+            link = entry.findtext("link") or ""
+            notes = entry.findtext(_CONTENT) or entry.findtext("description") or ""
+            items.append(_feed_item(series, title, entry.findtext("guid") or link, entry.findtext("title") or "", link, entry.findtext("pubDate") or "", notes))
+    return title, [item for item in items if item is not None][:MAX_ITEMS]  # type: ignore[misc]
+
+
+def _feed_item(series: str, feed_title: str, identifier: str, title: str, link: str, date: str, notes: str) -> CaseItem | None:
+    clean_title = _clean(html.unescape(title), MAX_TITLE)
+    link = link.strip()
+    if not clean_title or not link.startswith("https://") or len(link) > MAX_URL:
+        return None
+    return CaseItem(
+        series=series,
+        external_id=_clean(identifier or link, 300),
+        title=clean_title,
+        url=link,
+        published_on=_feed_date(date),
+        credit=feed_title,
+        subseries=subseries_of(clean_title),
+        text=strip_html(notes)[:MAX_TEXT],
+    )
+
+
+def fetch_feed(fetcher: Fetcher, url: str, series: str) -> tuple[str, list[CaseItem]]:
+    """One added feed, through a fetcher for its own host alone."""
+    _host, path, query = feed_parts(url)
+    return parse_feed(fetcher.get(path, query), series)
+
+
+def feed_groups(feeds: list[dict[str, str]], *, timeout: float, contact_email: str = "") -> list[FetchGroup]:
+    """One group per feed the owner added and confirmed, each fetcher allowed its host only."""
+    groups: list[FetchGroup] = []
+    for feed in feeds:
+        try:
+            host, _path, _query = feed_parts(feed["url"])
+        except (KeyError, ValueError):
+            continue
+        if host != feed.get("host"):
+            continue  # the confirmed host and the address must agree
+        site = HttpsFetcher(host, timeout=timeout, contact_email=contact_email, owner_confirmed=frozenset({host}))
+        groups.append(
+            FetchGroup(
+                feed["id"],
+                frozenset({feed["id"]}),
+                lambda f=site, u=feed["url"], s=feed["id"]: fetch_feed(f, u, s)[1],
+            )
+        )
+    return groups

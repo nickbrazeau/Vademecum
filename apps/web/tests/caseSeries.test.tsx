@@ -1,13 +1,13 @@
 /**
- * The Case Series hub (ADR 0022): the disclosure before the switch, credit on
- * every case, teaching points with their quotes, a title-only entry showing
- * prompts, a filter per series, and Refresh now.
+ * Where the Case Series comes from (ADR 0022; feedback of 10 October): the disclosure
+ * before the switch, a switch per source, Refresh now, a feed of one's own added only after
+ * its host is named and confirmed, and nothing to set on Foris.
  */
 
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CaseSeries } from '../src/pages/CaseSeries'
+import { HubSettings } from '../src/pages/CaseSeries'
 
 const CATALOGUE = [
   { id: 'nejm_cpc', name: 'Case Records of the Massachusetts General Hospital', short: 'NEJM Case Records', publisher: 'The New England Journal of Medicine', home: 'https://www.nejm.org/' },
@@ -53,6 +53,12 @@ function stubApi(options: { settings?: Record<string, unknown> } = {}) {
         new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } })
       if (target.startsWith('/api/cases/settings')) return json(settings({ ...options.settings, ...(method === 'PUT' ? { enabled: true } : {}) }))
       if (target === '/api/cases/refresh') return json(settings({ ...options.settings, running: true }), 202)
+      if (target === '/api/cases/feeds') {
+        const sent = JSON.parse(String(init?.body))
+        return sent.confirm
+          ? json({ feed: { id: 'feed_1', name: 'Core IM', host: 'example.org' }, new: 3 })
+          : json({ url: sent.url, host: 'example.org', ask: 'Vademecum would contact example.org to read this feed. Add it?' })
+      }
       if (target.startsWith('/api/cases')) {
         const params = new URL(target, 'http://local').searchParams
         const series = params.get('series')
@@ -67,56 +73,43 @@ function stubApi(options: { settings?: Record<string, unknown> } = {}) {
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('the Case Series hub', () => {
-  it('shows the disclosure before the switch and credits every case by its link and maker', async () => {
+describe('where the Case Series comes from', () => {
+  it('shows the disclosure before the switch, a switch per source, and no list of cases', async () => {
     stubApi()
-    render(<CaseSeries />)
+    render(<HubSettings onChanged={() => undefined} />)
     expect(await screen.findByText(/sends fixed public requests, with nothing of yours in them/)).toBeInTheDocument()
-    expect(screen.queryByText(CREDIT)).not.toBeInTheDocument()
-    expect(screen.getByText('Cases sourced from Open Education Materials.')).toBeInTheDocument()
-    expect(await screen.findByText(/By Paul Williams · The Curbsiders/)).toBeInTheDocument()
-    expect(screen.getByText(/By A Author · The New England Journal of Medicine/)).toBeInTheDocument()
-    const original = screen.getAllByRole('link', { name: 'Open the original' })
-    expect(original[0]).toHaveAttribute('href', 'https://www.nejm.org/doi/full/10.1056/NEJMcpc1')
-    expect(original[0]).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByLabelText(/The Curbsiders Internal Medicine Podcast/)).toBeChecked()
+    expect(screen.queryByText('#540 Hotcakes: Toxic alcohols')).not.toBeInTheDocument()
   })
 
-  it('shows teaching points with their quotes, and prompts alone for a title-only case', async () => {
-    stubApi()
-    render(<CaseSeries />)
-    const podcast = (await screen.findByText('#540 Hotcakes: Toxic alcohols')).closest('li') as HTMLElement
-    expect(within(podcast).getByText('Measure both gaps early.')).toBeInTheDocument()
-    expect(within(podcast).getByText('Check the anion gap and the osmolar gap')).toBeInTheDocument()
-    expect(within(podcast).getByText('Hotcakes')).toBeInTheDocument()
-    const article = screen.getByText('Case 27-2026: A 4-Year-Old Boy with Falls').closest('li') as HTMLElement
-    expect(within(article).queryByRole('heading', { name: 'Teaching points' })).not.toBeInTheDocument()
-    expect(within(article).getByText('What causes ataxia and fatigue in a preschooler?')).toBeInTheDocument()
-    expect(within(article).getByText(/offers only the title here/)).toBeInTheDocument()
-  })
-
-  it('filters by series and refreshes on request', async () => {
+  it('refreshes on request and turns the hub on', async () => {
     const calls = stubApi()
     const user = userEvent.setup()
-    render(<CaseSeries />)
-    await screen.findByText('#540 Hotcakes: Toxic alcohols')
-    await user.click(screen.getByRole('button', { name: /NEJM Case Records \(1\)/ }))
-    await waitFor(() => expect(screen.queryByText('#540 Hotcakes: Toxic alcohols')).not.toBeInTheDocument())
-    expect(calls.some((call) => call.url.includes('series=nejm_cpc'))).toBe(true)
-    await user.click(screen.getByRole('button', { name: 'Refresh now' }))
+    render(<HubSettings onChanged={() => undefined} />)
+    await user.click(await screen.findByRole('button', { name: 'Refresh now' }))
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url === '/api/cases/refresh')).toBe(true))
     await user.click(screen.getByRole('button', { name: 'Turn the hub on' }))
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url === '/api/cases/settings')).toBe(true))
-    const put = calls.find((call) => call.method === 'PUT')
-    expect(put?.body).toMatchObject({ enabled: true, interval_hours: 6 })
+    expect(calls.find((call) => call.method === 'PUT')?.body).toMatchObject({ enabled: true, interval_hours: 6 })
   })
 
-  it('on Foris shows the cases and offers no switch', async () => {
-    stubApi({ settings: { fetches_here: false, note: 'This Vademecum shows the cases Domi gathered.' } })
-    render(<CaseSeries />)
-    expect(await screen.findByText('#540 Hotcakes: Toxic alcohols')).toBeInTheDocument()
-    expect(screen.queryByText(/cases Domi gathered/)).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Keeping the hub updated' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Turn the hub/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Refresh now' })).not.toBeInTheDocument()
+  it('names the host a feed would contact, and adds it only on a yes', async () => {
+    const calls = stubApi()
+    const user = userEvent.setup()
+    render(<HubSettings onChanged={() => undefined} />)
+    await user.type(await screen.findByLabelText(/Add a feed of teaching cases/), 'https://example.org/feed.xml')
+    await user.click(screen.getByRole('button', { name: 'Check this address' }))
+    expect(await screen.findByText(/would contact example\.org/)).toBeInTheDocument()
+    expect(calls.filter((call) => call.url === '/api/cases/feeds').map((call) => (call.body as { confirm?: boolean }).confirm)).toEqual([undefined])
+    await user.click(screen.getByRole('button', { name: 'Yes, add it' }))
+    expect(await screen.findByText(/Added, with 3 cases/)).toBeInTheDocument()
+    expect((calls.filter((call) => call.url === '/api/cases/feeds').at(-1)?.body as { confirm: boolean }).confirm).toBe(true)
+  })
+
+  it('on Foris offers nothing to set', async () => {
+    stubApi({ settings: { fetches_here: false } })
+    render(<HubSettings onChanged={() => undefined} />)
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Turn the hub/ })).not.toBeInTheDocument())
+    expect(screen.queryByLabelText(/Add a feed/)).not.toBeInTheDocument()
   })
 })

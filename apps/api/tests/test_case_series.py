@@ -159,6 +159,7 @@ def test_settings_are_off_until_chosen_and_bounded(connection) -> None:
         "enabled": False,
         "interval_hours": 6.0,
         "series": {"nejm_cpc": True, "nejm_cps": True, "cps": True, "curbsiders": True},
+        "feeds": [],
     }
     on = store.set_settings(connection, enabled=True, interval_hours=0.1, series={"cps": False, "bogus": True})
     assert on["enabled"] is True and on["interval_hours"] == 1.0

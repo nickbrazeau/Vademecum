@@ -1339,6 +1339,10 @@ export interface CaseCatalogueEntry {
   short: string
   publisher: string
   home: string
+  /** A feed the owner added (feedback of 10 October): its address and the one host it contacts. */
+  custom?: boolean
+  url?: string
+  host?: string
 }
 
 export interface CaseCounts {

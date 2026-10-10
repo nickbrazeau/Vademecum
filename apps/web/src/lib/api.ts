@@ -487,6 +487,10 @@ export const api = {
   caseSettings: () => request<unknown>('/cases/settings').then(normalize.caseSettings),
   saveCaseSettings: (input: { enabled: boolean; interval_hours: number; series?: Record<string, boolean> }) =>
     request<unknown>('/cases/settings', { method: 'PUT', ...body(input) }).then(normalize.caseSettings),
+  /** A feed of one's own: first only the host it would contact; then, confirmed, added. */
+  proposeFeed: (url: string) => request<{ url: string; host: string; ask: string }>('/cases/feeds', { method: 'POST', ...body({ url }) }),
+  addFeed: (url: string) => request<{ feed: unknown; new: number }>('/cases/feeds', { method: 'POST', ...body({ url, confirm: true }) }),
+  removeFeed: (feedId: string) => request<{ removed: boolean }>(`/cases/feeds/${feedId}`, { method: 'DELETE' }),
   refreshCases: () => request<unknown>('/cases/refresh', { method: 'POST' }).then(normalize.caseSettings),
 
   createExport: () => request<WrittenFile>('/export', { method: 'POST' }).then(normalize.writtenFile),

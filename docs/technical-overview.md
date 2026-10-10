@@ -204,7 +204,9 @@ Stated in [ADR 0002](adr/0002-local-first-boundary.md) and enforced by tests, no
 - **One narrow, deliberate egress.** `apps/api/src/vademecum/literature/http.py` is the whole of
   Vademecum's own network code: `http.client` over TLS to **three allowlisted hosts**
   (`eutils.ncbi.nlm.nih.gov`, and for the Case Series hub `clinicalproblemsolving.com` and
-  `thecurbsiders.com`), GET only, redirects never followed, bounded response body, throttled
+  `thecurbsiders.com`), plus any feed host the owner names and confirms in Settings for a case
+  series of their own (the host is shown before anything is contacted, and each feed's fetcher may
+  reach that host alone), GET only, redirects never followed, bounded response body, throttled
   and narrowly retried, failures reported as categories rather than provider text. What is sent is
   a short public topic phrase, derived during Build or read/editable as a watched topic, or the
   hub's fixed request with nothing of yours in it. The rest of the backend imports no HTTP client,

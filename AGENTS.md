@@ -50,9 +50,10 @@ institutional guidance, or consultation with an appropriate specialist.
    abstract body the server itself retrieved, and its PMID is one the server retrieved. Support
    levels are computed by the server from those records. No schema has a field in which a model
    can assert support, verification or certainty.
-4. **One egress.** The server's only outbound network call is to the single allowlisted PubMed
-   host, carrying short public topic phrases and public identifiers. Never a passage, a filename,
-   a flag or an answer.
+4. **One egress.** The server's only outbound network calls are to the allowlisted PubMed host,
+   carrying short public topic phrases and public identifiers, and to the case-series sites: the
+   two fixed podcast sites, and any feed host the owner names and confirms in Settings (one host
+   per feed, shown before anything is contacted). Never a passage, a filename, a flag or an answer.
 5. **Explicit about the conversation.** Everything a tool returns is part of the learner's ChatGPT
    conversation, under OpenAI's terms for their edition. The documents, the app's instructions and
    the desk say so, and never call that path local or private.

@@ -797,6 +797,8 @@ def create_app(
                 turn_factory=owner.turn_factory if resolved.model_provider in ("codex", "claude") else None,
                 model_mode=resolved.model_provider,
                 fetches_here=resolved.cases_enabled and resolved.sync_role_name == "domi",
+                feed_timeout=resolved.literature_request_timeout,
+                contact_email=resolved.literature_contact_email,
                 default_interval_hours=resolved.cases_interval_hours,
             )
             app.state.case_hub.start()

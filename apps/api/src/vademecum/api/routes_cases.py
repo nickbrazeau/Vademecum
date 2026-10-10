@@ -58,7 +58,7 @@ def _settings_payload(hub: CaseHub | None, connection: sqlite3.Connection) -> di
             "running": False,
             "last_refresh": store.get_last_refresh(connection),
             "counts": store.counts(connection),
-            "catalogue": [dict(entry) for entry in store.CATALOGUE],
+            "catalogue": store.catalogue(connection),
             "note": NOT_HERE,
         }
     else:
@@ -74,7 +74,7 @@ def list_cases(
     limit: int = 100,
     connection: sqlite3.Connection = Depends(get_connection),
 ) -> dict[str, Any]:
-    if series and series not in store.SERIES_IDS:
+    if series and series not in store.series_ids(connection):
         raise ConflictError("unknown_series", "That is not one of the series the hub follows.")
     query = (q or "").strip()[:MAX_QUERY_CHARS]
     entries = store.list_entries(
@@ -86,7 +86,7 @@ def list_cases(
     )
     return {
         "entries": [entry.as_dict() for entry in entries],
-        "catalogue": [dict(entry) for entry in store.CATALOGUE],
+        "catalogue": store.catalogue(connection),
         "counts": store.counts(connection),
         "credit": CREDIT,
     }
@@ -127,3 +127,62 @@ def acknowledge(entry_id: str, connection: sqlite3.Connection = Depends(get_conn
     """Seen on Today: it leaves the list of new cases and stays in the hub."""
     store.acknowledge(connection, entry_id)
     return {"acknowledged": True}
+
+
+# --- feeds the owner adds (feedback of 10 October) -----------------------------------
+
+
+class FeedIn(Strict):
+    url: Annotated[str, Field(min_length=9, max_length=500)]
+    # False: only say which host would be contacted. True: the owner said yes.
+    confirm: bool = False
+
+
+@router.post("/feeds")
+async def add_feed(payload: FeedIn, request: Request, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Add a feed of teaching cases. First, with confirm false, nothing is contacted: the
+    reply names the one host this feed would add. With confirm true, the feed is read once
+    from that host alone, kept if it is a feed, and refreshed with the others from then on."""
+    import asyncio
+
+    from ..literature.cases import feed_parts, fetch_feed
+    from ..literature.http import HttpsFetcher, ProviderError
+
+    try:
+        host, _path, _query = feed_parts(payload.url)
+    except ValueError as exc:
+        raise ConflictError("feed_address", str(exc)) from None
+    if not payload.confirm:
+        return {
+            "url": payload.url.strip(),
+            "host": host,
+            "ask": f"Vademecum would contact {host} to read this feed, now and at each refresh, and nothing else of yours goes with it. Add it?",
+        }
+    hub = get_hub(request)
+    if hub is None or not hub.fetches_here:
+        raise ConflictError("on_the_mac", "Feeds are added on the Mac, which fetches the case series.")
+    settings = request.app.state.settings
+    fetcher = HttpsFetcher(host, timeout=settings.literature_request_timeout, contact_email=settings.literature_contact_email, owner_confirmed=frozenset({host}))
+    try:
+        title, items = await asyncio.to_thread(fetch_feed, fetcher, payload.url.strip(), "feed_pending")
+    except ProviderError as exc:
+        raise ConflictError("not_a_feed", f"That address could not be read as a feed ({exc.category}).") from None
+    except Exception:  # noqa: BLE001 - anything else about the reply means it is not a feed we can read
+        raise ConflictError("not_a_feed", "That address did not answer with an RSS or Atom feed.") from None
+    if not items:
+        raise ConflictError("not_a_feed", "That feed has no items with links to read.")
+    try:
+        feed = store.add_feed(connection, url=payload.url.strip(), host=host, title=title or host)
+    except ValueError as exc:
+        raise ConflictError("too_many_feeds", str(exc)) from None
+    new = store.record_items(connection, [{**item.as_dict(), "series": feed["id"]} for item in items])
+    hub.reschedule()
+    return {"feed": feed, "new": new}
+
+
+@router.delete("/feeds/{feed_id}")
+def remove_feed(feed_id: str, connection: sqlite3.Connection = Depends(get_connection)) -> dict[str, Any]:
+    """Stop following a feed; its host is no longer contacted. Cases already kept stay."""
+    if not store.remove_feed(connection, feed_id):
+        raise ConflictError("unknown_feed", "That feed is not one you added.")
+    return {"removed": True}

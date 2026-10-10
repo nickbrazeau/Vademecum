@@ -364,6 +364,8 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         # The Case Series hub (ADR 0022): fixed public requests, a switch, a refresh.
         "/api/cases",
         "/api/cases/settings",
+        "/api/cases/feeds",
+        "/api/cases/feeds/{feed_id}",
         "/api/cases/refresh",
         # The encyclopedia and the board bank (ADR 0023).
         "/api/encyclopedia",

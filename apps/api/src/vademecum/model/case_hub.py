@@ -44,8 +44,13 @@ class CaseHub:
         fetches_here: bool,
         default_interval_hours: float = store.DEFAULT_INTERVAL_HOURS,
         initial_delay: float = 30.0,
+        feed_timeout: float | None = None,
+        contact_email: str = "",
     ) -> None:
         self._database_path = Path(database_path)
+        # Fetching the owner's own feeds: on the node that fetches, with these settings.
+        self._feed_timeout = feed_timeout
+        self._contact_email = contact_email
         self._groups = list(groups)
         self._turn_factory = turn_factory
         self._model_mode = model_mode
@@ -86,7 +91,7 @@ class CaseHub:
             "running": self.is_running,
             "last_refresh": store.get_last_refresh(connection),
             "counts": store.counts(connection),
-            "catalogue": [dict(entry) for entry in store.CATALOGUE],
+            "catalogue": store.catalogue(connection),
             "note": note,
         }
 
@@ -171,7 +176,13 @@ class CaseHub:
             connection.close()
         wanted_all = {identifier for identifier, on in settings["series"].items() if on}
         fetched: dict[str, dict[str, Any]] = {}
-        for group in self._groups:
+        # Feeds the owner added and confirmed, each fetched from its own host alone.
+        added: list[Any] = []
+        if self._groups and self._feed_timeout is not None:
+            from ..literature.cases import feed_groups
+
+            added = feed_groups(settings.get("feeds") or [], timeout=self._feed_timeout, contact_email=self._contact_email)
+        for group in [*self._groups, *added]:
             wanted = group.series & wanted_all
             if not wanted:
                 continue

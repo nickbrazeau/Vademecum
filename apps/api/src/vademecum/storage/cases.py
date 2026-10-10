@@ -54,6 +54,9 @@ CATALOGUE: tuple[dict[str, str], ...] = (
 )
 SERIES_IDS: tuple[str, ...] = tuple(entry["id"] for entry in CATALOGUE)
 _BY_ID = {entry["id"]: entry for entry in CATALOGUE}
+# Feeds the owner added (feedback of 10 October): each a series of its own, id "feed_…".
+FEED_PREFIX = "feed_"
+MAX_FEEDS = 20
 
 STATUSES = ("new", "synthesised", "failed")
 MAX_ATTEMPTS = 3
@@ -96,8 +99,10 @@ class CaseEntry:
         data["points"] = [dict(point) for point in self.points]
         data["think_first"] = list(self.think_first)
         catalogue = _BY_ID.get(self.series, {})
-        data["series_name"] = catalogue.get("name", self.series)
-        data["series_short"] = catalogue.get("short", self.series)
+        # An added feed's entries carry the feed's own title as their credit.
+        fallback = (self.credit or "Your feed") if self.series.startswith(FEED_PREFIX) else self.series
+        data["series_name"] = catalogue.get("name", fallback)
+        data["series_short"] = catalogue.get("short", fallback)
         data["publisher"] = catalogue.get("publisher", "")
         return data
 
@@ -150,13 +155,14 @@ def record_items(connection: sqlite3.Connection, items: Iterable[dict[str, Any]]
     """Keep every item not already known by (series, external id). Returns how many were new."""
     now = utc_now()
     added = 0
+    known = set(series_ids(connection))
     with transaction(connection) as tx:
         for item in items:
             series = str(item.get("series") or "")
             external_id = str(item.get("external_id") or "").strip()
             title = " ".join(str(item.get("title") or "").split())
             url = str(item.get("url") or "").strip()
-            if series not in SERIES_IDS or not external_id or not title or not url.startswith("https://"):
+            if series not in known or not external_id or not title or not url.startswith("https://"):
                 continue
             cursor = tx.execute(
                 "INSERT INTO case_entries (id, series, subseries, external_id, title, url, credit, published_on, text,"
@@ -313,7 +319,7 @@ def acknowledge(connection: sqlite3.Connection, entry_id: str) -> None:
 
 def counts(connection: sqlite3.Connection) -> dict[str, Any]:
     rows = connection.execute("SELECT series, status, COUNT(*) AS n FROM case_entries GROUP BY series, status").fetchall()
-    by_series: dict[str, int] = {identifier: 0 for identifier in SERIES_IDS}
+    by_series: dict[str, int] = {identifier: 0 for identifier in series_ids(connection)}
     total = 0
     pending = 0
     for row in rows:
@@ -347,8 +353,78 @@ def get_settings(connection: sqlite3.Connection, *, default_interval_hours: floa
     return {
         "enabled": bool(stored.get("enabled", False)),
         "interval_hours": clamp_interval(stored.get("interval_hours", default_interval_hours)),
-        "series": {identifier: bool(chosen.get(identifier, True)) for identifier in SERIES_IDS},
+        "series": {identifier: bool(chosen.get(identifier, True)) for identifier in series_ids(connection)},
+        "feeds": feeds(connection),
     }
+
+
+# --- feeds the owner added (feedback of 10 October) ----------------------------------
+
+
+def feeds(connection: sqlite3.Connection) -> list[dict[str, str]]:
+    """Each added feed as a catalogue entry: its title, the address and the one host it names."""
+    stored = _read(connection, KEY_SETTINGS) or {}
+    found = stored.get("feeds") if isinstance(stored.get("feeds"), list) else []
+    out = []
+    for feed in found:
+        if not isinstance(feed, dict) or not str(feed.get("id", "")).startswith(FEED_PREFIX):
+            continue
+        host = str(feed.get("host", ""))
+        out.append(
+            {
+                "id": str(feed["id"]),
+                "name": str(feed.get("title") or host),
+                "short": str(feed.get("title") or host),
+                "publisher": host,
+                "home": f"https://{host}/",
+                "url": str(feed.get("url", "")),
+                "host": host,
+                "added_at": str(feed.get("added_at", "")),
+                "custom": "yes",
+            }
+        )
+    return out
+
+
+def catalogue(connection: sqlite3.Connection) -> list[dict[str, str]]:
+    """The built-in series, then the feeds the owner added."""
+    return [dict(entry) for entry in CATALOGUE] + feeds(connection)
+
+
+def series_ids(connection: sqlite3.Connection) -> tuple[str, ...]:
+    return SERIES_IDS + tuple(feed["id"] for feed in feeds(connection))
+
+
+def _write_feeds(connection: sqlite3.Connection, found: list[dict[str, Any]]) -> None:
+    stored = _read(connection, KEY_SETTINGS) or {}
+    with transaction(connection) as tx:
+        _write(tx, KEY_SETTINGS, {**stored, "feeds": found})
+
+
+def add_feed(connection: sqlite3.Connection, *, url: str, host: str, title: str) -> dict[str, str]:
+    """A feed the owner confirmed: its address and the one host Vademecum may now contact."""
+    import hashlib
+
+    stored = _read(connection, KEY_SETTINGS) or {}
+    found = [feed for feed in (stored.get("feeds") or []) if isinstance(feed, dict)]
+    feed_id = FEED_PREFIX + hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
+    if any(feed.get("id") == feed_id for feed in found):
+        return next(feed for feed in feeds(connection) if feed["id"] == feed_id)
+    if len(found) >= MAX_FEEDS:
+        raise ValueError(f"At most {MAX_FEEDS} feeds of your own.")
+    found.append({"id": feed_id, "url": url, "host": host, "title": " ".join(title.split())[:120], "added_at": utc_now()})
+    _write_feeds(connection, found)
+    return next(feed for feed in feeds(connection) if feed["id"] == feed_id)
+
+
+def remove_feed(connection: sqlite3.Connection, feed_id: str) -> bool:
+    stored = _read(connection, KEY_SETTINGS) or {}
+    found = [feed for feed in (stored.get("feeds") or []) if isinstance(feed, dict)]
+    kept = [feed for feed in found if feed.get("id") != feed_id]
+    if len(kept) == len(found):
+        return False
+    _write_feeds(connection, kept)
+    return True
 
 
 def set_settings(
@@ -360,12 +436,18 @@ def set_settings(
 ) -> dict[str, Any]:
     current = get_settings(connection)
     chosen = dict(current["series"])
+    known = set(series_ids(connection))
     if series:
         for identifier, on in series.items():
-            if identifier in SERIES_IDS:
+            if identifier in known:
                 chosen[identifier] = bool(on)
+    stored = _read(connection, KEY_SETTINGS) or {}
     with transaction(connection) as tx:
-        _write(tx, KEY_SETTINGS, {"enabled": bool(enabled), "interval_hours": clamp_interval(interval_hours), "series": chosen})
+        _write(
+            tx,
+            KEY_SETTINGS,
+            {**stored, "enabled": bool(enabled), "interval_hours": clamp_interval(interval_hours), "series": chosen},
+        )
     return get_settings(connection)
 
 

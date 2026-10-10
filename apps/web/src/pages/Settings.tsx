@@ -11,7 +11,7 @@ import { Unavailable } from '../components/Unavailable'
 import { ApiError, api, asApiError } from '../lib/api'
 import type { Preferences, TabChoice } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
-import { CaseSeries, HubSettings } from './CaseSeries'
+import { HubSettings } from './CaseSeries'
 import { Model } from './Model'
 import { Switch } from '../components/Switch'
 import { momentLabel } from '../lib/format'
@@ -108,8 +108,6 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
   const [failure, setFailure] = useState<ApiError | null>(null)
   const [saved, setSaved] = useState(false)
   const [order, setOrder] = useState<TabChoice[] | null>(null)
-  // A change to the case settings reloads the case list beneath them.
-  const [casesToken, setCasesToken] = useState(0)
 
   useEffect(() => {
     if (result.state === 'ready') {
@@ -231,11 +229,7 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
       <section className="card" aria-labelledby="case-settings-heading">
         <h2 id="case-settings-heading">Case Series</h2>
         <p className="muted small">New cases from the series you follow appear on Today with their teaching points.</p>
-        <HubSettings onChanged={() => setCasesToken((value) => value + 1)} />
-        <details className="support-details">
-          <summary>Browse every case</summary>
-          <CaseSeries embedded reloadToken={casesToken} />
-        </details>
+        <HubSettings onChanged={() => undefined} />
       </section>
 
       <details className="card toggle-card" aria-labelledby="privacy-settings-heading">
