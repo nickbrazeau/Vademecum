@@ -12,6 +12,7 @@ import { ApiError, api, asApiError } from '../lib/api'
 import type { Preferences, TabChoice } from '../lib/types'
 import { useLoad } from '../lib/useLoad'
 import { HubSettings } from './CaseSeries'
+import { Pronunciations } from '../components/Pronunciations'
 import { Model } from './Model'
 import { Switch } from '../components/Switch'
 import { momentLabel } from '../lib/format'
@@ -225,6 +226,8 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
         <h2 id="literature-settings-heading">Literature</h2>
         <LiteratureSettings onChecked={() => undefined} />
       </section>
+
+      <Pronunciations />
 
       <section className="card" aria-labelledby="case-settings-heading">
         <h2 id="case-settings-heading">Case Series</h2>

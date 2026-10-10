@@ -394,6 +394,8 @@ def test_the_openapi_document_matches_the_documented_surface(client: TestClient)
         "/api/socratic/{session_id}/abandon",
         "/api/podcasts",
         "/api/podcasts/voices",
+        "/api/podcasts/pronunciations",
+        "/api/podcasts/pronunciations/hear",
         "/api/podcasts/{episode_id}",
         "/api/podcasts/{episode_id}/script",
         "/api/podcasts/{episode_id}/render",

@@ -86,7 +86,14 @@ def synth(directory: Path, text: str, voice: str, target: Path, rate: int = RATE
     engine = Engine.get(directory)
     voice_id = voice[len(PREFIX):] if voice.startswith(PREFIX) else voice
     lang = "en-gb" if voice_id.startswith("b") else "en-us"
-    samples, produced = engine.create(text, voice=voice_id, speed=1.0, lang=lang)
+    # Medical words espeak gets wrong are said from the lexicon (feedback of 10 October).
+    from . import lexicon
+
+    sounds = lexicon.spliced(engine.tokenizer, text, lang, lexicon.owner_entries(directory))
+    if sounds:
+        samples, produced = engine.create(sounds, voice=voice_id, speed=1.0, lang=lang, is_phonemes=True)
+    else:
+        samples, produced = engine.create(text, voice=voice_id, speed=1.0, lang=lang)
     audio = np.asarray(samples, dtype=np.float32)
     if produced != rate and audio.size:
         positions = np.linspace(0, audio.size - 1, int(audio.size * rate / produced))

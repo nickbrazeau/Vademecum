@@ -167,6 +167,59 @@ def voices(source_dir: Path = Depends(get_source_dir)) -> dict[str, Any]:
     return {"voices": service.available_voices(directory), "default": service.default_voices(directory)}
 
 
+class PronunciationsIn(Strict):
+    entries: dict[str, str] = Field(default_factory=dict, max_length=500)
+
+
+class HearIn(Strict):
+    word: str = Field(min_length=1, max_length=60)
+    said: str = Field(default="", max_length=120)
+
+
+@router.get("/pronunciations")
+def pronunciations(source_dir: Path = Depends(get_source_dir)) -> dict[str, Any]:
+    """The medical words the podcast says from its own list, and the owner's (feedback of 10 October)."""
+    from ..model import kokoro, lexicon
+
+    directory = _voices_dir(source_dir)
+    return {"built_in": sorted(lexicon.BUILT_IN, key=str.casefold), "yours": lexicon.owner_entries(directory), "can_hear": kokoro.ready(directory)}
+
+
+@router.put("/pronunciations")
+def save_pronunciations(payload: PronunciationsIn, source_dir: Path = Depends(get_source_dir)) -> dict[str, Any]:
+    from ..model import lexicon
+
+    cleaned = {" ".join(word.split())[:60]: " ".join(said.split())[:120] for word, said in payload.entries.items() if word.strip() and said.strip()}
+    lexicon.save_owner_entries(_voices_dir(source_dir), cleaned)
+    return pronunciations(source_dir)
+
+
+@router.post("/pronunciations/hear")
+async def hear_pronunciation(payload: HearIn, source_dir: Path = Depends(get_source_dir)) -> FileResponse:
+    """A word said twice by the first host's voice, with the spelling given if any."""
+    import tempfile
+
+    from ..model import kokoro, lexicon
+
+    directory = _voices_dir(source_dir)
+    if not kokoro.ready(directory):
+        raise ConflictError("no_voices", "The natural voices are not installed on this Mac; run scripts/voices.sh.")
+    # A spelling being tried is heard as it would be saved, without saving it.
+    owner = lexicon.owner_entries(directory)
+    trial = dict(owner)
+    if payload.said.strip():
+        trial[payload.word.strip()] = payload.said.strip()
+    staging = Path(tempfile.mkdtemp(prefix="vademecum-hear-"))
+    if trial != owner:
+        lexicon.save_owner_entries(staging, trial)
+        for name in (kokoro.MODEL, kokoro.VOICE_PACK, kokoro.ESPEAK_DATA):
+            (staging / name).symlink_to(directory / name)
+        directory = staging
+    target = staging / "word.wav"
+    await lexicon.hear(directory, payload.word.strip(), service.default_voices(_voices_dir(source_dir))["A"], target)
+    return FileResponse(target, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+
+
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
 async def create(
     payload: EpisodeIn,

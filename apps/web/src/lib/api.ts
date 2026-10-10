@@ -367,6 +367,35 @@ export const api = {
   changeNote: (noteId: string, input: { title?: string; body_md?: string; use_as_source?: boolean; parent_id?: string; position?: number }) =>
     request<unknown>(`/notes/${noteId}`, { method: 'PATCH', ...body(input) }).then(normalize.note),
   deleteNote: (noteId: string) => request<{ deleted: number }>(`/notes/${noteId}`, { method: 'DELETE' }),
+  // --- pronunciations for the podcast (feedback of 10 October) ---
+  pronunciations: () => request<{ built_in: string[]; yours: Record<string, string>; can_hear: boolean }>('/podcasts/pronunciations'),
+  savePronunciations: (entries: Record<string, string>) =>
+    request<{ built_in: string[]; yours: Record<string, string>; can_hear: boolean }>('/podcasts/pronunciations', { method: 'PUT', ...body({ entries }) }),
+  /** A word as the podcast will say it, with a spelling being tried: audio, from this Mac. */
+  hearPronunciation: async (word: string, said: string): Promise<Blob> => {
+    let response: Response
+    try {
+      response = await fetch(`${API_ROOT}/podcasts/pronunciations/hear`, {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, said })
+      })
+    } catch {
+      throw new ApiError('unreachable', UNREACHABLE_MESSAGE)
+    }
+    if (!response.ok) {
+      let message = `The local service returned ${response.status}.`
+      try {
+        message = ((await response.json()) as ErrorBody).error?.message ?? message
+      } catch {
+        /* not JSON */
+      }
+      throw new ApiError(kindFor(response.status), message, response.status)
+    }
+    return response.blob()
+  },
   /** Thumbs on a paper: 1, -1, or 0 to clear (feedback of 10 October). */
   rateUpdate: (updateId: string, rating: number) =>
     request<{ rating: number }>(`/literature/updates/${updateId}/rating`, { method: 'PUT', ...body({ rating }) }),

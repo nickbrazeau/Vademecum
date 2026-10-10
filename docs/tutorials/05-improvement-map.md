@@ -34,7 +34,7 @@ Together these give each topic a state:
 
 ## Where to go next
 
-At the top of the map, **Where to go next** suggests up to five steps. Each one names the
+At the top of the map, **Where to go next** (tap to open it) suggests up to five steps. Each one names the
 topic, its state, why it was chosen, what the estimate rests on, and one thing to do:
 
 | Step | When |
@@ -47,6 +47,12 @@ topic, its state, why it was chosen, what the estimate rests on, and one thing t
 
 Steps come from different specialties in turn. Mixing topics feels harder, but it helps you
 tell similar things apart.
+
+## Shapes and folded specialties
+
+Each specialty has its own shape, so colour can show what you know. A specialty with three or more
+topics starts as a single node, with the number of topics inside it. Tap it to open its topics, and
+use **Fold specialties** to close them again.
 
 ## Colour by what you know
 
