@@ -30,6 +30,11 @@ export function answerDraftKey(questionId: string): string {
   return `${ANSWER_DRAFT_PREFIX}${questionId}`
 }
 
+/** One draft per note (ADR 0032): unsaved writing survives a refresh. */
+export function noteDraftKey(noteId: string): string {
+  return `${PREFIX}note.${noteId}`
+}
+
 function storage(): Storage | null {
   try {
     // Private browsing and disabled storage both throw on access.

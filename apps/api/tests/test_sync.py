@@ -555,3 +555,15 @@ def test_a_page_edited_or_deleted_on_the_cloud_copy_is_applied_on_the_mac(pair) 
         assert page_changes.waiting(connection) == []
     finally:
         connection.close()
+
+
+def test_notes_written_on_either_copy_reach_the_other(pair) -> None:
+    """ADR 0032: notes are shared; the later edit wins."""
+    home, home_app, away, _ = pair
+    book = away.post("/api/notes", json={"title": "Night float", "notebook": True}).json()
+    note = away.post("/api/notes", json={"title": "Hyponatraemia", "parent_id": book["id"], "body_md": "Check osmolality."}).json()
+    run_sync(home_app, away)
+    assert home.get(f"/api/notes/{note['id']}").json()["path"] == ["Night float", "Hyponatraemia"]
+    assert home.patch(f"/api/notes/{note['id']}", json={"body_md": "Check osmolality, then urine sodium."}).status_code == 200
+    run_sync(home_app, away)
+    assert "urine sodium" in away.get(f"/api/notes/{note['id']}").json()["body_md"]

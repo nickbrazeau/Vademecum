@@ -1376,3 +1376,22 @@ export interface CaseSettings {
   disclosure: string
   credit: string
 }
+
+/** The owner's own notes (ADR 0032): notebooks and nested notes, in Markdown. */
+export interface NoteSummary {
+  id: string
+  parent_id: string | null
+  notebook: boolean
+  title: string
+  position: number
+  use_as_source: boolean
+  created_at: string
+  updated_at: string
+  has_body: boolean
+}
+
+export interface Note extends Omit<NoteSummary, 'has_body'> {
+  body_md: string
+  /** Titles from the top of the tree down to this note. */
+  path: string[]
+}

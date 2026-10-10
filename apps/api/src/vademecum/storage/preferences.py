@@ -23,6 +23,8 @@ TABS: tuple[dict[str, Any], ...] = (
     {"name": "encyclopedia", "label": "Encyclopedia", "fixed": False},
     {"name": "map", "label": "Improvement Map", "fixed": False},
     {"name": "podcasts", "label": "Podcast", "fixed": False},
+    # The owner's own notebooks (ADR 0032, feedback of 10 October).
+    {"name": "notes", "label": "Notes", "fixed": False},
     # Sources and Construction became one page, Foundation (feedback of 10 October).
     {"name": "foundation", "label": "Foundation", "fixed": False},
     {"name": "settings", "label": "Settings", "fixed": True},

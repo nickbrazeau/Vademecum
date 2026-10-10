@@ -91,6 +91,8 @@ SYNCED_TABLES: tuple[str, ...] = (
     "page_changes",
     # The owner's thumbs on papers (feedback of 10 October).
     "literature_ratings",
+    # The owner's own notes (ADR 0032), written anywhere.
+    "notes",
 )
 
 DOMI_OWNED: frozenset[str] = frozenset(

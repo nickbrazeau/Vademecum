@@ -104,6 +104,7 @@ EXPORTED_TABLES: tuple[str, ...] = (
     "podcast_listens",
     "page_changes",
     "literature_ratings",
+    "notes",
 )
 
 DATABASE_MEMBER = "vademecum.sqlite3"

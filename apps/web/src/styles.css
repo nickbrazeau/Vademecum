@@ -1961,3 +1961,59 @@ details[open].strength-topic > summary::before {
 .builder-status {
   margin: 0.5rem 0;
 }
+
+/* Notes (ADR 0032): the tree beside the note on a wide screen, above it on a phone. */
+.notes-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .notes-layout {
+    grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+.note-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.note-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 0.4rem;
+}
+.note-row.selected {
+  background: var(--accent-tint);
+}
+.note-twisty {
+  width: 1.6rem;
+  min-height: var(--tap);
+  border: 0;
+  background: none;
+  color: var(--muted);
+  flex: none;
+}
+.note-name {
+  flex: 1;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  min-height: var(--tap);
+  font: inherit;
+  cursor: pointer;
+}
+.note-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.note-editor textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95rem;
+}
+.note-preview {
+  min-height: 8rem;
+}

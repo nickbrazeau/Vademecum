@@ -131,7 +131,7 @@ def test_a_tab_added_after_the_owner_chose_is_shown(connection) -> None:
         (json.dumps({"visible_tabs": ["today", "tutor", "settings"], "known_tabs": ["today", "tutor", "flashcards", "encyclopedia", "map", "podcasts", "settings"]}),),
     )
     connection.commit()
-    assert preferences.get_preferences(connection)["visible_tabs"] == ["today", "tutor", "foundation", "settings"]
+    assert preferences.get_preferences(connection)["visible_tabs"] == ["today", "tutor", "notes", "foundation", "settings"]
 
 
 def test_a_saved_choice_of_sources_or_construction_means_foundation(connection) -> None:

@@ -357,6 +357,16 @@ export const api = {
       method: 'POST',
       ...body(topicId === undefined ? {} : { topic_id: topicId })
     }).then(normalize.checkReport),
+  // --- notes (ADR 0032) ---
+  notes: () => request<{ notes: unknown[] }>('/notes').then((data) => (data.notes ?? []).map(normalize.noteSummary)),
+  note: (noteId: string) => request<unknown>(`/notes/${noteId}`).then(normalize.note),
+  searchNotes: (words: string) =>
+    request<{ notes: unknown[] }>(`/notes/search${query({ q: words })}`).then((data) => (data.notes ?? []).map(normalize.noteSummary)),
+  createNote: (input: { title: string; parent_id?: string | null; notebook?: boolean; body_md?: string }) =>
+    request<unknown>('/notes', { method: 'POST', ...body(input) }).then(normalize.note),
+  changeNote: (noteId: string, input: { title?: string; body_md?: string; use_as_source?: boolean; parent_id?: string; position?: number }) =>
+    request<unknown>(`/notes/${noteId}`, { method: 'PATCH', ...body(input) }).then(normalize.note),
+  deleteNote: (noteId: string) => request<{ deleted: number }>(`/notes/${noteId}`, { method: 'DELETE' }),
   /** Thumbs on a paper: 1, -1, or 0 to clear (feedback of 10 October). */
   rateUpdate: (updateId: string, rating: number) =>
     request<{ rating: number }>(`/literature/updates/${updateId}/rating`, { method: 'PUT', ...body({ rating }) }),

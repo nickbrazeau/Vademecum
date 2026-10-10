@@ -43,6 +43,7 @@ from .api import (
     routes_sync,
     routes_tutor,
     routes_workspace,
+    routes_notes,
 )
 from .appserver import ModelBridge
 from .appserver.transport import Transport
@@ -311,7 +312,12 @@ def sync_page_files(database_path: Path, folder: Path | None, source_dir: Path |
     try:
         # Figures from the owner's own pictures, placed by provenance, before the files go out.
         figures.refresh(connection)
-        return page_files.sync_folder(connection, folder, None if source_dir is None else source_dir.parent / "images")
+        result = page_files.sync_folder(connection, folder, None if source_dir is None else source_dir.parent / "images")
+        # The owner's notes, mirrored the same way (ADR 0032).
+        from .storage import note_files
+
+        result["notes"] = note_files.sync_folder(connection, folder)
+        return result
     except Exception as exc:  # noqa: BLE001 - a file the owner left half-written is no reason to stop the watch
         logger.error("page_files_failed error=%s", type(exc).__name__)
         return {"written": 0, "read": 0}
@@ -922,6 +928,7 @@ def create_app(
         routes_maintenance.router,
         routes_model.router,
         routes_workspace.router,
+        routes_notes.router,
         routes_media.router,
         routes_sync.router,
     ):

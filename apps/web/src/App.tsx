@@ -13,6 +13,7 @@ import { inChat, onToolResult } from './lib/host'
 import { freshAddress, newerBuild as servedNewerBuild, reloadTarget, typedSomething } from './lib/updateCheck'
 import { FIXED_ROUTES, ROUTES, isRouteName, useRoute } from './lib/router'
 import { Foundation } from './pages/Foundation'
+import { Notes } from './pages/Notes'
 import { Encyclopedia } from './pages/Encyclopedia'
 import { Flashcards } from './pages/Flashcards'
 import { ImprovementMap } from './pages/ImprovementMap'
@@ -29,6 +30,7 @@ const TITLES = {
   foundation: 'Foundation',
   map: 'Improvement Map',
   podcasts: 'Podcast',
+  notes: 'Notes',
   settings: 'Settings'
 } as const
 
@@ -246,6 +248,7 @@ export function App() {
         {route === 'encyclopedia' ? <Encyclopedia /> : null}
         {route === 'flashcards' ? <Flashcards onNavigate={navigate} /> : null}
         {route === 'podcasts' ? <Podcasts onNavigate={navigate} /> : null}
+        {route === 'notes' ? <Notes /> : null}
         {route === 'settings' ? <Settings onSaved={applyPreferences} showModel={!behindGateway && !compact && !hostMode} /> : null}
       </main>
 

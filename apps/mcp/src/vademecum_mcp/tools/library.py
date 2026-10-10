@@ -56,6 +56,33 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         return {"plan": found.get("plan", []), "states": found.get("states", [])}
 
     @mcp.tool(annotations=READ)
+    async def notes_search(
+        words: Annotated[str, Field(description="Words to look for in the owner's notes.", max_length=200)],
+    ) -> dict[str, Any]:
+        """Search the owner's own notes (ADR 0032): notebooks and notes they wrote, by title
+        and text. Returns titles, ids and where each sits in their notebooks."""
+        return await call(api.get("/api/notes/search", params={"q": words}))
+
+    @mcp.tool(annotations=READ)
+    async def note_read(note_id: Annotated[str, Field(description="A note id from notes_search.", max_length=64)]) -> dict[str, Any]:
+        """One of the owner's notes in full, in Markdown, with its place in their notebooks."""
+        return await call(api.get(f"/api/notes/{note_id}"))
+
+    @mcp.tool(annotations=WRITE)
+    async def note_write(
+        title: Annotated[str, Field(description="The note's title.", max_length=200)],
+        body_md: Annotated[str, Field(description="The note, in Markdown.", max_length=200_000)],
+        note_id: Annotated[str, Field(description="Give an id to replace that note's text; leave empty for a new note.", max_length=64)] = "",
+        notebook_id: Annotated[str, Field(description="For a new note: the notebook or note to put it in; empty for the top level.", max_length=64)] = "",
+    ) -> dict[str, Any]:
+        """File a note in the owner's notebooks, or rewrite one, when they ask for it: what was
+        worked out in this conversation, in their own words where possible. Say what you wrote
+        and where. Nothing is built from a note unless the owner marks it as a source."""
+        if note_id:
+            return await call(api.patch(f"/api/notes/{note_id}", {"title": title, "body_md": body_md}))
+        return await call(api.post("/api/notes", {"title": title, "body_md": body_md, "parent_id": notebook_id or None}))
+
+    @mcp.tool(annotations=READ)
     async def list_piles() -> dict[str, Any]:
         """The source library: every pile with its tier-confidence rating
         (Low/Medium/High -- the owner's judgment of the material, never a

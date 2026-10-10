@@ -14,6 +14,7 @@ export type RouteName =
   | 'map'
   | 'podcasts'
   | 'foundation'
+  | 'notes'
   | 'settings'
 
 /**
@@ -28,6 +29,7 @@ export const ROUTES: { name: RouteName; path: string; label: string }[] = [
   { name: 'encyclopedia', path: '/encyclopedia', label: 'Encyclopedia' },
   { name: 'map', path: '/map', label: 'Improvement Map' },
   { name: 'podcasts', path: '/podcasts', label: 'Podcast' },
+  { name: 'notes', path: '/notes', label: 'Notes' },
   { name: 'foundation', path: '/foundation', label: 'Foundation' },
   { name: 'settings', path: '/settings', label: 'Settings' }
 ]

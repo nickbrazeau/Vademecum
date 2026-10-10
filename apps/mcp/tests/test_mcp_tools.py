@@ -20,6 +20,9 @@ EXPECTED_TOOLS = {
     "get_today",
     "get_improvement_map",
     "study_next",
+    "notes_search",
+    "note_read",
+    "note_write",
     "list_piles",
     "get_pile",
     "create_pile",
@@ -372,3 +375,15 @@ async def test_study_next_suggests_the_flagged_topic_without_a_target(mcp_client
     assert {state["state"] for state in found["states"]} == {"untried", "forming", "fading", "holding"}
     shuffled = await call(mcp_client, "board_next_question", {"where": "need"})
     assert shuffled["question"] is None or "stem" in shuffled["question"]
+
+
+async def test_the_assistant_files_a_note_and_finds_it_again(mcp_client: Client) -> None:
+    """ADR 0032: a note written from a conversation lands in the owner's notebooks."""
+    book = await call(mcp_client, "note_write", {"title": "Ward pearls", "body_md": ""})
+    note = await call(mcp_client, "note_write", {"title": "Potassium", "body_md": "Calcium gluconate first when the ECG changes.", "notebook_id": book["id"]})
+    found = await call(mcp_client, "notes_search", {"words": "gluconate"})
+    assert [item["id"] for item in found["notes"]] == [note["id"]]
+    read = await call(mcp_client, "note_read", {"note_id": note["id"]})
+    assert read["path"] == ["Ward pearls", "Potassium"]
+    rewritten = await call(mcp_client, "note_write", {"note_id": note["id"], "title": "Potassium", "body_md": "Calcium first, then insulin."})
+    assert rewritten["body_md"] == "Calcium first, then insulin."

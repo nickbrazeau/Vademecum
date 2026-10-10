@@ -1548,3 +1548,26 @@ export function learnerModel(raw: unknown): LearnerModel {
     by_entry: byEntry
   }
 }
+
+// --- notes (ADR 0032) ----------------------------------------------------------------
+
+export function noteSummary(raw: unknown): import('./types').NoteSummary {
+  const data = obj(raw)
+  return {
+    id: str(data.id),
+    parent_id: nullableStr(data.parent_id),
+    notebook: data.notebook === true,
+    title: str(data.title),
+    position: num(data.position),
+    use_as_source: data.use_as_source === true,
+    created_at: str(data.created_at),
+    updated_at: str(data.updated_at),
+    has_body: data.has_body === true
+  }
+}
+
+export function note(raw: unknown): import('./types').Note {
+  const data = obj(raw)
+  const { has_body: _hasBody, ...summary } = noteSummary(raw)
+  return { ...summary, body_md: str(data.body_md), path: strings(data.path) }
+}

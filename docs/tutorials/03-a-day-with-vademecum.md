@@ -53,3 +53,11 @@ or typed in the web app.
 in your own words ("the approach to hyponatraemia") and watch the progress bar. Play it at up
 to 2× speed. Once you have listened, an episode goes to the archive and its audio is deleted.
 Up to ten unheard episodes are kept, and they play on the phone too.
+
+## Anytime: write it down
+
+**Notes** holds your own notebooks: one for a rotation, a subject, or questions you keep coming
+back to. Notes can sit inside notes, and you write them in Markdown. They are the same on the Mac and
+the phone. On the Mac each is also a Markdown file under `notes/` in your source folder, so you can
+edit it in any editor. Mark a note **Use as a source** and it is built into pages, questions and cards
+like any other file.

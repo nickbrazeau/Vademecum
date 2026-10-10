@@ -108,6 +108,12 @@ ALLOWED: tuple[tuple[str, str], ...] = (
     ("GET", r"/api/improvement-map/strengths"),
     # The learner model (ADR 0031).
     ("GET", r"/api/learner"),
+    # Notes (ADR 0032): read, write and move one's own notes; deleting stays in the web app.
+    ("GET", r"/api/notes"),
+    ("GET", rf"/api/notes/search{QUERY}"),
+    ("GET", rf"/api/notes/{ID}"),
+    ("POST", r"/api/notes"),
+    ("PATCH", rf"/api/notes/{ID}"),
     ("POST", rf"/api/cases/{ID}/acknowledge"),
     # The Socratic tutor and the podcast (ADR 0025).
     ("GET", r"/api/socratic"),
