@@ -290,3 +290,31 @@ def test_a_new_multipart_save_never_overwrites_the_parts_of_the_last(tmp_path: P
     seat.restore_databases(tmp_path / "fresh", store)
     with sqlite3.connect(tmp_path / "fresh" / "vademecum.sqlite3") as db:
         assert db.execute("SELECT COUNT(*) FROM t").fetchone()[0] == expected
+
+
+def test_after_a_wake_the_podcast_audio_comes_back_first(tmp_path: Path) -> None:
+    """Feedback of 11 October: the phone found no player after the cloud copy woke, the audio
+    queued behind every picture. It is restored first now, whole, before anything else."""
+
+    class Recording(MemoryStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.order: list[str] = []
+
+        def get(self, key: str) -> bytes | None:
+            if not key.endswith(".manifest"):
+                self.order.append(key)
+            return super().get(key)
+
+    store = Recording()
+    for index in range(30):
+        store.objects[f"attachments/figures/img_{index:02d}.png"] = b"png"
+    store.objects["attachments/images/a.png"] = b"img"
+    store.objects["attachments/podcasts/pod_1.m4a"] = b"audio-1"
+    store.objects["attachments/podcasts/pod_2.m4a"] = b"audio-2"
+    data = tmp_path / "data"
+    assert seat.restore_files(data, store) == 33
+    assert set(store.order[:2]) == {"attachments/podcasts/pod_1.m4a", "attachments/podcasts/pod_2.m4a"}
+    assert (data / "attachments" / "podcasts" / "pod_1.m4a").read_bytes() == b"audio-1"
+    assert store.order[-1] == "attachments/images/a.png", "everything else after the pictures"
+    assert not list(data.rglob("*.restoring")), "no half-written file left behind"

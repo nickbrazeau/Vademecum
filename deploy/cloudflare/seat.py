@@ -251,29 +251,61 @@ def restore_databases(data: Path, store: Store) -> str:
     return "restored" if found else "fresh"
 
 
+# What the phone needs first after a wake is restored first (feedback of 11 October): the
+# podcast audio, then the pictures pages place, then everything else. Several at a time.
+RESTORE_FIRST = ("attachments/podcasts/", "attachments/figures/")
+RESTORE_WORKERS = 8
+
+
+def _restore_rank(key: str) -> int:
+    for rank, prefix in enumerate(RESTORE_FIRST):
+        if key.startswith(prefix):
+            return rank
+    return len(RESTORE_FIRST)
+
+
 def restore_files(data: Path, store: Store) -> int:
-    """Every stored file not yet on this disk, by key. Safe to run any time."""
-    restored = 0
+    """Every stored file not yet on this disk, by key, the podcast audio first. Safe to run any time."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    wanted: dict[str, int | None] = {}
     for name in FILES:
-        listed = dict(store.list(f"{name}/"))
-        wanted: dict[str, int | None] = {}
-        for key, size in listed.items():
+        for key, size in store.list(f"{name}/"):
             if ".part-" in key:
                 continue
             if key.endswith(".manifest"):
                 wanted[key[: -len(".manifest")]] = None  # size known only from the manifest
             else:
                 wanted[key] = size
-        for key, size in wanted.items():
-            target = data / key
-            if target.exists() and (size is None or target.stat().st_size == size):
-                continue
-            payload = get_object(store, key)
-            if payload is None:
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(payload)
-            restored += 1
+    missing = [
+        key
+        for key, size in wanted.items()
+        if not ((data / key).exists() and (size is None or (data / key).stat().st_size == size))
+    ]
+    missing.sort(key=lambda key: (_restore_rank(key), key))
+
+    def bring(key: str) -> int:
+        # The listing already says which are in parts: the rest are one request each.
+        payload = get_object(store, key) if wanted[key] is None else store.get(key)
+        if payload is None:
+            return 0
+        target = data / key
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(f".{target.name}.restoring")
+        partial.write_bytes(payload)
+        partial.replace(target)
+        return 1
+
+    restored = 0
+    # Each band finishes before the next starts, so the audio is whole before the pictures begin.
+    for rank in range(len(RESTORE_FIRST) + 1):
+        band = [key for key in missing if _restore_rank(key) == rank]
+        if not band:
+            continue
+        with ThreadPoolExecutor(max_workers=RESTORE_WORKERS) as pool:
+            restored += sum(pool.map(bring, band))
+        if rank == 0:
+            say(f"podcast audio restored: {len(band)}")
     return restored
 
 
