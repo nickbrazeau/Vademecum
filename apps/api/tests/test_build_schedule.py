@@ -139,3 +139,39 @@ def test_in_the_background_a_new_file_is_built_without_pressing_anything(codex_c
             break
         time.sleep(0.05)
     assert builder["state"] == "idle" and "Everything read in has been built" in builder["reason"]
+
+
+def test_a_failing_pile_rests_while_another_is_built(codex_client, monkeypatch) -> None:
+    """Feedback of 11 October: one pile whose batch kept failing held up every other."""
+    import asyncio
+
+    from vademecum.model import schedule as builder_module
+
+    client, app = codex_client
+    scheduler = app.state.build_scheduler
+    calls: list[str] = []
+
+    async def fake_run_pile(pile_id, title, batches):
+        calls.append(title)
+        status = "failed" if title == "Stuck" else "succeeded"
+        return {"pile_id": pile_id, "title": title, "batches": 1, "points": 0, "status": status, "detail": "x"}
+
+    monkeypatch.setattr(scheduler, "_run_pile", fake_run_pile)
+    monkeypatch.setattr(builder_module, "_piles_by_unbuilt", lambda conn: [("p_stuck", "Stuck"), ("p_good", "Good")])
+    schedule = {"paused_until": None}
+    loop = asyncio.new_event_loop()
+    try:
+        for _ in range(3):
+            loop.run_until_complete(scheduler._continuous_step(schedule))
+    finally:
+        loop.close()
+    assert calls[0] == "Stuck" and calls[1:] == ["Good", "Good"], "the stuck pile rests; the next one is built"
+    assert "rests" not in scheduler._status["reason"] or scheduler._status["state"] == "building"
+
+
+def test_topics_are_put_in_characters_pubmed_takes() -> None:
+    """A β or an en dash in a topic used to abandon the whole batch."""
+    from vademecum.model.build import _plain
+
+    assert _plain("β-lactamases") == "beta-lactamases"
+    assert _plain("Sjögren’s – syndrome & 5%") == "Sjogren's - syndrome and 5 percent"

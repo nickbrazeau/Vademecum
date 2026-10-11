@@ -32,6 +32,7 @@ from ..appserver.errors import BridgeError
 from ..db import connect, transaction
 from ..storage import jobs, learning, sources
 from ..storage.common import drop_disclaimers
+from ..literature.pubmed import QueryError
 from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.model")
@@ -228,10 +229,20 @@ class BuildRunner:
                 # A blocking network call: off the event loop, or every request
                 # waits on PubMed while it answers.
                 articles = await asyncio.to_thread(lambda q=query: list(self._provider.search(q)))
-            except Exception:
+            except QueryError:
+                # A query PubMed's check refuses is this point's problem, not the batch's:
+                # it stays source-supported, unasked, as with no evidence found.
+                logger.info("evidence_query_refused")
+                continue
+            except Exception as exc:
                 # An outage is not an empty search result. Abort before commit,
                 # preserving accepted references, their evidence and coverage.
                 # Do not retain provider exception text: it can contain queries.
+                logger.warning(
+                    "evidence_search_failed kind=%s category=%s",
+                    type(exc).__name__,
+                    getattr(exc, "category", ""),
+                )
                 raise EvidenceUnavailable() from None
 
             # Inspect every result already returned before any model await.
@@ -643,10 +654,35 @@ def _citations(
     return tuple(kept), tuple(passages)
 
 
+# Characters PubMed's topic check refuses, said in ones it takes (feedback of 11 October):
+# one β in a topic used to abandon a whole batch, and the same batch failed again on retry.
+_SPELLED = {"β": "beta", "α": "alpha", "γ": "gamma", "δ": "delta", "κ": "kappa", "λ": "lambda", "μ": "mu", "µ": "mu",
+            "–": "-", "—": "-", "‘": "'", "’": "'", "“": '"', "”": '"', "&": " and ", "%": " percent", "≥": "", "≤": "", "±": ""}
+
+
+def _plain(topic: str) -> str:
+    """A topic in the characters PubMed's check takes: Greek letters spelled out, accents
+    dropped, dashes and quotes made plain, anything else left out."""
+    import re
+    import unicodedata
+
+    text = "".join(_SPELLED.get(ch, ch) for ch in topic)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = re.sub(r"[^A-Za-z0-9 \-_.,()'\[\]:/*+]", " ", text)
+    return " ".join(text.split())
+
+
 def _query_for(point: _StagedPoint, search_topics: tuple[str, ...]) -> str:
     """A short public topic string. Never a passage, never the claim verbatim."""
-    words = list(point.topics) or list(search_topics)
-    return " AND ".join(f'"{topic}"' for topic in words[:3])[:200]
+    words = [plain for plain in (_plain(topic) for topic in (list(point.topics) or list(search_topics))) if plain]
+    query = ""
+    for topic in words[:3]:
+        part = f'"{topic}"'
+        joined = f"{query} AND {part}" if query else part
+        if len(joined) > 200:
+            break  # whole topics only: a topic cut in half leaves a quote open
+        query = joined
+    return query
 
 
 # An abstract shorter than this is a stub ("No abstract available.", a copyright

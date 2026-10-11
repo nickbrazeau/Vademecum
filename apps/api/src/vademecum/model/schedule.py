@@ -48,6 +48,7 @@ LIMITED_SECONDS = 900.0  # the model's allowance is used up: look again in a qua
 COMPILE_EVERY = 5
 BACKOFF_START = 60.0
 BACKOFF_MAX = 1800.0
+GENERAL_FAILURES = 3  # this many failed batches in a row, on any piles, and everything waits
 WOKE_AFTER_SECONDS = 120.0
 RUN_TIMEOUT_SECONDS = 1800.0
 POLL_SECONDS = 1.0
@@ -115,6 +116,9 @@ class BuildScheduler:
         # What the continuous builder is doing, said plainly for Foundation (feedback of 10 October).
         self._status: dict[str, Any] = {"state": "starting", "reason": "", "next_attempt_at": None, "last_error": "", "batches": 0}
         self._failures = 0
+        # A pile whose batch failed rests a while, so one stuck pile never holds up the rest
+        # (feedback of 11 October): pile id -> (failures in a row, monotonic time it may run again).
+        self._resting: dict[str, tuple[int, float]] = {}
 
     # --- what the routes read ----------------------------------------------------
 
@@ -198,7 +202,16 @@ class BuildScheduler:
         if not order:
             self._say("idle", "Everything read in has been built. New files are picked up as they arrive.", IDLE_SECONDS)
             return IDLE_SECONDS
-        for pile_id, title in order:
+        import time
+
+        now_mono = time.monotonic()
+        ready = [(pile_id, title) for pile_id, title in order if self._resting.get(pile_id, (0, 0.0))[1] <= now_mono]
+        if not ready:
+            soonest = min(until for _count, until in self._resting.values()) - now_mono
+            wait = max(BETWEEN_BATCHES_SECONDS, min(soonest, BACKOFF_MAX))
+            self._say("waiting", "Every pile with text left had a batch fail recently; trying again shortly.", wait)
+            return wait
+        for pile_id, title in ready:
             self._say("building", f"Building from {title}.")
             async with self._running:
                 self._active = True
@@ -210,6 +223,7 @@ class BuildScheduler:
                 continue
             if outcome["status"] in ("succeeded", "busy"):
                 self._failures = 0
+                self._resting.pop(pile_id, None)
                 if outcome["status"] == "succeeded":
                     self._status["batches"] += 1
                     if self._status["batches"] % COMPILE_EVERY == 0 and self._after is not None:
@@ -220,12 +234,23 @@ class BuildScheduler:
                             logger.error("background_compile_failed error=%s", type(exc).__name__)
                 self._say("building", f"Building from {title}.", BETWEEN_BATCHES_SECONDS)
                 return BETWEEN_BATCHES_SECONDS
-            self._failures += 1
-            wait = min(BACKOFF_START * 2 ** (self._failures - 1), BACKOFF_MAX)
+            # This pile rests, longer each time it fails in a row; the next pile goes on.
+            count = self._resting.get(pile_id, (0, 0.0))[0] + 1
+            rest = min(BACKOFF_START * 2 ** (count - 1), BACKOFF_MAX * 4)
+            self._resting[pile_id] = (count, time.monotonic() + rest)
             detail = outcome.get("detail") or outcome["status"]
-            self._say("waiting", f"The last batch from {title} did not finish; trying again shortly.", wait, error=str(detail)[:300])
-            logger.info("background_build_backoff seconds=%d", int(wait))
-            return wait
+            self._status["last_error"] = str(detail)[:300]
+            logger.info("background_build_pile_rests seconds=%d failures=%d", int(rest), count)
+            # Several piles failing in a row is something general (an outage, a limit): the
+            # whole builder waits, rather than spending the allowance trying every pile.
+            self._failures += 1
+            if self._failures >= GENERAL_FAILURES:
+                wait = min(BACKOFF_START * 2 ** (self._failures - GENERAL_FAILURES), BACKOFF_MAX)
+                self._say("waiting", f"The last {self._failures} batches did not finish; trying again shortly.", wait)
+                logger.info("background_build_backoff seconds=%d", int(wait))
+                return wait
+            self._say("building", f"A batch from {title} did not finish; it rests while other piles are built.", BETWEEN_BATCHES_SECONDS)
+            return BETWEEN_BATCHES_SECONDS
         self._say("idle", "Everything read in has been built. New files are picked up as they arrive.", IDLE_SECONDS)
         return IDLE_SECONDS
 
