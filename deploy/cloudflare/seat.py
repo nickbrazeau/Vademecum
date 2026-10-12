@@ -65,6 +65,14 @@ class Store(Protocol):
     def delete(self, key: str) -> bool: ...
 
 
+STORE_ATTEMPTS = 4
+STORE_PAUSE = 2.0
+
+
+class StoreUnavailable(RuntimeError):
+    """A listing the store did not give: never to be read as an empty bucket."""
+
+
 class WorkerStore:
     """The snapshot store behind the Worker: list, get and put by key."""
 
@@ -79,6 +87,16 @@ class WorkerStore:
         self._timeout = timeout
 
     def _request(self, method: str, path: str, body: bytes | None = None, *, sealed: bool = False) -> tuple[int, bytes]:
+        """One call, tried again on a refusal or a hiccup: a busy edge is not an empty bucket."""
+        status, raw = 0, b""
+        for attempt in range(STORE_ATTEMPTS):
+            status, raw = self._once(method, path, body, sealed=sealed)
+            if status not in (0, 429, 500, 502, 503, 504):
+                return status, raw
+            time.sleep(STORE_PAUSE * (attempt + 1))
+        return status, raw
+
+    def _once(self, method: str, path: str, body: bytes | None = None, *, sealed: bool = False) -> tuple[int, bytes]:
         connection = http.client.HTTPSConnection(self._host, self._port, timeout=self._timeout)
         try:
             headers = {"x-seat-key": self._key}
@@ -110,8 +128,16 @@ class WorkerStore:
         return [(str(o["key"]), int(o["size"])) for o in self._objects(prefix)]
 
     def entries(self, prefix: str) -> list[tuple[str, int, bool]]:
-        """Each object with its size and whether it was put sealed."""
-        return [(str(o["key"]), int(o["size"]), bool(o.get("sealed"))) for o in self._objects(prefix)]
+        """Each object with its size and whether it was put sealed. Raises when the store
+        does not answer, so a count is never made from a failed listing."""
+        status, raw = self._request("GET", f"/list?prefix={quote(prefix, safe='/')}")
+        if status != 200:
+            raise StoreUnavailable(f"listing {prefix} answered {status}")
+        try:
+            objects = json.loads(raw.decode("utf-8")).get("objects", [])
+        except ValueError as exc:
+            raise StoreUnavailable(f"listing {prefix} was not readable") from exc
+        return [(str(o["key"]), int(o["size"]), bool(o.get("sealed"))) for o in objects if isinstance(o, dict) and "key" in o]
 
     def uploaded(self, prefix: str) -> dict[str, str]:
         """When each object under the prefix was written (ISO 8601), as the bucket says."""
@@ -418,7 +444,18 @@ def record_sealing(data: Path, store: Store, results: dict[str, int]) -> None:
     once all of it is, the marker goes in and anything unsealed is refused from then on."""
     if not isinstance(store, sealing.SealedStore):
         return
-    status = store.status(SEALED_PREFIXES)
+    try:
+        status = store.status(SEALED_PREFIXES)
+    except StoreUnavailable as exc:
+        say(f"sealing: not counted this round ({exc})")
+        status = {"listing_failed": True, "key_id": sealing.fingerprint(store.key)}
+        status["seal_ms"] = int(store.take_seal_seconds() * 1000)
+        status["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        try:
+            (data / ".seat-status.json").write_text(json.dumps(status))
+        except OSError:
+            pass
+        return
     status["seal_ms"] = int(store.take_seal_seconds() * 1000)
     say(f"sealing: {status['sealed']} of {status['objects']} sealed, {status['superseded']} superseded, {status['seal_ms']} ms sealing")
     if status["plain"]:

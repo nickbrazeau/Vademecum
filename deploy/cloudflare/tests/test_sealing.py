@@ -201,3 +201,29 @@ def test_a_whole_copy_left_from_before_parts_is_counted_as_superseded(tmp_path: 
     seat.snapshot(data, sealing.SealedStore(raw, KEY))
     status = sealing.SealedStore(raw, KEY).status(seat.SEALED_PREFIXES)
     assert status["plain"] == 0 and status["superseded"] == 1
+
+
+def test_a_failed_listing_is_never_counted_as_an_empty_bucket(tmp_path: Path) -> None:
+    """Live, 11 October: the edge refused the container's own listings during the sealing
+    round, and the count said 0 objects. A failed listing is now said, and no marker written."""
+    seat._uploaded.clear()
+
+    class Refusing(MemoryStore):
+        def entries(self, prefix: str):
+            raise seat.StoreUnavailable(f"listing {prefix} answered 429")
+
+    raw = Refusing()
+    data = tmp_path / "data"
+    _database(data / "vademecum.sqlite3", "x")
+    seat.snapshot(data, sealing.SealedStore(raw, KEY))
+    status = (data / ".seat-status.json").read_text()
+    assert '"listing_failed": true' in status and '"objects"' not in status
+    assert sealing.MARKER not in raw.objects
+
+
+def test_the_store_tries_a_refused_call_again(monkeypatch) -> None:
+    store = seat.WorkerStore("https://example.workers.dev/__seat", "k" * 32)
+    answers = iter([(429, b""), (503, b""), (200, b'{"objects": []}')])
+    monkeypatch.setattr(store, "_once", lambda *a, **k: next(answers))
+    monkeypatch.setattr(seat, "STORE_PAUSE", 0)
+    assert store.entries("db/") == []

@@ -79,7 +79,7 @@ def seat_sealing(request: Request) -> dict:
         status = json.loads(path.read_text())
     except (OSError, ValueError):
         return {"recorded": False}
-    keep = ("objects", "sealed", "plain", "superseded", "key_id", "seal_ms", "marked", "at")
+    keep = ("objects", "sealed", "plain", "superseded", "key_id", "seal_ms", "marked", "listing_failed", "at")
     return {"recorded": True, **{key: status[key] for key in keep if key in status}}
 
 

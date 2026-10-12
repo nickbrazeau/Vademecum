@@ -138,10 +138,15 @@ async function store(request: Request, env: Env, url: URL): Promise<Response> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
-    // Per-address rate limit: a scanning bot must not keep the seat awake.
-    const address = request.headers.get('cf-connecting-ip') ?? 'unknown'
-    const { success } = await env.LIMITER.limit({ key: address })
-    if (!success) return new Response('Too many requests', { status: 429, headers: { 'retry-after': '60' } })
+    // The container's own calls to its store, with the right key, are not limited: sealing
+    // re-sends every backup at once, and a refused listing read as an empty bucket (ADR 0036).
+    const seatCall = url.pathname.startsWith(STORE_PREFIX) && !!env.SEAT_KEY && timingSafeEqual(request.headers.get(KEY_HEADER) ?? '', env.SEAT_KEY)
+    if (!seatCall) {
+      // Per-address rate limit: a scanning bot must not keep the seat awake.
+      const address = request.headers.get('cf-connecting-ip') ?? 'unknown'
+      const { success } = await env.LIMITER.limit({ key: address })
+      if (!success) return new Response('Too many requests', { status: 429, headers: { 'retry-after': '60' } })
+    }
     if (url.pathname.startsWith(STORE_PREFIX)) return store(request, env, url)
     if (url.pathname === RELAY_PATH) return relayWanted(request, env)
     const seat = getContainer(env.SEAT, 'vademecum')

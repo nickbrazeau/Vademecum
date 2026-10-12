@@ -152,7 +152,13 @@ class SealedStore:
         return found
 
     def list(self, prefix: str) -> list[tuple[str, int]]:
-        return [(name, opened_size(size) if sealed else -1) for name, size, sealed in self._entries(prefix)]
+        try:
+            entries = self._entries(prefix)
+        except RuntimeError:
+            # The store did not answer: as the plain store does, an empty listing here; the
+            # sealing count (status) lets the failure through instead.
+            return []
+        return [(name, opened_size(size) if sealed else -1) for name, size, sealed in entries]
 
     def uploaded(self, prefix: str) -> dict[str, str]:
         times = getattr(self.inner, "uploaded", None)
