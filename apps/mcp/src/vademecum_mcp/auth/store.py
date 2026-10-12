@@ -48,6 +48,9 @@ INVITE_TTL_SECONDS = 7 * 86400
 # Five wrong passphrases in fifteen minutes lock a subject out for the rest
 # of that window. The subject is the owner in single tenancy and a handle in
 # multi, so one learner's mistakes lock nobody else out.
+# A passkey challenge lives this long and is used once (ADR 0036).
+PASSKEY_CHALLENGE_SECONDS = 300
+
 LOCKOUT_ATTEMPTS = 5
 LOCKOUT_WINDOW_SECONDS = 900
 
@@ -109,6 +112,23 @@ CREATE TABLE IF NOT EXISTS learners (
     created_at   TEXT NOT NULL,
     last_sign_in TEXT,
     disabled     INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS passkeys (
+    credential_id TEXT PRIMARY KEY,
+    public_key    BLOB NOT NULL,
+    sign_count    INTEGER NOT NULL DEFAULT 0,
+    transports    TEXT NOT NULL DEFAULT '[]',
+    label         TEXT NOT NULL DEFAULT '',
+    learner_id    TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    last_used_at  TEXT
+);
+CREATE TABLE IF NOT EXISTS passkey_challenges (
+    id         TEXT PRIMARY KEY,
+    challenge  BLOB NOT NULL,
+    purpose    TEXT NOT NULL,
+    expires_at REAL NOT NULL,
+    used       INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS invites (
     code_hash  TEXT PRIMARY KEY,
@@ -256,6 +276,78 @@ class AccessStore:
                 (time.time() - LOCKOUT_WINDOW_SECONDS,),
             )
             self._conn.commit()
+
+    def record_failure(self, subject: str = OWNER_SUBJECT) -> None:
+        """A failed sign-in by another means (a passkey): it counts towards the same lockout."""
+        self._record_attempt(subject, False)
+
+    # --- passkeys (ADR 0036) ---------------------------------------------------
+
+    def new_challenge(self, purpose: str) -> tuple[str, bytes]:
+        """A random challenge for one ceremony: five minutes, used once."""
+        challenge_id = secrets.token_urlsafe(18)
+        challenge = secrets.token_bytes(32)
+        with self._lock:
+            self._conn.execute("DELETE FROM passkey_challenges WHERE expires_at < ?", (time.time(),))
+            self._conn.execute(
+                "INSERT INTO passkey_challenges (id, challenge, purpose, expires_at) VALUES (?, ?, ?, ?)",
+                (challenge_id, challenge, purpose, time.time() + PASSKEY_CHALLENGE_SECONDS),
+            )
+            self._conn.commit()
+        return challenge_id, challenge
+
+    def take_challenge(self, challenge_id: str, purpose: str) -> bytes | None:
+        """The challenge, once: unused, unexpired and for this purpose, or nothing."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT challenge FROM passkey_challenges WHERE id = ? AND purpose = ? AND used = 0 AND expires_at >= ?",
+                (challenge_id, purpose, time.time()),
+            ).fetchone()
+            self._conn.execute("UPDATE passkey_challenges SET used = 1 WHERE id = ?", (challenge_id,))
+            self._conn.commit()
+        return None if row is None else bytes(row["challenge"])
+
+    def add_passkey(self, *, credential_id: str, public_key: bytes, sign_count: int, transports: list[str], label: str, learner_id: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO passkeys (credential_id, public_key, sign_count, transports, label, learner_id, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (credential_id, public_key, sign_count, json.dumps(transports), label[:80], learner_id, _now_iso()),
+            )
+            self._conn.commit()
+
+    def passkey(self, credential_id: str) -> sqlite3.Row | None:
+        with self._lock:
+            return self._conn.execute("SELECT * FROM passkeys WHERE credential_id = ?", (credential_id,)).fetchone()
+
+    def passkeys(self, learner_id: str = OWNER_SUBJECT) -> list[sqlite3.Row]:
+        with self._lock:
+            return self._conn.execute(
+                "SELECT * FROM passkeys WHERE learner_id = ? ORDER BY created_at", (learner_id,)
+            ).fetchall()
+
+    def used_passkey(self, credential_id: str, sign_count: int) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE passkeys SET sign_count = ?, last_used_at = ? WHERE credential_id = ?",
+                (sign_count, _now_iso(), credential_id),
+            )
+            self._conn.commit()
+
+    def remove_passkey(self, credential_id: str, learner_id: str = OWNER_SUBJECT) -> bool:
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM passkeys WHERE credential_id = ? AND learner_id = ?", (credential_id, learner_id)
+            )
+            self._conn.commit()
+        return cursor.rowcount > 0
+
+    def revoke_desk_sessions(self, client_id: str = "desk") -> int:
+        """Sign out everywhere: every web app session ends; the assistants stay connected."""
+        with self._lock:
+            cursor = self._conn.execute("UPDATE tokens SET revoked = 1 WHERE client_id = ? AND revoked = 0", (client_id,))
+            self._conn.commit()
+        return int(cursor.rowcount)
 
     # --- learners (multi tenancy) --------------------------------------------
 

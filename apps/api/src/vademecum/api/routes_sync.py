@@ -67,6 +67,22 @@ def sync_status(request: Request, connection: sqlite3.Connection = Depends(get_c
     return data
 
 
+@router.get("/seat", dependencies=[Depends(require_peer)])
+def seat_sealing(request: Request) -> dict:
+    """How much of the cloud copy's backup store is sealed with the owner's key (ADR 0036),
+    as the seat recorded after its last round: counts and the key's fingerprint, never the
+    key. Empty where there is no seat (on the Mac)."""
+    import json
+
+    path = get_settings_dep(request).resolve_data_dir() / ".seat-status.json"
+    try:
+        status = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {"recorded": False}
+    keep = ("objects", "sealed", "plain", "superseded", "key_id", "seal_ms", "marked", "at")
+    return {"recorded": True, **{key: status[key] for key in keep if key in status}}
+
+
 @router.get("/changes", dependencies=[Depends(require_peer)])
 def sync_changes(
     since: int = Query(ge=0),

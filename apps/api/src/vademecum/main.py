@@ -58,7 +58,7 @@ def sync_now(settings) -> int:
     from .config import SOURCE_FILES_DIRNAME
     from .sync import SyncError
 
-    if not settings.sync_peer_url or not settings.sync_token:
+    if not settings.sync_peer_url or not settings.resolved_sync_token():
         print("No peer is configured: set VADEMECUM_SYNC_PEER_URL and VADEMECUM_SYNC_TOKEN.", file=sys.stderr)
         return 2
     try:

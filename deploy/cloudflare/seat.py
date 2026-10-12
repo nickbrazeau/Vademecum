@@ -11,8 +11,8 @@ The store is the Worker in front of this container, under `/__seat/`,
 answered from an R2 bucket binding; the container presents `SEAT_KEY`.
 The databases come back before anything starts; the stored files come back
 in the background, since the gateway and the tools do not need them to
-answer. Standard library only. Nothing here is part of the API or the MCP
-packages.
+answer. Every object put in the store is sealed first with the owner's own
+key (sealing.py, ADR 0036). Nothing here is part of the API or the MCP packages.
 """
 
 from __future__ import annotations
@@ -29,6 +29,9 @@ import time
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote, urlsplit
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sealing  # noqa: E402  (beside this file, here and in the image)
 
 DATA = Path(os.environ.get("VADEMECUM_DATA_DIR", "/data"))
 INTERVAL = int(os.environ.get("SEAT_SNAPSHOT_INTERVAL", "300"))
@@ -75,10 +78,12 @@ class WorkerStore:
         self._key = key
         self._timeout = timeout
 
-    def _request(self, method: str, path: str, body: bytes | None = None) -> tuple[int, bytes]:
+    def _request(self, method: str, path: str, body: bytes | None = None, *, sealed: bool = False) -> tuple[int, bytes]:
         connection = http.client.HTTPSConnection(self._host, self._port, timeout=self._timeout)
         try:
             headers = {"x-seat-key": self._key}
+            if sealed:
+                headers["x-seat-sealed"] = "1"  # recorded with the object, so a listing says which are
             if body is not None:
                 headers["content-type"] = "application/octet-stream"
                 headers["content-length"] = str(len(body))
@@ -104,6 +109,10 @@ class WorkerStore:
     def list(self, prefix: str) -> list[tuple[str, int]]:
         return [(str(o["key"]), int(o["size"])) for o in self._objects(prefix)]
 
+    def entries(self, prefix: str) -> list[tuple[str, int, bool]]:
+        """Each object with its size and whether it was put sealed."""
+        return [(str(o["key"]), int(o["size"]), bool(o.get("sealed"))) for o in self._objects(prefix)]
+
     def uploaded(self, prefix: str) -> dict[str, str]:
         """When each object under the prefix was written (ISO 8601), as the bucket says."""
         return {str(o["key"]): str(o.get("uploaded") or "") for o in self._objects(prefix)}
@@ -112,8 +121,8 @@ class WorkerStore:
         status, raw = self._request("GET", f"/object/{quote(key, safe='/')}")
         return raw if status == 200 else None
 
-    def put(self, key: str, data: bytes) -> bool:
-        status, _ = self._request("PUT", f"/object/{quote(key, safe='/')}", data)
+    def put(self, key: str, data: bytes, *, sealed: bool = False) -> bool:
+        status, _ = self._request("PUT", f"/object/{quote(key, safe='/')}", data, sealed=sealed)
         return status == 200
 
     def delete(self, key: str) -> bool:
@@ -121,12 +130,20 @@ class WorkerStore:
         return status == 200
 
 
-def store_from_environment() -> WorkerStore | None:
+def store_from_environment():
+    """The store, sealed with the owner's key when this copy has one (ADR 0036)."""
     url = os.environ.get("SEAT_STORE_URL", "")
     key = os.environ.get("SEAT_KEY", "")
     if not url or not key:
         return None
-    return WorkerStore(url, key)
+    store = WorkerStore(url, key)
+    backup_key = os.environ.get(sealing.ENV, "")
+    if not backup_key:
+        say("backups are NOT sealed: no SEAT_BACKUP_KEY")
+        return store
+    sealed = sealing.SealedStore(store, sealing.key_from_text(backup_key))
+    say(f"backups sealed with key {sealing.fingerprint(sealed.key)}")
+    return sealed
 
 
 # --- durability -------------------------------------------------------------------
@@ -231,7 +248,11 @@ def restore_databases(data: Path, store: Store) -> str:
         listed = [name for name, _size in store.list(key) if name == key or name.startswith(f"{key}.")]
         payload = None
         for attempt in range(RESTORE_ATTEMPTS):
-            payload = get_object(store, key)
+            try:
+                payload = get_object(store, key)
+            except sealing.SealError as exc:
+                # Another key, an altered object or plaintext after sealing: never start empty.
+                raise RestoreFailed(str(exc)) from exc
             if payload is not None and payload.startswith(b"SQLite format 3\x00"):
                 break
             payload = None
@@ -286,7 +307,11 @@ def restore_files(data: Path, store: Store) -> int:
 
     def bring(key: str) -> int:
         # The listing already says which are in parts: the rest are one request each.
-        payload = get_object(store, key) if wanted[key] is None else store.get(key)
+        try:
+            payload = get_object(store, key) if wanted[key] is None else store.get(key)
+        except sealing.SealError as exc:
+            say(f"not restored: {exc}")
+            return 0
         if payload is None:
             return 0
         target = data / key
@@ -373,14 +398,36 @@ def snapshot(data: Path, store: Store) -> dict[str, int]:
         for path in sorted(p for p in root.rglob("*") if p.is_file() and not p.name.startswith(".")):
             key = f"{name}/{path.relative_to(root).as_posix()}"
             size = path.stat().st_size
-            if remote.get(key) == size or f"{key}.manifest" in remote:
+            # In parts and sealed (a manifest the listing can size), or whole at this size.
+            if remote.get(key) == size or remote.get(f"{key}.manifest", -1) >= 0:
                 continue
             if put_object(store, key, path):
                 results["files"] += 1
             else:
                 results["failed"] += 1
     results["pruned"] = prune(data, store) if _files_restored.is_set() else 0
+    record_sealing(data, store, results)
     return results
+
+
+SEALED_PREFIXES = tuple(f"{prefix}/" for _relative, prefix in DATABASES) + tuple(f"{name}/" for name in FILES)
+
+
+def record_sealing(data: Path, store: Store, results: dict[str, int]) -> None:
+    """After a round: how much of the store is sealed, written where the API can show it;
+    once all of it is, the marker goes in and anything unsealed is refused from then on."""
+    if not isinstance(store, sealing.SealedStore):
+        return
+    status = store.status(SEALED_PREFIXES)
+    status["seal_ms"] = int(store.take_seal_seconds() * 1000)
+    if status["objects"] and status["plain"] == 0:
+        status["marked"] = store.mark_sealed()
+    status["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    results["plain"] = status["plain"]
+    try:
+        (data / ".seat-status.json").write_text(json.dumps(status))
+    except OSError:
+        pass
 
 
 def prune(data: Path, store: Store) -> int:

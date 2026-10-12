@@ -246,6 +246,19 @@ class Settings(BaseSettings):
         chosen = self.codex_path or default_codex_path()
         return Path(os.path.abspath(chosen.expanduser()))
 
+    def resolved_sync_token(self) -> str:
+        """The token the Mac presents to its cloud copy: from the Keychain, where setup keeps
+        it (ADR 0036), or from the settings, as older installs have it."""
+        if self.sync_token:
+            return self.sync_token
+        if not self.sync_peer_url:
+            return ""
+        from urllib.parse import urlsplit
+
+        from .keychain import SYNC_TOKEN, get
+
+        return get(SYNC_TOKEN, urlsplit(self.sync_peer_url).hostname or "") or ""
+
     def resolve_data_dir(self) -> Path:
         """Absolute data directory, refusing anything inside the source tree."""
         chosen = (self.data_dir or default_data_dir()).expanduser()
@@ -353,8 +366,23 @@ def write_setting(name: str, value: str, *, path: Path | None = None) -> Path:
     quoted = '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
     kept.append(f"{key}={quoted}")
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    # Readable by the owner only: it can hold the peer's address and, on older installs, a
+    # token (ADR 0036). Created so, and an existing file tightened.
+    target.touch(mode=0o600, exist_ok=True)
+    os.chmod(target, 0o600)
     target.write_text("\n".join(kept) + "\n", encoding="utf-8")
     return target
+
+
+def remove_setting(name: str, *, path: Path | None = None) -> None:
+    """Drop one ``VADEMECUM_*`` setting from the settings file, keeping the rest."""
+    target = path or settings_file_path()
+    if not target.exists():
+        return
+    key = name if name.startswith("VADEMECUM_") else f"VADEMECUM_{name.upper()}"
+    kept = [line for line in target.read_text(encoding="utf-8").splitlines() if not line.strip().startswith(f"{key}=")]
+    os.chmod(target, 0o600)
+    target.write_text("\n".join(kept) + "\n", encoding="utf-8")
 
 
 @lru_cache(maxsize=1)

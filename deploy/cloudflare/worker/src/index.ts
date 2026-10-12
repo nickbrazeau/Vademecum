@@ -23,6 +23,7 @@ interface Env {
   SEAT_KEY: string
   VADEMECUM_SYNC_ACCEPT_TOKEN: string
   VADEMECUM_MCP_PASSPHRASE: string
+  SEAT_BACKUP_KEY: string
 }
 
 const STORE_PREFIX = '/__seat/'
@@ -45,7 +46,9 @@ export class VademecumSeat extends Container<Env> {
       VADEMECUM_SYNC_ACCEPT_TOKEN: env.VADEMECUM_SYNC_ACCEPT_TOKEN,
       VADEMECUM_MCP_PASSPHRASE: env.VADEMECUM_MCP_PASSPHRASE,
       SEAT_STORE_URL: `${env.PUBLIC_URL.replace(/\/$/, '')}${STORE_PREFIX}`,
-      SEAT_KEY: env.SEAT_KEY
+      SEAT_KEY: env.SEAT_KEY,
+      // The owner's backup key, made on their computer (ADR 0036); empty means unsealed.
+      SEAT_BACKUP_KEY: env.SEAT_BACKUP_KEY ?? ''
     }
   }
 }
@@ -91,11 +94,14 @@ async function store(request: Request, env: Env, url: URL): Promise<Response> {
     const prefix = url.searchParams.get('prefix') ?? ''
     if (prefix && !validKey(prefix + 'x')) return new Response('bad prefix', { status: 400 })
     // When each was written, so the seat can tell a stale copy from a fresh one.
-    const objects: { key: string; size: number; uploaded: string }[] = []
+    // And whether each was put sealed with the owner's key (ADR 0036).
+    const objects: { key: string; size: number; uploaded: string; sealed: boolean }[] = []
     let cursor: string | undefined
     do {
-      const page = await env.BUCKET.list({ prefix, cursor, limit: MAX_LIST })
-      for (const object of page.objects) objects.push({ key: object.key, size: object.size, uploaded: object.uploaded.toISOString() })
+      const page = await env.BUCKET.list({ prefix, cursor, limit: MAX_LIST, include: ['customMetadata'] })
+      for (const object of page.objects) {
+        objects.push({ key: object.key, size: object.size, uploaded: object.uploaded.toISOString(), sealed: object.customMetadata?.sealed === '1' })
+      }
       cursor = page.truncated ? page.cursor : undefined
     } while (cursor)
     return Response.json({ objects })
@@ -104,13 +110,18 @@ async function store(request: Request, env: Env, url: URL): Promise<Response> {
   const key = rest.slice('object/'.length)
   if (!validKey(key)) return new Response('bad key', { status: 400 })
   if (request.method === 'PUT') {
-    await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: 'application/octet-stream' } })
+    const sealed = request.headers.get('x-seat-sealed') === '1'
+    await env.BUCKET.put(key, request.body, {
+      httpMetadata: { contentType: 'application/octet-stream' },
+      customMetadata: sealed ? { sealed: '1' } : {}
+    })
     return Response.json({ stored: key })
   }
   if (request.method === 'DELETE') {
-    // Only retired podcast audio (ADR 0027) and page figures no page places any more are
-    // ever deleted; the records are not.
-    if (!key.startsWith('attachments/podcasts/') && !key.startsWith('attachments/figures/')) {
+    // Only retired podcast audio (ADR 0027), page figures no page places any more, and the
+    // parts and manifests a newer save replaced are ever deleted; the records are not.
+    const replaced = key.includes('.part-') || key.endsWith('.manifest')
+    if (!key.startsWith('attachments/podcasts/') && !key.startsWith('attachments/figures/') && !replaced) {
       return new Response('not deletable', { status: 403 })
     }
     await env.BUCKET.delete(key)

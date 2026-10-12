@@ -177,6 +177,8 @@ class StoredFile(BaseModel):
 class Health(BaseModel):
     status: Literal["ok"]
     version: str
+    # Reached through the gateway's sign-in (the cloud copy, or hosted): Sign out and Face ID apply (ADR 0036).
+    behind_gateway: bool = False
     schema_version: int
     database: Literal["ok"]
     loopback_only: bool

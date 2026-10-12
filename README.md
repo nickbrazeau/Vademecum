@@ -74,6 +74,7 @@ Then follow the tutorials, also on the [project website](https://nicholasbrazeau
 3. [A day with Vademecum: ten minutes at a time](docs/tutorials/03-a-day-with-vademecum.md)
 4. [On your phone, and in ChatGPT or Claude](docs/tutorials/04-phone-and-assistants.md)
 5. [The Improvement Map and spaced repetition](docs/tutorials/05-improvement-map.md)
+6. [Your data: where it lives and who can read it](docs/tutorials/06-your-data.md)
 
 ## Where things are
 

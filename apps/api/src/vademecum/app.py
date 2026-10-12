@@ -352,7 +352,7 @@ def sync_with_peer(database_path: Path, source_dir: Path, settings: Settings) ->
     from .storage import podcasts
     from .sync import push_podcast_audio
 
-    peer = Peer(HttpTransport(settings.sync_peer_url), settings.sync_token)
+    peer = Peer(HttpTransport(settings.sync_peer_url), settings.resolved_sync_token())
     connection = connect(database_path)
     try:
         from .storage import page_changes
@@ -413,7 +413,7 @@ async def _relay_loop(database_path: Path, settings: Settings, turn_factory: Any
     from .model import socratic as tutor
     from .sync import HttpTransport, Peer
 
-    peer = Peer(HttpTransport(settings.sync_peer_url, timeout=40), settings.sync_token)
+    peer = Peer(HttpTransport(settings.sync_peer_url, timeout=40), settings.resolved_sync_token())
     active_until = 0.0
     while True:
         try:
@@ -815,7 +815,7 @@ def create_app(
             if (
                 resolved.sync_role_name == "domi"
                 and resolved.sync_peer_url
-                and resolved.sync_token
+                and resolved.resolved_sync_token()
                 and resolved.model_provider in ("codex", "claude")
             ):
                 relay_task = asyncio.create_task(_relay_loop(owner.database_path, resolved, owner.turn_factory))
@@ -838,7 +838,7 @@ def create_app(
             app.state.backfill_task = backfill_task
             if resolved.model_provider in ("codex", "claude") and resolved.sync_role_name != "foris":
                 app.state.voicing_task = asyncio.create_task(_voice_waiting(app, owner.database_path, owner.source_dir))
-            if resolved.sync_peer_url and resolved.sync_token:
+            if resolved.sync_peer_url and resolved.resolved_sync_token():
                 # Domi pulls from and pushes to foris (ADR 0015),
                 # on a timer, never at startup itself.
                 sync_task = asyncio.create_task(

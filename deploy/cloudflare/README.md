@@ -19,7 +19,40 @@ What is here:
   `/__seat/`, answered from the R2 bucket binding to a caller presenting `SEAT_KEY`.
 - `tools/podman-as-docker` — lets wrangler build and push the image with podman.
 
-## Deploy, once
+## Your own copy, in one command
+
+On your Mac, signed in to Cloudflare (`cd deploy/cloudflare/worker && npx wrangler login`), with a
+container CLI available as below:
+
+```sh
+./scripts/mcp.sh setup cloud
+```
+
+It asks once for a recovery passphrase and does the rest:
+
+- makes your bucket;
+- deploys your Worker and container;
+- makes every secret and keeps the backup key and the sync token in the Keychain, so you
+  never see or type them;
+- tells this Mac where its copy is;
+- checks the copy from outside.
+
+Then open the address it prints on your phone, sign in with the passphrase once, and add Face
+ID under Settings → Face ID and sessions
+([ADR 0036](../../docs/adr/0036-each-learner-owns-a-sealed-copy.md)).
+
+- **A copy made before this:** `setup cloud --adopt` seals its backups.
+- **New store key and sync token:** `setup cloud --rotate`.
+
+After any deploy, check the copy from outside:
+
+```sh
+apps/api/.venv/bin/python scripts/check_cloud.py https://vademecum-seat.<you>.workers.dev
+```
+
+The manual steps below are what the command does, kept for reference.
+
+## Deploy, once (by hand)
 
 You need a Cloudflare account on the Workers paid plan (containers need it), with R2 enabled
 (both are one click each in the dashboard), `node` and `npm` on the Mac, and a container CLI

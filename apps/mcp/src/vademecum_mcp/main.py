@@ -49,9 +49,11 @@ def _parser() -> argparse.ArgumentParser:
     setup = commands.add_parser(
         "setup", help="register with Codex or Claude Desktop, choose the source folder, or start at login"
     )
-    setup.add_argument("target", choices=["codex", "claude", "folder", "login", "sync"])
+    setup.add_argument("target", choices=["codex", "claude", "folder", "login", "sync", "cloud"])
     setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be; for `sync`: foris's https address")
     setup.add_argument("--remove", action="store_true", help="for `login`: stop starting at login")
+    setup.add_argument("--adopt", action="store_true", help="for `cloud`: seal an existing copy's backups with a key kept on this Mac")
+    setup.add_argument("--rotate", action="store_true", help="for `cloud`: a new store key and sync token")
     setup.add_argument(
         "--model", choices=["host", "codex", "claude"], default="host",
         help="for `login`: who does the model work; `codex` or `claude` lets the Mac build on a timer",
@@ -92,6 +94,11 @@ def run(argv: list[str] | None = None) -> int:
             return _setup_login(settings, remove=args.remove, model=args.model)
         if args.target == "sync":
             return _setup_sync(args.path, remove=args.remove)
+        if args.target == "cloud":
+            from . import cloud_setup
+
+            mode = "adopt" if args.adopt else "rotate" if args.rotate else "create"
+            return cloud_setup.main(mode, address=args.path)
         return _setup(settings, args.target)
     if getattr(args, "stdio", False):
         return _serve_stdio(settings)
@@ -353,6 +360,12 @@ def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None
     from vademecum.config import settings_file_path, write_setting
 
     if remove:
+        from vademecum import keychain
+        from vademecum.config import get_settings
+
+        current = urlsplit(get_settings().sync_peer_url or "").hostname
+        if current:
+            keychain.delete(keychain.SYNC_TOKEN, current)
         write_setting("SYNC_PEER_URL", "")
         write_setting("SYNC_TOKEN", "")
         print("This Mac no longer syncs with foris.")
@@ -374,7 +387,16 @@ def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None
         return 2
     origin = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
     write_setting("SYNC_PEER_URL", origin)
-    write_setting("SYNC_TOKEN", token)
+    # The token goes in the Keychain where there is one (ADR 0036), and out of the file.
+    from vademecum import keychain
+    from vademecum.config import remove_setting
+
+    if keychain.available():
+        keychain.put(keychain.SYNC_TOKEN, parts.hostname, token)
+        remove_setting("SYNC_TOKEN")
+        print("The sync token is kept in the Keychain.")
+    else:
+        write_setting("SYNC_TOKEN", token)
     print(f"This Mac syncs with {origin} (recorded in {settings_file_path().name}).")
     print("Vademecum syncs every five minutes while it runs; `python -m vademecum sync` runs one round now.")
     print("Restart Vademecum (or the assistant) so the running copy picks this up.")

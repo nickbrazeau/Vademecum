@@ -69,4 +69,5 @@ async def health(
         literature_configured=settings.literature_enabled,
         model_mode=model_mode,  # type: ignore[arg-type]
         tenancy=settings.tenancy,  # type: ignore[arg-type]
+        behind_gateway=settings.tenancy == "multi" or settings.sync_role_name == "foris",
     )

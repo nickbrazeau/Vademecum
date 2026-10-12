@@ -102,6 +102,22 @@ function MacModelSeen() {
   )
 }
 
+/** On the cloud copy only: Face ID and sessions, on the gateway's own page (ADR 0036). */
+function SignInCard() {
+  const { result } = useLoad(() => api.health(), [])
+  if (result.state !== 'ready' || !result.value.behind_gateway) return null
+  return (
+    <section className="card" aria-labelledby="sign-in-heading">
+      <h2 id="sign-in-heading">Sign-in</h2>
+      <p>
+        <a className="button" href="/passkeys">
+          Face ID and sessions
+        </a>
+      </p>
+    </section>
+  )
+}
+
 export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences: Preferences) => void; showModel?: boolean }) {
   const { result, reload } = useLoad(() => api.preferences(), [])
   const [chosen, setChosen] = useState<string[] | null>(null)
@@ -157,6 +173,7 @@ export function Settings({ onSaved, showModel = true }: { onSaved?: (preferences
 
   return (
     <div className="stack">
+      <SignInCard />
       <section className="card" aria-labelledby="tabs-heading">
         <h2 id="tabs-heading">Tabs</h2>
         <p className="muted">Choose which sections the app shows, and their order. Today is always first and Settings always last.</p>

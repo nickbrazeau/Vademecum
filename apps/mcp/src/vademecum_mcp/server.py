@@ -205,11 +205,12 @@ def build_http_app(settings: McpSettings, api: ApiClient, store: AccessStore) ->
         public_url=public_url,
         settings=settings,
     )
-    consent.register(mcp, store, tenancy=settings.tenancy)
+    consent.register(mcp, store, tenancy=settings.tenancy, public_url=public_url)
 
     @mcp.custom_route("/health", methods=["GET"], include_in_schema=False)
     async def health(request: Request) -> Response:
-        return JSONResponse({"status": "ok", "version": __version__}, headers={"Cache-Control": "no-store"})
+        # Not the version: nothing about this copy is said to someone not signed in (ADR 0036).
+        return JSONResponse({"status": "ok"}, headers={"Cache-Control": "no-store"})
 
     # The desk: sign-in, the proxied API, the sync passthrough and the web app
     # at the root (ADR 0011; in single tenancy behind the owner's passphrase,

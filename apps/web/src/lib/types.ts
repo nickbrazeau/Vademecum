@@ -1170,6 +1170,8 @@ export interface WrittenFile {
 export interface Health {
   status: string
   version: string
+  /** Reached through the gateway's sign-in: Sign out and Face ID apply (ADR 0036). */
+  behind_gateway?: boolean
   schema_version: number
   database: string
   loopback_only: boolean

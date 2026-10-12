@@ -136,7 +136,7 @@ export function App() {
       .health()
       .then((health) => {
         if (!cancelled) {
-          setBehindGateway(health.tenancy === 'multi')
+          setBehindGateway(health.tenancy === 'multi' || health.behind_gateway === true)
           setHostMode(health.model_mode === 'host')
         }
       })

@@ -63,3 +63,5 @@ dist-app/
 deploy/cloudflare/worker/node_modules/
 deploy/cloudflare/worker/.wrangler/
 _site/
+# A learner's own cloud copy settings, written by `setup cloud` (ADR 0036).
+deploy/cloudflare/worker/wrangler.local.jsonc

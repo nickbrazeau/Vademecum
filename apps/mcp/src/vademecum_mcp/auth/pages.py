@@ -12,9 +12,11 @@ import html
 
 from starlette.responses import HTMLResponse, Response
 
-def _csp(form_action: str) -> str:
+def _csp(form_action: str, *, script: bool = False) -> str:
+    # A script only where a passkey is asked for (ADR 0036), and only from this address.
+    scripts = "script-src 'self'; connect-src 'self'; " if script else ""
     return (
-        f"default-src 'none'; style-src 'unsafe-inline'; form-action {form_action}; "
+        f"default-src 'none'; {scripts}style-src 'unsafe-inline'; form-action {form_action}; "
         "base-uri 'none'; frame-ancestors 'none'"
     )
 
@@ -42,6 +44,21 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "same-origin",
 }
 CONSENT_HEADERS = {**SECURITY_HEADERS, "Content-Security-Policy": _csp(FORM_ACTION_CLIENTS)}
+# The pages that offer a passkey: the sign-in, the passkeys page and the consent page.
+PASSKEY_HEADERS = {**SECURITY_HEADERS, "Content-Security-Policy": _csp(FORM_ACTION_SELF, script=True)}
+CONSENT_PASSKEY_HEADERS = {**SECURITY_HEADERS, "Content-Security-Policy": _csp(FORM_ACTION_CLIENTS, script=True)}
+PASSKEY_SCRIPT = "/auth/passkey.js"
+
+
+def passkey_button(label: str, *, options: str, verify: str = "", form: str = "") -> str:
+    """A button the page script turns into a passkey ceremony; hidden where there is none."""
+    target = f'data-verify="{html.escape(verify)}"' if verify else f'data-form="{html.escape(form)}"'
+    return (
+        f'<div class="actions"><button type="button" data-passkey="sign_in" data-options="{html.escape(options)}" {target}>'
+        f"{html.escape(label)}</button></div>"
+        '<p class="error" id="passkey-status" role="alert"></p>'
+        f'<script src="{PASSKEY_SCRIPT}" defer></script>'
+    )
 
 BOUNDARY = (
     "Vademecum is educational; nothing it shows is a substitute for clinical judgment, "
@@ -135,6 +152,9 @@ p {{ margin: 0 0 1rem; }}
 .muted {{ color: var(--muted); }}
 form + form {{ border-top: 1px solid var(--line); margin-top: 1.5rem; }}
 label {{ display: block; font-weight: 600; margin: 1.25rem 0 .4rem; }}
+details {{ margin-top: 1.5rem; }} summary {{ cursor: pointer; color: var(--accent); font-weight: 600; min-height: 44px; }}
+ul.plain {{ list-style: none; padding: 0; }} ul.plain li {{ display: flex; gap: .75rem; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--line); padding: .5rem 0; }}
 input[type=password], input[type=text] {{ width: 100%; box-sizing: border-box; font: inherit;
   padding: .7rem .8rem; border: 1px solid var(--line); border-radius: 8px; background: transparent;
   color: inherit; }}

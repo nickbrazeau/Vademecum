@@ -64,8 +64,11 @@ def register_learner(store: AccessStore, form: dict[str, str]) -> str | InviteEr
         return exc
 
 
-def register(mcp: MCPServer, store: AccessStore, *, tenancy: str = "single") -> None:
+def register(mcp: MCPServer, store: AccessStore, *, tenancy: str = "single", public_url: str = "") -> None:
     multi = tenancy == "multi"
+    from . import passkeys
+
+    party = passkeys.Party.of(public_url) if public_url else None
 
     @mcp.custom_route(CONSENT_PATH, methods=["GET", "POST"], include_in_schema=False)
     async def consent(request: Request) -> Response:
@@ -74,7 +77,7 @@ def register(mcp: MCPServer, store: AccessStore, *, tenancy: str = "single") -> 
             pending = store.get_pending(request_id)
             if pending is None:
                 return pages.page(EXPIRED, status=400)
-            return _form(store, request_id, pending.client_id, pending.params.redirect_uri, multi=multi)
+            return _form(store, request_id, pending.client_id, pending.params.redirect_uri, multi=multi, passkey=party is not None)
 
         raw = await request.form()
         form = {key: str(value) for key, value in raw.items() if isinstance(value, str)}
@@ -86,7 +89,7 @@ def register(mcp: MCPServer, store: AccessStore, *, tenancy: str = "single") -> 
         params = pending.params
 
         def again(error: str, *, status: int = 200) -> Response:
-            return _form(store, request_id, pending.client_id, params.redirect_uri, multi=multi, error=error, status=status)
+            return _form(store, request_id, pending.client_id, params.redirect_uri, multi=multi, error=error, status=status, passkey=party is not None)
 
         if action == "deny":
             store.consume_pending(request_id)
@@ -96,7 +99,22 @@ def register(mcp: MCPServer, store: AccessStore, *, tenancy: str = "single") -> 
             )
 
         learner_id: str | None = None
-        if not multi:
+        if not multi and action == "passkey" and party is not None:
+            # Approved with Face ID (ADR 0036): the same lockout as the passphrase.
+            remaining = store.lockout_remaining()
+            if remaining:
+                logger.warning("consent_locked_out")
+                return pages.page(locked(remaining), status=429)
+            import json as _json
+
+            try:
+                credential = _json.loads(form.get("credential", "") or "{}")
+            except ValueError:
+                credential = {}
+            if passkeys.sign_in(store, party, form.get("challenge_id", ""), credential if isinstance(credential, dict) else {}) is None:
+                logger.info("consent_refused")
+                return again("That passkey was not accepted.")
+        elif not multi:
             if not store.has_passphrase():
                 return pages.page(NO_PASSPHRASE, status=403)
             remaining = store.lockout_remaining()
@@ -147,11 +165,13 @@ def _form(
     multi: bool,
     error: str = "",
     status: int = 200,
+    passkey: bool = False,
 ) -> Response:
     client = store.get_client(client_id)
     name = html.escape((client.client_name if client and client.client_name else "").strip() or "An assistant")
     where = html.escape(urlsplit(str(redirect_uri)).netloc or "its own site")
     hidden_fields = pages.hidden("request", request_id)
+    headers = pages.CONSENT_HEADERS
     if multi:
         credentials = pages.learner_forms(
             CONSENT_PATH,
@@ -162,6 +182,16 @@ def _form(
         )
     else:
         credentials = pages.owner_form(CONSENT_PATH, hidden_fields)
+        if passkey and store.passkeys():
+            # Face ID first; the passphrase underneath, for an in-app browser without passkeys.
+            credentials = (
+                f'<form method="post" action="{CONSENT_PATH}" id="consent-passkey">{hidden_fields}'
+                '<input type="hidden" name="action" value="passkey"><input type="hidden" name="challenge_id">'
+                '<input type="hidden" name="credential"></form>'
+                + pages.passkey_button("Approve with Face ID", options="/login/passkey/options", form="consent-passkey")
+                + f"<details><summary>Use passphrase instead</summary>{credentials}</details>"
+            )
+            headers = pages.CONSENT_PASSKEY_HEADERS
     body = f"""
 <h1>Connect {name} to Vademecum?</h1>
 <p>You are approving a connection from <strong>{name}</strong>. Afterwards it is sent back to
@@ -172,4 +202,4 @@ assistant's conversation with its provider. {pages.BOUNDARY}</p>
 {pages.notice(error)}
 {credentials}
 """
-    return pages.page(body, status=status, raw=True, headers=pages.CONSENT_HEADERS)
+    return pages.page(body, status=status, raw=True, headers=headers)

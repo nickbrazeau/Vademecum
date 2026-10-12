@@ -81,7 +81,8 @@ class McpSettings(BaseSettings):
     # whose sole network is the private one its Worker reaches it on (ADR
     # 0017); on a Mac this stays off and the gateway is loopback like the API.
     mcp_listen_all: bool = False
-    mcp_desk_session_ttl: int = Field(default=14 * 86400, ge=600, le=90 * 86400)
+    # A week: Face ID makes signing in again a glance (ADR 0036).
+    mcp_desk_session_ttl: int = Field(default=7 * 86400, ge=600, le=90 * 86400)
 
     def resolve_desk_dist(self) -> Path | None:
         candidate = self.mcp_desk_dist

@@ -24,7 +24,7 @@ COPY apps/mcp /app/apps/mcp
 COPY --from=web /src/apps/mcp/src/vademecum_mcp/widgets/app.html /app/apps/mcp/src/vademecum_mcp/widgets/app.html
 RUN pip install /app/apps/api /app/apps/mcp
 COPY --from=web /src/apps/web/dist /app/web
-COPY deploy/cloudflare/seat.py /app/seat.py
+COPY deploy/cloudflare/seat.py deploy/cloudflare/sealing.py /app/
 
 # Records live here between snapshots; the volume is the container's own.
 ENV VADEMECUM_DATA_DIR=/data VADEMECUM_MCP_DESK_DIST=/app/web

@@ -82,6 +82,17 @@ describe('flashcards', () => {
 })
 
 describe('settings', () => {
+  it('offers Face ID and sessions on the cloud copy only (ADR 0036)', async () => {
+    stub({ '/api/preferences': { visible_tabs: TABS.map((tab) => tab.name), tabs: TABS }, '/api/health': { tenancy: 'single', behind_gateway: true } })
+    const { unmount } = render(<Settings />)
+    expect(await screen.findByRole('link', { name: 'Face ID and sessions' })).toHaveAttribute('href', '/passkeys')
+    unmount()
+    stub({ '/api/preferences': { visible_tabs: TABS.map((tab) => tab.name), tabs: TABS }, '/api/health': { tenancy: 'single', behind_gateway: false } })
+    render(<Settings />)
+    expect(await screen.findByText(/Always shown, first/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Face ID and sessions' })).not.toBeInTheDocument()
+  })
+
   it('lets the owner untick a tab, keeps Today and Settings fixed, and saves', async () => {
     const calls = stub({
       '/api/preferences': { visible_tabs: TABS.map((tab) => tab.name), tabs: TABS },

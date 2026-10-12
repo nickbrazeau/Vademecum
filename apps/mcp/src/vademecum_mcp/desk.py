@@ -35,7 +35,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 
 from .api_client import TOKEN_HEADER, ApiClient, ApiError
-from .auth import consent, pages
+from .auth import consent, pages, passkeys
 from .auth.store import OWNER_SUBJECT, AccessStore, InviteError
 from .config import SCOPE
 
@@ -46,6 +46,7 @@ SYNC_HEADER = "X-Vademecum-Sync"
 DESK_CLIENT = "desk"
 LOGIN_PATH = "/login"
 LOGOUT_PATH = "/logout"
+PASSKEYS_PATH = "/passkeys"
 
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
@@ -117,11 +118,20 @@ def register(
         )
         return response
 
+    party = passkeys.Party.of(public_url)
+
     def login_page(error: str = "", *, status: int = 200) -> Response:
+        headers = None
         if single:
-            # One learner, the owner (ADR 0017): the same passphrase the
-            # assistants are approved with.
+            # One learner, the owner (ADR 0017): Face ID once a passkey is added (ADR 0036),
+            # the passphrase underneath as the way back in.
             form = pages.owner_form(LOGIN_PATH, "")
+            if store.passkeys():
+                form = (
+                    pages.passkey_button("Sign in with Face ID", options="/login/passkey/options", verify="/login/passkey")
+                    + f"<details><summary>Use passphrase instead</summary>{form}</details>"
+                )
+                headers = pages.PASSKEY_HEADERS
             lead = "Your Vademecum: Today, your sources, the Tutor, the Improvement Map and the Case Series."
         else:
             form = pages.learner_forms(LOGIN_PATH, "", approve_label="Sign in", register_label="Create my workspace", deny=False)
@@ -132,7 +142,23 @@ def register(
 {pages.notice(error)}
 {form}
 """
-        return pages.page(body, status=status, raw=True)
+        return pages.page(body, status=status, raw=True, headers=headers)
+
+    def session_learner(request: Request) -> str | None:
+        token = token_of(request)
+        record = store.load_token(token, "access") if token else None
+        return record.learner_id if record is not None else None
+
+    def mint(learner_id: str) -> str:
+        return store.issue_tokens(
+            client_id=DESK_CLIENT,
+            scopes=[SCOPE],
+            resource=None,
+            access_ttl=session_ttl,
+            refresh_ttl=session_ttl,
+            learner_id=learner_id,
+            with_refresh=False,
+        ).access_token
 
     # --- sign in, sign out ----------------------------------------------------
 
@@ -193,6 +219,129 @@ def register(
         if token is not None:
             store.revoke_token(token)
             logger.info("desk_signed_out")
+        response = RedirectResponse(LOGIN_PATH, status_code=303, headers=pages.SECURITY_HEADERS)
+        response.delete_cookie(COOKIE, path="/")
+        return response
+
+    # --- passkeys (ADR 0036), the owner's copy only ------------------------------------
+
+    def refused(message: str, status: int) -> JSONResponse:
+        return JSONResponse({"message": message}, status_code=status, headers={"Cache-Control": "no-store"})
+
+    @mcp.custom_route(pages.PASSKEY_SCRIPT, methods=["GET"], include_in_schema=False)
+    async def passkey_script(request: Request) -> Response:
+        return Response(
+            passkeys.SCRIPT,
+            media_type="text/javascript",
+            headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"},
+        )
+
+    @mcp.custom_route("/login/passkey/options", methods=["POST"], include_in_schema=False)
+    async def passkey_sign_in_options(request: Request) -> Response:
+        if not single or not same_origin(request, origin):
+            return refused("Not here.", 403)
+        return JSONResponse(passkeys.sign_in_options(store, party), headers={"Cache-Control": "no-store"})
+
+    @mcp.custom_route("/login/passkey", methods=["POST"], include_in_schema=False)
+    async def passkey_sign_in(request: Request) -> Response:
+        if not single or not same_origin(request, origin):
+            return refused("Not here.", 403)
+        remaining = store.lockout_remaining()
+        if remaining:
+            logger.warning("desk_locked_out")
+            return refused(consent.locked(remaining), 429)
+        try:
+            body = await request.json()
+            learner_id = passkeys.sign_in(store, party, str(body.get("challenge_id", "")), dict(body.get("credential") or {}))
+        except (ValueError, TypeError, AttributeError):
+            store.record_failure()
+            learner_id = None
+        if learner_id is None:
+            return refused("That passkey was not accepted.", 401)
+        logger.info("desk_signed_in")
+        return set_session(JSONResponse({"redirect": "/"}, headers={"Cache-Control": "no-store"}), mint(learner_id))
+
+    def passkeys_page(learner_id: str, notice: str = "") -> Response:
+        import html as _html
+
+        rows = store.passkeys(learner_id)
+        listed = "".join(
+            f'<li><span>{_html.escape(row["label"] or "Passkey")} · added {_html.escape(row["created_at"][:10])}'
+            f'{" · last used " + _html.escape(row["last_used_at"][:10]) if row["last_used_at"] else ""}</span>'
+            f'<form method="post" action="{PASSKEYS_PATH}/remove"><input type="hidden" name="credential_id" '
+            f'value="{_html.escape(row["credential_id"])}"><button type="submit" class="secondary">Remove</button></form></li>'
+            for row in rows
+        )
+        body = f"""
+<h1>Sign-in</h1>
+{pages.notice(notice)}
+<h2>Face ID</h2>
+<p class="muted">{"Sign in on this phone with Face ID." if rows else "Add Face ID on this phone, then sign in with it instead of the passphrase."}</p>
+<ul class="plain">{listed}</ul>
+<div class="actions"><button type="button" data-passkey="add" data-options="{PASSKEYS_PATH}/options" data-verify="{PASSKEYS_PATH}/add">Add Face ID on this device</button></div>
+<p class="error" id="passkey-status" role="alert"></p>
+<h2>Sessions</h2>
+<form method="post" action="/logout/everywhere"><div class="actions"><button type="submit" class="secondary">Sign out everywhere</button></div></form>
+<p><a href="/">Back to Vademecum</a></p>
+<script src="{pages.PASSKEY_SCRIPT}" defer></script>
+"""
+        return pages.page(body, raw=True, headers=pages.PASSKEY_HEADERS)
+
+    @mcp.custom_route(PASSKEYS_PATH, methods=["GET"], include_in_schema=False)
+    async def passkeys_view(request: Request) -> Response:
+        learner_id = session_learner(request)
+        if learner_id is None or not single:
+            return RedirectResponse(LOGIN_PATH, status_code=303, headers=pages.SECURITY_HEADERS)
+        return passkeys_page(learner_id)
+
+    @mcp.custom_route(f"{PASSKEYS_PATH}/options", methods=["POST"], include_in_schema=False)
+    async def passkey_add_options(request: Request) -> Response:
+        learner_id = session_learner(request)
+        if learner_id is None or not single:
+            return refused("Sign in first.", 401)
+        if not same_origin(request, origin):
+            return refused("Not here.", 403)
+        return JSONResponse(passkeys.registration_options(store, party, learner_id=learner_id), headers={"Cache-Control": "no-store"})
+
+    @mcp.custom_route(f"{PASSKEYS_PATH}/add", methods=["POST"], include_in_schema=False)
+    async def passkey_add(request: Request) -> Response:
+        learner_id = session_learner(request)
+        if learner_id is None or not single:
+            return refused("Sign in first.", 401)
+        if not same_origin(request, origin):
+            return refused("Not here.", 403)
+        try:
+            body = await request.json()
+            added = passkeys.register(
+                store, party, str(body.get("challenge_id", "")), dict(body.get("credential") or {}),
+                label=str(body.get("label") or "This device")[:80], learner_id=learner_id,
+            )
+        except (ValueError, TypeError, AttributeError):
+            added = False
+        if not added:
+            return refused("The passkey was not added. Try again.", 400)
+        return JSONResponse({"added": True}, headers={"Cache-Control": "no-store"})
+
+    @mcp.custom_route(f"{PASSKEYS_PATH}/remove", methods=["POST"], include_in_schema=False)
+    async def passkey_remove(request: Request) -> Response:
+        learner_id = session_learner(request)
+        if learner_id is None or not single:
+            return RedirectResponse(LOGIN_PATH, status_code=303, headers=pages.SECURITY_HEADERS)
+        if not same_origin(request, origin):
+            return JSONResponse(CROSS_ORIGIN, status_code=403, headers=pages.SECURITY_HEADERS)
+        form = await request.form()
+        store.remove_passkey(str(form.get("credential_id", "")), learner_id)
+        logger.info("passkey_removed")
+        return RedirectResponse(PASSKEYS_PATH, status_code=303, headers=pages.SECURITY_HEADERS)
+
+    @mcp.custom_route("/logout/everywhere", methods=["POST"], include_in_schema=False)
+    async def logout_everywhere(request: Request) -> Response:
+        if session_learner(request) is None:
+            return RedirectResponse(LOGIN_PATH, status_code=303, headers=pages.SECURITY_HEADERS)
+        if not same_origin(request, origin):
+            return JSONResponse(CROSS_ORIGIN, status_code=403, headers=pages.SECURITY_HEADERS)
+        ended = store.revoke_desk_sessions(DESK_CLIENT)
+        logger.info("desk_signed_out_everywhere sessions=%d", ended)
         response = RedirectResponse(LOGIN_PATH, status_code=303, headers=pages.SECURITY_HEADERS)
         response.delete_cookie(COOKIE, path="/")
         return response
