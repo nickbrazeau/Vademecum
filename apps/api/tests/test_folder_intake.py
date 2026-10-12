@@ -324,3 +324,17 @@ def test_a_second_scan_reads_no_unchanged_file(tmp_path: Path, piles: Path, fold
         assert "lecture.txt" in reads and len(third["stored"]) == 1, "a changed file is read again"
     finally:
         connection.close()
+
+
+def test_a_deleted_pile_folder_is_set_aside_and_not_read_again(with_folder: TestClient, piles: Path) -> None:
+    """Feedback of 11 October: deleting a pile with its files sets its folder aside, hidden,
+    so the next scan does not bring the pile back; the files are still there to recover."""
+    touch(piles / "highconfidence" / "Sepsis" / "lecture.txt", LECTURE)
+    with_folder.post("/api/sources/scan")
+    pile = titles(with_folder)["Sepsis"]
+    assert with_folder.delete(f"/api/piles/{pile['id']}", params={"everything": "true"}).status_code == 204
+    assert not (piles / "highconfidence" / "Sepsis").exists()
+    aside = [p for p in (piles / "highconfidence").iterdir() if p.name.startswith(".deleted Sepsis")]
+    assert len(aside) == 1 and (aside[0] / "lecture.txt").exists()
+    with_folder.post("/api/sources/scan")
+    assert "Sepsis" not in titles(with_folder)

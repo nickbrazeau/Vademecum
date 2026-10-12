@@ -242,10 +242,23 @@ function PilePanel({ pile, onChanged }: { pile: Pile; onChanged: () => void }) {
     onChanged()
   }
 
+  // Any pile can be deleted, files and all, once the owner says so (feedback of 11 October).
   const removePile = async () => {
     setFailure(null)
+    const held = [
+      [pile.source_count, 'file'],
+      [pile.point_count, 'learning point'],
+      [pile.question_count, 'question']
+    ]
+      .filter(([count]) => Number(count) > 0)
+      .map(([count, label]) => `${count} ${label}${count === 1 ? '' : 's'}`)
+    const everything = held.length > 0
+    const ask = everything
+      ? `Delete “${pile.title}” with its ${held.join(', ')}? Encyclopedia pages built only from it go too. Its folder is set aside, hidden, in the source folder.`
+      : `Delete “${pile.title}”?`
+    if (!window.confirm(ask)) return
     try {
-      await api.deletePile(pile.id)
+      await api.deletePile(pile.id, everything)
       onChanged()
     } catch (error) {
       setFailure(asApiError(error))
@@ -254,6 +267,11 @@ function PilePanel({ pile, onChanged }: { pile: Pile; onChanged: () => void }) {
 
   return (
     <div className="pile-panel">
+      <div className="actions pile-panel-head">
+        <button type="button" className="button ghost small" onClick={() => void removePile()}>
+          Delete this pile
+        </button>
+      </div>
       <UploadPanel pileId={pile.id} defaultConfidence={pile.tier} onUploaded={refresh} />
 
       <h4>Files in this pile</h4>
@@ -264,11 +282,6 @@ function PilePanel({ pile, onChanged }: { pile: Pile; onChanged: () => void }) {
       <ItemPanel pile={pile} onChanged={refresh} />
       <GeneratedMaterial pileId={pile.id} token={token} />
 
-      <div className="actions">
-        <button type="button" className="button ghost small" onClick={() => void removePile()}>
-          Delete this pile
-        </button>
-      </div>
       {failure ? (
         <p className="failure" role="alert">
           {failure.kind === 'conflict'

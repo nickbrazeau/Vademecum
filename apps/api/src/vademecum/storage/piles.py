@@ -183,7 +183,7 @@ def update_pile(
     return get_pile(connection, pile_id)
 
 
-def delete_pile(connection: sqlite3.Connection, pile_id: str) -> None:
+def delete_pile(connection: sqlite3.Connection, pile_id: str, *, everything: bool = False) -> list[tuple[str, str]]:
     """Delete a pile, refusing while it holds uploads or generated material.
 
     Deleting a pile used to cascade. It must not: uploaded originals and answer
@@ -208,17 +208,49 @@ def delete_pile(connection: sqlite3.Connection, pile_id: str) -> None:
         )
         if blocking[name]
     ]
-    if parts:
+    if parts and not everything:
         raise ConflictError(
             "pile_in_use",
             "This pile still holds " + ", ".join(parts) + ". Nothing was deleted. "
             "Remove the sources and the generated material first, so you decide "
             "explicitly what goes.",
         )
+    originals: list[tuple[str, str]] = []
     with transaction(connection) as tx:
+        if everything and parts:
+            originals = _delete_contents(tx, pile_id)
         cursor = tx.execute("DELETE FROM piles WHERE id = ?", (pile_id,))
     if cursor.rowcount == 0:
         raise NotFoundError("pile", pile_id)
+    return originals
+
+
+def _delete_contents(tx: sqlite3.Connection, pile_id: str) -> list[tuple[str, str]]:
+    """Everything a pile holds, asked for in so many words (feedback of 11 October): its
+    Tutor questions, learning points and sources. A page resting only on these points goes
+    with them; a page resting partly on them is written again from what remains, its
+    questions on the removed points held. Returns the originals no other source shares."""
+    import json
+
+    points = {row[0] for row in tx.execute("SELECT id FROM learning_points WHERE pile_id = ?", (pile_id,))}
+    if points:
+        for row in tx.execute("SELECT id, point_ids FROM encyclopedia_entries").fetchall():
+            try:
+                cited = {str(x) for x in json.loads(row[1] or "[]")}
+            except ValueError:
+                continue
+            if cited and cited <= points:
+                tx.execute("DELETE FROM encyclopedia_entries WHERE id = ?", (row[0],))
+    tx.execute("DELETE FROM tutor_questions WHERE pile_id = ?", (pile_id,))
+    tx.execute("DELETE FROM learning_points WHERE pile_id = ?", (pile_id,))
+    sources = tx.execute("SELECT id, stored_name, sha256 FROM sources WHERE pile_id = ?", (pile_id,)).fetchall()
+    tx.execute("DELETE FROM sources WHERE pile_id = ?", (pile_id,))
+    originals = []
+    for row in sources:
+        shared = tx.execute("SELECT 1 FROM sources WHERE sha256 = ? LIMIT 1", (row[2],)).fetchone()
+        if shared is None:
+            originals.append((row[1], row[2]))
+    return originals
 
 
 def list_items(connection: sqlite3.Connection, pile_id: str) -> list[LearningItem]:

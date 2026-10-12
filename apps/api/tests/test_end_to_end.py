@@ -381,6 +381,21 @@ class TestUploadHandling:
         assert refused.json()["error"]["code"] == "pile_in_use"
         assert client.get(f"/api/piles/{pile['id']}/sources").json()
 
+    def test_asked_to_delete_everything_a_pile_goes_with_its_material(self, client: TestClient) -> None:
+        """Feedback of 11 October: a pile can always be deleted, files, points and all."""
+        pile = client.post("/api/piles", json={"title": "Sepsis", "tier": "mid"}).json()
+        keep = client.post("/api/piles", json={"title": "Kept", "tier": "mid"}).json()
+        upload(client, pile["id"], "lecture.txt", LECTURE.encode())
+        upload(client, keep["id"], "lecture.txt", LECTURE.encode())
+        build(client, pile["id"])
+        assert client.get("/api/points", params={"pile_id": pile["id"]}).json()
+        gone = client.delete(f"/api/piles/{pile['id']}", params={"everything": "true"})
+        assert gone.status_code == 204, gone.text
+        assert client.get(f"/api/piles/{pile['id']}").status_code == 404
+        assert all(entry["id"] != pile["id"] for entry in client.get("/api/piles").json())
+        # The other pile's copy of the same file is untouched.
+        assert client.get(f"/api/piles/{keep['id']}/sources").json()
+
 
 class TestRecheckRecovery:
     def test_a_fully_covered_pile_can_be_reopened_over_http(

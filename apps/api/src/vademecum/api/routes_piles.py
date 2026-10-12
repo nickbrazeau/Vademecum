@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from ..storage import piles as store
 from . import schemas
-from .deps import get_connection
+from .deps import get_connection, get_source_dir
 
 router = APIRouter(tags=["piles"])
 
@@ -58,10 +59,44 @@ def update_pile(
 
 @router.delete("/piles/{pile_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_pile(
-    pile_id: str, connection: sqlite3.Connection = Depends(get_connection)
+    pile_id: str,
+    request: Request,
+    everything: bool = False,
+    connection: sqlite3.Connection = Depends(get_connection),
+    source_dir: Path = Depends(get_source_dir),
 ) -> Response:
-    store.delete_pile(connection, pile_id)
+    """An empty pile goes at once. With ``everything``, a pile is deleted with its files,
+    points and questions (feedback of 11 October): on the Mac only, whose copy they are;
+    its folder in the source folder is set aside, hidden, so the next scan does not
+    bring it back, and nothing is lost that the owner cannot recover from there."""
+    settings = request.app.state.settings
+    if everything and settings.sync_role_name == "foris":
+        raise store.ConflictError("on_the_mac", "A pile with files in it is deleted on the Mac, where its files are.")
+    pile = store.get_pile(connection, pile_id)
+    originals = store.delete_pile(connection, pile_id, everything=everything)
+    if everything:
+        _set_folder_aside(settings, pile.title)
+        from ..storage import sources as source_store
+
+        for stored_name, sha256 in originals:
+            source_store.remove_original(source_dir, stored_name, sha256)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _set_folder_aside(settings, title: str) -> None:
+    """The pile's folder, in whichever confidence folder it is, renamed with a leading dot."""
+    import time
+
+    from ..app import current_sources_dir
+    from ..ingest.folder import PILES_DIRNAME, TIER_FOLDERS
+
+    folder = current_sources_dir(settings) if settings.tenancy == "single" else None
+    if folder is None:
+        return
+    for tier_folder in TIER_FOLDERS.values():
+        place = folder / PILES_DIRNAME / tier_folder / title
+        if place.is_dir():
+            place.rename(place.with_name(f".deleted {title} {time.strftime('%Y-%m-%d %H%M')}"))
 
 
 @router.get("/piles/{pile_id}/items", response_model=list[schemas.LearningItem])

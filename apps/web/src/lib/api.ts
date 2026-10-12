@@ -251,7 +251,8 @@ export const api = {
   updatePile: (pileId: string, input: { title?: string; tier?: Tier; description?: string }) =>
     request<Pile>(`/piles/${pileId}`, { method: 'PATCH', ...body(input) }).then(normalize.pile),
   // May refuse with 409 `pile_in_use`.
-  deletePile: (pileId: string) => request<void>(`/piles/${pileId}`, { method: 'DELETE' }),
+  deletePile: (pileId: string, everything = false) =>
+    request<void>(`/piles/${pileId}${everything ? '?everything=true' : ''}`, { method: 'DELETE' }),
 
   // The older plain-text notes. Unchanged.
   listItems: (pileId: string) => request<LearningItem[]>(`/piles/${pileId}/items`).then(normalize.items),
