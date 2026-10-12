@@ -211,7 +211,7 @@ def test_a_build_feeds_a_page_which_feeds_board_questions(tmp_path: Path) -> Non
         assert full["citations"][0]["sources"], "and the points resolve to sources"
         assert [r["pmid"] for r in full["literature"]] == ["30012345"], "one public search per page: its records are the review"
         assert full["literature"][0]["cited"] is False and full["literature_checked_at"]
-        assert provider.queries[-1] == entry["topic"], "the search is the topic's own words, nothing of the page"
+        assert provider.queries[-1] == full["topic"], "the search is the topic's own words, nothing of the page"
         assert "RECENT LITERATURE" in turns.prompts[0] and "[r1] Lactate targets" in turns.prompts[0]
         assert "LEARNING POINTS, each with its id" in turns.prompts[0]
         assert "THE PAGE:" in turns.prompts[1] and "OTHER CONTEXT" in turns.prompts[1]

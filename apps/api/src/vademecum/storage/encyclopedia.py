@@ -245,6 +245,40 @@ def list_entries(connection: sqlite3.Connection, *, q: str | None = None, limit:
     return [_entry(connection, row) for row in rows]
 
 
+def contents(connection: sqlite3.Connection, *, q: str | None = None) -> list[dict[str, Any]]:
+    """The table of contents (feedback of 12 October): every page, light -- its title, where
+    it is shelved, how many points and questions -- in one query, with no page text, so the
+    Encyclopedia opens at once however many pages there are. A search looks through the
+    pages' text but still returns only these rows."""
+    params: list[Any] = []
+    where = ""
+    if q and q.strip():
+        where = " WHERE (e.title || ' ' || e.topic || ' ' || e.summary || ' ' || e.sections) LIKE ? ESCAPE '\\'"
+        escaped = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        params.append(f"%{escaped}%")
+    rows = connection.execute(
+        "SELECT e.id, e.topic, e.title, e.specialty_id, e.status, e.compiled_at, e.edited_at,"
+        " json_array_length(e.point_ids) AS point_count,"
+        " (e.body_md IS NOT NULL AND TRIM(e.body_md) <> '') AS edited,"
+        " COALESCE(q.n, 0) AS question_count"
+        " FROM encyclopedia_entries e"
+        " LEFT JOIN (SELECT entry_id, COUNT(*) AS n FROM board_questions WHERE status = 'eligible' GROUP BY entry_id) q"
+        "   ON q.entry_id = e.id"
+        f"{where} ORDER BY e.title COLLATE NOCASE, e.topic",
+        params,
+    ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "title": row["title"],
+            "specialty_id": row["specialty_id"],
+            "point_count": int(row["point_count"] or 0),
+            "question_count": int(row["question_count"]),
+        }
+        for row in rows
+    ]
+
+
 def get_entry(connection: sqlite3.Connection, entry_id: str) -> Entry:
     """A page by id; an id merged into another page opens that page."""
     from .subjects import resolve

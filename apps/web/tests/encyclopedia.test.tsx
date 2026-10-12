@@ -136,10 +136,13 @@ describe('the Encyclopedia tab', () => {
     await screen.findByRole('navigation', { name: 'Contents' })
     // Subjects come in their own order; one with no page is not listed, and a page with none comes last.
     const contents = screen.getByRole('navigation', { name: 'Contents' })
-    expect(within(contents).getAllByRole('link').map((link) => link.textContent)).toEqual(['Infectious Disease', 'Lactate in sepsis', 'Other topics', 'Gout'])
+    // A table of contents only (feedback of 12 October): subjects folded, page titles as links, no page text.
+    expect(within(contents).getAllByRole('link').map((link) => link.textContent)).toEqual(['Lactate in sepsis', 'Gout'])
     const subject = document.getElementById('subject-infectious-disease') as HTMLElement
     expect(subject.tagName).toBe('DETAILS')
-    expect(within(subject).getByText('Lactate above 2 mmol/L marks hypoperfusion.')).toBeInTheDocument()
+    expect(within(subject).getByText('Infectious Disease')).toBeInTheDocument()
+    expect(within(subject).getByText('2 points')).toBeInTheDocument()
+    expect(screen.queryByText('Lactate above 2 mmol/L marks hypoperfusion.')).not.toBeInTheDocument()
     await userEvent.click(within(contents).getByRole('link', { name: 'Lactate in sepsis' }))
     expect(await screen.findByText('A lactate above 2 mmol/L is abnormal in sepsis.')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /All pages/ }))

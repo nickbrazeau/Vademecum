@@ -2054,3 +2054,14 @@ details[open].strength-topic > summary::before {
   min-width: 44px;
   min-height: 44px;
 }
+
+/* The Encyclopedia's table of contents (feedback of 12 October): titles only, by subject. */
+.toc-list {
+  list-style: none;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0;
+}
+.toc-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line, rgba(127, 127, 127, 0.2));
+}

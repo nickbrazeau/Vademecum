@@ -129,9 +129,9 @@ def list_entries(
     connection: sqlite3.Connection = Depends(get_connection),
     mode: str = Depends(get_model_mode),
 ) -> dict[str, Any]:
-    entries = store.list_entries(connection, q=(q or "").strip()[:100] or None)
     return {
-        "entries": [entry.as_dict(include_sections=False) for entry in entries],
+        # The table of contents: every page, titles and counts only (feedback of 12 October).
+        "entries": store.contents(connection, q=(q or "").strip()[:100] or None),
         # The subjects the pages are shelved under, in the map's own order.
         "specialties": [entry.as_dict() for entry in map_store.list_specialties(connection)],
         **_state(request, connection, mode),

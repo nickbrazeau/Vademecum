@@ -328,13 +328,6 @@ export function pagesBySubject(entries: EncyclopediaEntry[], specialties: Specia
   return [...subjects.values(), other].filter((subject) => subject.entries.length > 0)
 }
 
-function jumpTo(id: string) {
-  // Scrolled by hand: inside the conversation the app has no address bar for a fragment to land in.
-  const target = document.getElementById(id)
-  if (target instanceof HTMLDetailsElement) target.open = true
-  target?.scrollIntoView?.({ block: 'start' })
-}
-
 export function Encyclopedia() {
   const [typed, setTyped] = useState('')
   const [q, setQ] = useState('')
@@ -444,30 +437,12 @@ export function Encyclopedia() {
           </p>
         ) : null}
         {subjects.length > 0 ? (
-          <>
-            <nav className="page-contents" aria-labelledby="contents-heading">
-              <h3 id="contents-heading">Contents</h3>
-              <ol>
-                {subjects.map((subject) => (
-                  <li key={subject.id}>
-                    <a
-                      href={`#subject-${subject.id}`}
-                      onClick={(event) => {
-                        event.preventDefault()
-                        jumpTo(`subject-${subject.id}`)
-                      }}
-                    >
-                      {subject.name}
-                    </a>
-                    <ul>
-                      {subject.entries.map((entry) => (
-                        <li key={entry.id}>{pageLink(entry)}</li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ol>
-            </nav>
+          // A table of contents only (feedback of 12 October): titles by subject, each opening
+          // its page; no page text is loaded until a page is opened.
+          <nav className="page-contents" aria-labelledby="contents-heading">
+            <h3 id="contents-heading" className="visually-hidden">
+              Contents
+            </h3>
             {subjects.map((subject) => (
               <details key={subject.id} id={`subject-${subject.id}`} className="page-subject" open={subjects.length <= 2 || q !== ''}>
                 <summary>
@@ -476,21 +451,19 @@ export function Encyclopedia() {
                     {subject.entries.length} page{subject.entries.length === 1 ? '' : 's'}
                   </span>
                 </summary>
-                <ul className="list page-list">
+                <ul className="toc-list">
                   {subject.entries.map((entry) => (
                     <li key={entry.id}>
-                      <p className="title">{pageLink(entry)}</p>
-                      <p className="muted small">
-                        {entry.point_count} point{entry.point_count === 1 ? '' : 's'} · {entry.question_count} question{entry.question_count === 1 ? '' : 's'}
-                        {entry.compiled_at ? ` · compiled ${momentLabel(entry.compiled_at)}` : null}
-                      </p>
-                      {entry.summary ? <p className="body small">{entry.summary}</p> : null}
+                      {pageLink(entry)}{' '}
+                      <span className="muted small">
+                        {entry.point_count} point{entry.point_count === 1 ? '' : 's'}
+                      </span>
                     </li>
                   ))}
                 </ul>
               </details>
             ))}
-          </>
+          </nav>
         ) : null}
       </section>
     </div>
