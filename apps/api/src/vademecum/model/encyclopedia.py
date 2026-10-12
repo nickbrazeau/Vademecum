@@ -23,7 +23,7 @@ from ..storage import encyclopedia as store
 from ..storage import flags as flag_store
 from ..storage import map as map_store
 from ..storage.common import drop_disclaimers, utc_now
-from ..storage.learning import SUPPORT_LABEL, points_for_topic
+from ..storage.learning import SUPPORT_LABEL
 from .runner import runner_for
 from . import prompts, schemas
 
@@ -140,9 +140,14 @@ def review_literature(database_path: Path, topic: str, provider: Any) -> tuple[l
 
 
 async def compile_topic(database_path: Path, topic: str, turn_factory: Any, provider: Any = None) -> dict[str, Any]:
+    from ..storage import subjects as subject_store
+
     connection = connect(database_path)
     try:
-        points = points_for_topic(connection, topic)
+        # A page is a subject: the points of its own topic and every topic filed under it.
+        points = store.points_for_subject(connection, topic)
+        covers = subject_store.members(connection, topic)[:30]
+        standing = store.entry_for_topic(connection, topic)
         specialties = [(entry.id, entry.name) for entry in map_store.list_specialties(connection)]
         assigned = map_store.topic_specialties(connection)
     finally:
@@ -171,10 +176,12 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any, prov
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.ENTRY_DEVELOPER,
             prompt=prompts.entry_prompt(
-                topic,
+                standing.title if standing is not None and len(covers) > 1 else topic,
                 listed,
                 specialties,
                 [(handle, r["title"], r["journal"], r["year"], r["abstract"]) for handle, r in zip(record_handles, records, strict=True)],
+                covers=covers,
+                current=_standing_text(standing, handles) if standing is not None and standing.topic == topic else "",
             ),
             output_schema=schemas.ENTRY_SCHEMA,
         )
@@ -239,9 +246,28 @@ async def compile_topic(database_path: Path, topic: str, turn_factory: Any, prov
     return {"topic": topic, "status": "compiled", "entry_id": entry.id, "version": entry.version}
 
 
+def _standing_text(entry: store.Entry, handles: dict[str, str]) -> str:
+    """The page as it stands, its paragraphs with the handles of the points still listed."""
+    by_id = {point_id: handle for handle, point_id in handles.items()}
+    lines: list[str] = []
+    for section in entry.sections:
+        if section.get("heading") == "In the literature":
+            continue  # written afresh from this compile's search
+        lines.append(str(section.get("heading") or "").upper())
+        for paragraph in section.get("paragraphs") or []:
+            cites = " ".join(f"[{by_id[p]}]" for p in paragraph.get("point_ids") or [] if p in by_id)
+            lines.append(f"{paragraph.get('text', '')} {cites}".strip())
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
 async def compile_pending(
     database_path: Path, turn_factory: Any, *, limit: int = MAX_COMPILES_PER_RUN, provider: Any = None
 ) -> dict[str, int]:
+    from . import subjects
+
+    # New topics go on a page before anything is written (feedback of 11 October).
+    await subjects.place_new_topics(database_path, turn_factory)
     connection = connect(database_path)
     try:
         topics = store.topics_to_compile(connection)[:limit]
@@ -469,7 +495,12 @@ async def generate_cards_pending(database_path: Path, turn_factory: Any, *, limi
 async def refresh(
     database_path: Path, turn_factory: Any, *, reason: str = "requested", provider: Any = None
 ) -> dict[str, Any]:
-    """Compile what is stale, then write questions and cards where a page has too few. Recorded for Today."""
+    """Gather pages into subjects, compile what is stale, then write questions and cards
+    where a page has too few. Recorded for Today."""
+    from . import subjects
+
+    # Files of merged pages are tidied by the page mirror's next pass.
+    await subjects.consolidate(database_path, turn_factory)
     compiled = await compile_pending(database_path, turn_factory, provider=provider)
     generated = await generate_pending(database_path, turn_factory)
     cards = await generate_cards_pending(database_path, turn_factory)

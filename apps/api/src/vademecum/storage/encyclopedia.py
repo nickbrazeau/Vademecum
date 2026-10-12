@@ -154,19 +154,59 @@ def topics_with_points(connection: sqlite3.Connection) -> list[str]:
     return [row["topic"] for row in rows]
 
 
-def topics_to_compile(connection: sqlite3.Connection) -> list[str]:
-    """Topics with no page, or a page compiled from a different set of points."""
+# A page gathers its subject's points up to this many, the most recent kept: enough for a
+# full reference page, few enough that the model writes every one into it.
+MAX_PAGE_POINTS = 80
+
+# A subject page asks more than a fragment did: one question, and one card, for every few
+# points, up to a limit (feedback of 11 October).
+POINTS_PER_ITEM = 4
+MAX_ITEMS_PER_PAGE = 15
+
+
+def points_for_subject(connection: sqlite3.Connection, subject: str) -> list[LearningPoint]:
+    """The points of a subject's own topic and of every topic filed under it, once each
+    (feedback of 11 October). A topic whose page the owner deleted adds nothing."""
+    from .subjects import members
+
+    deleted = set(deleted_pages(connection))
+    found: dict[str, LearningPoint] = {}
+    for topic in members(connection, subject):
+        if topic != subject and topic.casefold() in deleted:
+            continue
+        for point in points_for_topic(connection, topic):
+            found.setdefault(point.id, point)
+    ordered = sorted(found.values(), key=lambda point: (point.created_at, point.id))
+    return ordered[-MAX_PAGE_POINTS:]
+
+
+def topics_to_compile(connection: sqlite3.Connection, *, placed_only: bool = True) -> list[str]:
+    """Subjects with no page, or a page compiled from a different set of points. A new topic
+    is left out until it is placed; counted, ``placed_only=False``, it is its own."""
+    from .subjects import filed
+
     current = {
         row["topic"]: row["points_hash"]
         for row in connection.execute("SELECT topic, points_hash FROM encyclopedia_entries WHERE status = 'current'").fetchall()
     }
+    from .subjects import placed
+
+    owner = filed(connection)
+    known = placed(connection)
     stale: list[str] = []
+    seen: set[str] = set()
     deleted = set(deleted_pages(connection))
     for topic in topics_with_points(connection):
-        if topic.casefold() in deleted:
+        if placed_only and topic not in known:
+            continue  # a new topic is placed on a page, or given its own, before anything is written
+        subject = owner.get(topic, topic)
+        if subject in seen:
+            continue
+        seen.add(subject)
+        if subject.casefold() in deleted:
             continue  # the owner deleted this page: it is not written again (feedback of 6 October)
-        if current.get(topic) != points_hash(points_for_topic(connection, topic)):
-            stale.append(topic)
+        if current.get(subject) != points_hash(points_for_subject(connection, subject)):
+            stale.append(subject)
     return stale
 
 
@@ -184,14 +224,22 @@ def list_entries(connection: sqlite3.Connection, *, q: str | None = None, limit:
 
 
 def get_entry(connection: sqlite3.Connection, entry_id: str) -> Entry:
-    row = connection.execute("SELECT * FROM encyclopedia_entries WHERE id = ?", (entry_id,)).fetchone()
+    """A page by id; an id merged into another page opens that page."""
+    from .subjects import resolve
+
+    row = connection.execute("SELECT * FROM encyclopedia_entries WHERE id = ?", (resolve(connection, entry_id),)).fetchone()
     if row is None:
         raise NotFoundError("encyclopedia page", entry_id)
     return _entry(connection, row)
 
 
 def entry_for_topic(connection: sqlite3.Connection, topic: str) -> Entry | None:
+    """The page a topic is on: its own, or its subject's."""
+    from .subjects import subject_of
+
     row = connection.execute("SELECT * FROM encyclopedia_entries WHERE topic = ?", (topic,)).fetchone()
+    if row is None:
+        row = connection.execute("SELECT * FROM encyclopedia_entries WHERE topic = ?", (subject_of(connection, topic),)).fetchone()
     return None if row is None else _entry(connection, row)
 
 
@@ -417,7 +465,7 @@ def entry_counts(connection: sqlite3.Connection) -> dict[str, Any]:
     by_status = {row["status"]: int(row["n"]) for row in questions}
     return {
         "entries": int(entries),
-        "stale": len(topics_to_compile(connection)),
+        "stale": len(topics_to_compile(connection, placed_only=False)),
         "questions_eligible": len(eligible_board_ids(connection)),
         "questions_held": by_status.get("held", 0),
         "questions_total": sum(by_status.values()),
@@ -525,9 +573,9 @@ def entries_needing_questions(connection: sqlite3.Connection, *, minimum: int) -
     rows = connection.execute(
         "SELECT e.* FROM encyclopedia_entries e WHERE e.status = 'current' AND"
         " (SELECT COUNT(*) FROM board_questions q WHERE q.entry_id = e.id AND q.status = 'eligible'"
-        "    AND q.entry_version = e.version) < ?"
+        "    AND q.entry_version = e.version) < MAX(?, MIN(?, json_array_length(e.point_ids) / ?))"
         " ORDER BY e.updated_at DESC",
-        (minimum,),
+        (minimum, MAX_ITEMS_PER_PAGE, POINTS_PER_ITEM),
     ).fetchall()
     return [_entry(connection, row) for row in rows]
 
@@ -866,10 +914,14 @@ def _words(text: str) -> set[str]:
 
 
 def current_page_index(connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    """Every current page, light: id, title, topic, specialty and its points, for matching."""
+    """Every current page, light: id, title, topic, specialty and its points, for matching.
+    A page answers to every topic filed under it, too."""
+    from .subjects import members_by_subject
+
     rows = connection.execute(
         "SELECT id, title, topic, specialty_id, point_ids FROM encyclopedia_entries WHERE status = 'current'"
     ).fetchall()
+    filed_under = members_by_subject(connection)
     index = []
     for row in rows:
         try:
@@ -884,7 +936,9 @@ def current_page_index(connection: sqlite3.Connection) -> list[dict[str, Any]]:
                 "specialty_id": row["specialty_id"],
                 "point_ids": points,
                 "words": _words(f"{row['title']} {row['topic']}"),
-                "names": {" ".join(str(row["title"]).lower().split()), " ".join(str(row["topic"]).lower().split())},
+                "names": {
+                    " ".join(str(name).lower().split()) for name in (row["title"], row["topic"], *filed_under.get(row["topic"], []))
+                },
             }
         )
     return index

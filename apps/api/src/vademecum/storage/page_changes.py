@@ -43,18 +43,18 @@ def apply_waiting(connection: sqlite3.Connection, folder: Path | None) -> int:
     applied = 0
     for change in waiting(connection):
         try:
-            encyclopedia.get_entry(connection, change["entry_id"])
-            present = True
+            # A page merged since opens the page it went into.
+            entry_id = encyclopedia.get_entry(connection, change["entry_id"]).id
         except Exception:  # noqa: BLE001 - a page gone since is simply nothing to do
-            present = False
-        if present:
+            entry_id = None
+        if entry_id is not None:
             if change["kind"] == "edit":
-                page_files.set_edit(connection, change["entry_id"], change["body_md"])
+                page_files.set_edit(connection, entry_id, change["body_md"])
             elif change["kind"] == "revert":
-                page_files.set_edit(connection, change["entry_id"], "")
+                page_files.set_edit(connection, entry_id, "")
             else:
-                encyclopedia.delete_entry(connection, change["entry_id"])
-                page_files.remove_file(connection, folder, change["entry_id"])
+                encyclopedia.delete_entry(connection, entry_id)
+                page_files.remove_file(connection, folder, entry_id)
         with transaction(connection) as tx:
             tx.execute("UPDATE page_changes SET applied_at = ? WHERE id = ?", (utc_now(), change["id"]))
         applied += 1

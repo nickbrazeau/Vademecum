@@ -21,7 +21,7 @@ from typing import Any
 
 from ..db import transaction
 from .common import NotFoundError, new_id, utc_now
-from .encyclopedia import cited_points
+from .encyclopedia import MAX_ITEMS_PER_PAGE, POINTS_PER_ITEM, cited_points
 
 RATINGS = ("again", "good")
 RECENT_DAYS = 14
@@ -98,9 +98,10 @@ def cards_for_entry(connection: sqlite3.Connection, entry_id: str) -> list[Flash
 def entries_needing_cards(connection: sqlite3.Connection, *, minimum: int) -> list[str]:
     rows = connection.execute(
         "SELECT e.id FROM encyclopedia_entries e WHERE e.status = 'current' AND"
-        " (SELECT COUNT(*) FROM flashcards c WHERE c.entry_id = e.id AND c.status = 'eligible' AND c.entry_version = e.version) < ?"
+        " (SELECT COUNT(*) FROM flashcards c WHERE c.entry_id = e.id AND c.status = 'eligible' AND c.entry_version = e.version)"
+        "   < MAX(?, MIN(?, json_array_length(e.point_ids) / ?))"
         " ORDER BY e.updated_at DESC",
-        (minimum,),
+        (minimum, MAX_ITEMS_PER_PAGE, POINTS_PER_ITEM),
     ).fetchall()
     return [row["id"] for row in rows]
 

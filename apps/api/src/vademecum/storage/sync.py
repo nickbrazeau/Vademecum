@@ -93,6 +93,8 @@ SYNCED_TABLES: tuple[str, ...] = (
     "literature_ratings",
     # The owner's own notes (ADR 0032), written anywhere.
     "notes",
+    # Which topics each page gathers: one page per subject (feedback of 11 October).
+    "page_topics",
 )
 
 DOMI_OWNED: frozenset[str] = frozenset(
@@ -120,6 +122,7 @@ DOMI_OWNED: frozenset[str] = frozenset(
         "encyclopedia_records",
         "flashcards",
         "podcast_episodes",
+        "page_topics",
     }
 )
 

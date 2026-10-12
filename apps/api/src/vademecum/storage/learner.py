@@ -152,7 +152,8 @@ def _gather(connection: sqlite3.Connection) -> dict[str, Unit]:
             topic=page["topic"],
             entry_id=page["id"],
             specialty_id=page["specialty_id"],
-            names={page["topic"].casefold(), page["title"].casefold()},
+            # Every topic filed under the page counts as the page (feedback of 11 October).
+            names={page["topic"].casefold(), page["title"].casefold(), *(name.casefold() for name in page["names"])},
         )
         units[unit.key] = unit
         by_entry[page["id"]] = unit

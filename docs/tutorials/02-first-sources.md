@@ -30,7 +30,9 @@ There are two ways to add material:
    anything is not yet done.
 2. **Learning points.** The Mac's assistant turns passages into short learning points. Each
    point quotes the passage it came from, and the quote is checked against the source.
-3. **Encyclopedia.** Points are compiled into one page per topic. Every paragraph names the
+3. **Encyclopedia.** Points are compiled into one page per subject: related topics, such as an
+   antifungal's mechanism, spectrum and toxicity, share a page with a section each, and new
+   points are added to the page rather than starting another. Every paragraph names the
    points and sources it rests on, so you can always see where a statement came from.
 4. **Questions and cards.** Board-style questions and flashcards are written from each page,
    then checked against the page before they are asked.

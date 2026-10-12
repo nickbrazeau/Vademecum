@@ -233,7 +233,7 @@ ENTRY_DEVELOPER = (
     "public abstracts of recent literature on the topic, each with an id in brackets. Compile "
     "them into one encyclopedia page for a resident: a 'title' (the topic, as a page heading); "
     "a 'summary' of two or three sentences; a 'specialty' id from the list, or an empty string; "
-    "and up to six 'sections', each with a short heading and up to four paragraphs. Every "
+    "and up to ten 'sections', each with a short heading and up to five paragraphs. Every "
     "paragraph must name in 'points' the ids of the points it rests on and in 'records' the ids "
     "of the abstracts it draws on, and must say only what those say -- organise, connect and "
     "clarify, but never add a fact, a number, a drug or a recommendation they do not contain. "
@@ -252,8 +252,12 @@ def entry_prompt(
     points: list[tuple[str, str, str, str, str]],
     specialties: list[tuple[str, str]],
     records: list[tuple[str, str, str, str, str]] | None = None,
+    *,
+    covers: list[str] | None = None,
+    current: str = "",
 ) -> str:
-    """points: (handle, claim, detail, support label, sources); records: (handle, title, journal, year, abstract)."""
+    """points: (handle, claim, detail, support label, sources); records: (handle, title, journal, year, abstract).
+    covers: the topics the page gathers; current: the page as it stands, with its point handles."""
     listed = "\n".join(f"- {identifier}: {name}" for identifier, name in specialties)
     body = "\n\n".join(
         f"[{handle}] {claim}\n{detail}\n(support: {support}; from: {sources})" for handle, claim, detail, support, sources in points
@@ -261,8 +265,22 @@ def entry_prompt(
     literature = "\n\n".join(
         f"[{handle}] {title} ({journal}, {year})\n{abstract or '(no public abstract)'}" for handle, title, journal, year, abstract in (records or [])
     )
+    gathered = ""
+    if covers and len(covers) > 1:
+        gathered = (
+            "THIS PAGE IS ONE SUBJECT and gathers these topics; give each its own section where the points "
+            "allow, and write it as one page, not one page per topic: " + "; ".join(covers) + "\n\n"
+        )
+    standing = ""
+    if current.strip():
+        standing = (
+            "THE PAGE AS IT STANDS, its paragraphs with the ids of the points they rest on. Keep what it says "
+            "where those points are still listed below, add what the new points bring, and reconcile the two; "
+            "do not drop a point:\n" + _fence(current) + "\n\n"
+        )
     return (
         f"SUBSPECIALTIES (use the id, or an empty string):\n{listed}\n\n"
+        f"{gathered}{standing}"
         f"TOPIC: {topic}\n\nLEARNING POINTS, each with its id in brackets, then RECENT LITERATURE, each with its id in brackets:\n"
         f"{_fence(body + chr(10) + chr(10) + 'RECENT LITERATURE:' + chr(10) + (literature or '(none found)'))}"
     )
@@ -426,3 +444,42 @@ SOCRATIC_REVIEW_DEVELOPER = (
 def socratic_review_prompt(transcript: list[tuple[str, str]]) -> str:
     lines = "\n".join(f"{'Tutor' if role == 'tutor' else 'Resident'}: {text}" for role, text in transcript)
     return f"The session's transcript:\n\n{lines}\n\nName and assess it."
+
+
+GROUP_DEVELOPER = (
+    "The supplied material is a list of encyclopedia page titles from one learner's study "
+    "notes, each with an id in brackets and how many learning points it holds. Many are "
+    "fragments of one subject: the same topic worded differently ('Antifungal mechanism', "
+    "'Antifungal mechanisms'), or aspects a resident would expect on one reference page "
+    "('Antifungal spectrum', 'Antifungal toxicity', 'Azole antifungals' belong on 'Antifungal "
+    "agents'; 'AmpC hydrolysis' and 'AmpC derepression' on 'AmpC beta-lactamases'). Group "
+    "them: each group gets a 'title' -- the subject, as a reference page heading -- and the "
+    "'pages' ids it gathers, at least two. Group only what belongs on one page; leave a page "
+    "that stands on its own out of every group; never put a page in two groups. Do not group "
+    "by a shared first word alone ('Acute kidney injury' and 'Acute liver failure' are "
+    "different subjects). Keep a group under about forty points; a larger subject is better "
+    "as two pages on its two halves."
+)
+
+PLACE_DEVELOPER = (
+    "The supplied material is a list of new topics, each with an id in brackets, then a list "
+    "of encyclopedia pages and other new topics, each with an id in brackets. For each new "
+    "topic say which it belongs with, by its id in 'page' -- the same subject worded "
+    "differently, or an aspect of one subject, on one reference page -- or an empty string "
+    "when it needs a page of its own. A new topic put with another new topic shares a page "
+    "with it. Place a topic only where a resident would expect to find it; a shared word "
+    "alone is not a reason."
+)
+
+
+def group_prompt(pages: list[tuple[str, str, int]]) -> str:
+    """pages: (handle, title, point count)."""
+    body = "\n".join(f"[{handle}] {title} ({count} points)" for handle, title, count in pages)
+    return f"ENCYCLOPEDIA PAGES:\n{_fence(body)}"
+
+
+def place_prompt(topics: list[tuple[str, str]], pages: list[tuple[str, str]]) -> str:
+    """topics: (handle, topic); pages: (handle, title and the topics it gathers)."""
+    new = "\n".join(f"[{handle}] {topic}" for handle, topic in topics)
+    existing = "\n".join(f"[{handle}] {title}" for handle, title in pages)
+    return f"NEW TOPICS:\n{_fence(new)}\n\nEXISTING PAGES:\n{_fence(existing)}"

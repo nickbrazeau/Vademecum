@@ -177,6 +177,18 @@ def sync_folder(connection: sqlite3.Connection, folder: Path | None, images_dir:
         record[row["id"]] = {"path": relative, "sha": _digest(text)}
         written += 1
 
+    # A page merged into another, or gone some other way, takes its file with it
+    # (feedback of 11 October), so the folder shows one file per page.
+    present = {row["id"] for row in connection.execute("SELECT id FROM encyclopedia_entries")}
+    for entry_id in [key for key in record if key not in present]:
+        known = record.pop(entry_id)
+        old = known.get("path") if isinstance(known, dict) else None
+        if old:
+            target = (root / str(old)).resolve()
+            if root.resolve() in target.parents:
+                target.unlink(missing_ok=True)
+        written += 1
+
     if read or written:
         _write_record(connection, record)
         logger.info("page_files written=%d read=%d", written, read)

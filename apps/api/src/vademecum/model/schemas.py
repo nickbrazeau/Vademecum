@@ -287,8 +287,9 @@ CASE_POINT_SCHEMA = {
 # Every paragraph names the point handles it rests on; the server drops a
 # paragraph whose handles it cannot map, so nothing on a page is unsourced.
 
-MAX_ENTRY_SECTIONS = 6
-MAX_ENTRY_PARAGRAPHS = 4
+# A page is a subject now, with a section per aspect (feedback of 11 October).
+MAX_ENTRY_SECTIONS = 10
+MAX_ENTRY_PARAGRAPHS = 5
 
 ENTRY_SCHEMA = {
     "type": "object",
@@ -468,5 +469,56 @@ CASE_SCHEMA = {
         "think_first": {"type": "array", "maxItems": MAX_CASE_PROMPTS, "items": _string(200)},
         "specialty": _string(40),
         "credit": _string(200),
+    },
+}
+
+
+# --- subjects: pages gathered into one per subject (feedback of 11 October) --------------
+#
+# Both turns see page titles and topic names only, by handle; the server keeps a group or a
+# placement only where every handle maps.
+
+MAX_GROUPS = 80
+
+GROUP_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["groups"],
+    "properties": {
+        "groups": {
+            "type": "array",
+            "maxItems": MAX_GROUPS,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["title", "pages"],
+                "properties": {
+                    "title": _string(120),
+                    "pages": {"type": "array", "maxItems": 40, "items": _string(16)},
+                },
+            },
+        }
+    },
+}
+
+PLACE_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["placements"],
+    "properties": {
+        "placements": {
+            "type": "array",
+            "maxItems": 80,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["topic", "page"],
+                "properties": {
+                    "topic": _string(16),
+                    # A page handle, or an empty string for a topic that needs a page of its own.
+                    "page": _string(16),
+                },
+            },
+        }
     },
 }
