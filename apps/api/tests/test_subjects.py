@@ -240,3 +240,38 @@ def test_related_new_topics_share_one_new_page(connection: sqlite3.Connection, d
     assert store.subject_of(connection, "AmpC derepression") == "AmpC hydrolysis"
     assert pages.topics_to_compile(connection) == ["AmpC hydrolysis"], "one page for the two"
     assert {p.id for p in pages.points_for_subject(connection, "AmpC hydrolysis")} == {"lp_a", "lp_b"}
+
+
+def test_the_same_question_on_two_pages_merges_into_one_keeping_the_answers(connection: sqlite3.Connection) -> None:
+    """Live, 11 October: two fragment pages held the same question; moving both onto one page
+    broke its 'no question twice' rule and rolled every merge back. One copy stays now, and
+    the other's answers move to it."""
+    one, two, spectrum = _antifungals(connection)
+    draft = {"stem": "A 40-year-old ...", "options": ["a", "b", "c", "d", "e"], "answer_index": 0, "explanation": "x", "objective": "o", "point_ids": ["lp_1"], "hold_reason": ""}
+    pages.insert_questions(connection, spectrum, [draft])
+    pages.insert_questions(connection, two, [{**draft, "point_ids": ["lp_2"]}])
+    duplicate = pages.questions_for_entry(connection, two.id)[0]
+    pages.record_attempt(connection, duplicate, 1)
+    connection.execute(
+        "INSERT INTO flashcards (id, entry_id, topic, front, back, point_ids, status, content_hash, created_at, updated_at)"
+        " VALUES ('fc_a', ?, 't', 'f', 'b', '[]', 'eligible', 'same', ?, ?), ('fc_b', ?, 't', 'f', 'b', '[]', 'eligible', 'same', ?, ?)",
+        (spectrum.id, NOW, NOW, two.id, NOW, NOW),
+    )
+    connection.execute("INSERT INTO flashcard_reviews (id, card_id, rating, created_at) VALUES ('fr_b', 'fc_b', 'again', ?)", (NOW,))
+    connection.commit()
+
+    assert store.merge(connection, spectrum.id, [one.id, two.id])["merged"] == 2
+    kept = pages.questions_for_entry(connection, spectrum.id)
+    assert len(kept) == 1, "one copy of the question"
+    assert connection.execute("SELECT question_id FROM board_attempts").fetchone()["question_id"] == kept[0].id, "the answer moved to it"
+    assert connection.execute("SELECT COUNT(*) FROM flashcards").fetchone()[0] == 1
+    assert connection.execute("SELECT card_id FROM flashcard_reviews WHERE id = 'fr_b'").fetchone()["card_id"] == "fc_a"
+
+
+def test_grouping_is_asked_once_per_specialty_however_merges_change_its_size(connection: sqlite3.Connection, database_path: Path) -> None:
+    _antifungals(connection)
+    turns = GroupTurns({"groups": []})
+    store.mark_consolidated(connection, {"complete": False, "done": ["infectious-disease:0:58"], "merged": 0})
+    asyncio.run(model.consolidate(database_path, turns))
+    assert turns.prompts == [], "a specialty asked before, at another size, is not asked again"
+    assert store.consolidated(connection)["complete"] is True

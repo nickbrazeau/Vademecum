@@ -132,8 +132,22 @@ def merge(connection: sqlite3.Connection, survivor_id: str, absorbed_ids: list[s
             if row is None:
                 continue
             file_under(tx, row["topic"], subject)
-            tx.execute("UPDATE board_questions SET entry_id = ?, topic = ? WHERE entry_id = ?", (survivor_id, subject, entry_id))
-            tx.execute("UPDATE flashcards SET entry_id = ?, topic = ? WHERE entry_id = ?", (survivor_id, subject, entry_id))
+            # The same question or card on both pages (their points overlapped): one copy stays,
+            # and the answers and reviews of the other move to it, so no history is lost and the
+            # page never holds a question twice (live, 11 October: this rolled every merge back).
+            for kind, table, history, column in (
+                ("question", "board_questions", "board_attempts", "question_id"),
+                ("card", "flashcards", "flashcard_reviews", "card_id"),
+            ):
+                for item in tx.execute(f"SELECT id, content_hash FROM {table} WHERE entry_id = ?", (entry_id,)).fetchall():
+                    kept = tx.execute(
+                        f"SELECT id FROM {table} WHERE entry_id = ? AND content_hash = ?", (survivor_id, item["content_hash"])
+                    ).fetchone()
+                    if kept is not None:
+                        tx.execute(f"UPDATE {history} SET {column} = ? WHERE {column} = ?", (kept["id"], item["id"]))
+                        tx.execute(f"DELETE FROM {table} WHERE id = ?", (item["id"],))
+                        continue
+                    tx.execute(f"UPDATE {table} SET entry_id = ?, topic = ? WHERE id = ?", (survivor_id, subject, item["id"]))
             tx.execute(
                 "UPDATE OR IGNORE encyclopedia_records SET entry_id = ? WHERE entry_id = ?", (survivor_id, entry_id)
             )

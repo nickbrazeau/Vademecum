@@ -499,8 +499,12 @@ async def refresh(
     where a page has too few. Recorded for Today."""
     from . import subjects
 
-    # Files of merged pages are tidied by the page mirror's next pass.
-    await subjects.consolidate(database_path, turn_factory)
+    # Files of merged pages are tidied by the page mirror's next pass. Pages are written even
+    # when grouping fails: it is tried again at the next refresh.
+    try:
+        await subjects.consolidate(database_path, turn_factory)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("subjects_consolidate_failed error=%s", type(exc).__name__)
     compiled = await compile_pending(database_path, turn_factory, provider=provider)
     generated = await generate_pending(database_path, turn_factory)
     cards = await generate_cards_pending(database_path, turn_factory)

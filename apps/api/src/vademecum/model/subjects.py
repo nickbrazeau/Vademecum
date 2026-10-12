@@ -64,7 +64,16 @@ def _current_pages(connection) -> list[dict[str, Any]]:
 
 
 def _apply_group(connection, folder: Path | None, group: list[dict[str, Any]], title: str | None) -> int:
-    """Fold a group into one page. Two pages the owner edited are never folded together."""
+    """Fold a group into one page; a group that cannot be folded is said and left as it is."""
+    try:
+        return _fold(connection, folder, group, title)
+    except Exception as exc:  # noqa: BLE001 - one group must not stop the others
+        logger.warning("subjects_group_not_folded error=%s pages=%d", type(exc).__name__, len(group))
+        return 0
+
+
+def _fold(connection, folder: Path | None, group: list[dict[str, Any]], title: str | None) -> int:
+    """Two pages the owner edited are never folded together."""
     edited = [page for page in group if page["edited"]]
     if len(edited) > 1:
         return 0
@@ -110,7 +119,8 @@ async def consolidate(database_path: Path, turn_factory: Any, *, folder: Path | 
                 return {"skipped": True}
             since = str(state.get("at") or "")
             state = {"since": since}
-        done = set(state.get("done") or [])
+        # Keys from before (specialty:start:size) count for their specialty: those were asked.
+        done = {str(key).split(":")[0] if str(key).count(":") == 2 else str(key) for key in (state.get("done") or [])}
         merged = int(state.get("merged") or 0)
         # By spelling first: no model turn needed.
         by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -133,7 +143,9 @@ async def consolidate(database_path: Path, turn_factory: Any, *, folder: Path | 
         members.sort(key=lambda page: page["title"].casefold())
         for start in range(0, len(members), GROUP_CHUNK):
             chunk = members[start : start + GROUP_CHUNK]
-            key = f"{specialty}:{start}:{len(chunk)}"
+            # Recorded by specialty (and, for a very large one, by which chunk), never by size:
+            # merging changes a bucket's size, and a size in the key asked the same pages again.
+            key = specialty if len(members) <= GROUP_CHUNK else f"{specialty}:{start // GROUP_CHUNK}"
             if key in done or len(chunk) < 2 or (since and not any(page["created_at"] > since for page in chunk)):
                 done.add(key)  # a regrouping asks only about chunks with a new page in them
                 continue
