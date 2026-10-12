@@ -2039,3 +2039,18 @@ details[open].strength-topic > summary::before {
   stroke: var(--spec, var(--muted));
   stroke-width: 1.5;
 }
+
+/* A note's title with the pencil beside it, while reading (feedback of 11 October). */
+.note-read-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.note-read-head .note-title {
+  flex: 1;
+  margin: 0;
+}
+.note-pencil {
+  min-width: 44px;
+  min-height: 44px;
+}

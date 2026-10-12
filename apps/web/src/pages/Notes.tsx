@@ -120,7 +120,8 @@ function Editor({
     setTitle(result.value.title)
     setBody(draft || result.value.body_md)
     setSaved(!draft || draft === result.value.body_md)
-    setPreview(!draft && result.value.body_md.trim() !== '')
+    // Open for reading with the pencil, unless a draft is waiting or it was just made.
+    setPreview(!draft && !/^New (note|notebook)$/.test(result.value.title))
   }, [result, noteId])
 
   if (result.state === 'loading') return <Loading />
@@ -165,28 +166,39 @@ function Editor({
   return (
     <section className="card note-editor" aria-labelledby="note-heading">
       <p className="muted small">{note.path.slice(0, -1).join(' › ') || (note.notebook ? 'Notebook' : 'Note')}</p>
-      <label className="field">
-        <span className="visually-hidden">Title</span>
-        <input
-          id="note-heading"
-          className="note-title"
-          type="text"
-          value={title}
-          maxLength={200}
-          onChange={(event) => {
-            setTitle(event.target.value)
-            setSaved(false)
-          }}
-        />
-      </label>
-      <div className="chips" role="group" aria-label="Write or read">
-        <button type="button" className={`chip${preview ? '' : ' on'}`} aria-pressed={!preview} onClick={() => setPreview(false)}>
-          Write
-        </button>
-        <button type="button" className={`chip${preview ? ' on' : ''}`} aria-pressed={preview} onClick={() => setPreview(true)}>
-          Read
-        </button>
-      </div>
+      {/* Read first; the pencil opens the title and text for editing (feedback of 11 October). */}
+      {preview ? (
+        <div className="note-read-head">
+          <h2 id="note-heading" className="note-title">
+            {title || 'Untitled'}
+          </h2>
+          <button type="button" className="button small ghost note-pencil" aria-label="Edit title and text" title="Edit title and text" onClick={() => setPreview(false)}>
+            ✏️
+          </button>
+        </div>
+      ) : (
+        <>
+          <label className="field">
+            <span className="visually-hidden">Title</span>
+            <input
+              id="note-heading"
+              className="note-title"
+              type="text"
+              value={title}
+              maxLength={200}
+              onChange={(event) => {
+                setTitle(event.target.value)
+                setSaved(false)
+              }}
+            />
+          </label>
+          <div className="chips" role="group" aria-label="Write or read">
+            <button type="button" className="chip" onClick={() => setPreview(true)}>
+              Read
+            </button>
+          </div>
+        </>
+      )}
       {preview ? (
         <div className="note-preview">{body.trim() ? <Markdown text={body} /> : <p className="muted">Nothing written yet.</p>}</div>
       ) : (
