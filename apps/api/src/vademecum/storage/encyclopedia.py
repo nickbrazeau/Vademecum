@@ -210,6 +210,28 @@ def topics_to_compile(connection: sqlite3.Connection, *, placed_only: bool = Tru
     return stale
 
 
+def unplaced_with_new_points(connection: sqlite3.Connection) -> int:
+    """New topics not placed yet that hold a point no page has: each may become a page.
+    One whose points are all on pages already will not, and is not counted as waiting."""
+    from .subjects import placed
+
+    known = placed(connection)
+    deleted = set(deleted_pages(connection))
+    on_pages: set[str] = set()
+    for row in connection.execute("SELECT point_ids FROM encyclopedia_entries WHERE status = 'current'"):
+        try:
+            on_pages.update(str(x) for x in json.loads(row["point_ids"] or "[]"))
+        except ValueError:
+            continue
+    count = 0
+    for topic in topics_with_points(connection):
+        if topic in known or topic.casefold() in deleted:
+            continue
+        if any(point.id not in on_pages for point in points_for_topic(connection, topic)):
+            count += 1
+    return count
+
+
 def list_entries(connection: sqlite3.Connection, *, q: str | None = None, limit: int = 300) -> list[Entry]:
     params: list[Any] = []
     where = ""
@@ -465,7 +487,7 @@ def entry_counts(connection: sqlite3.Connection) -> dict[str, Any]:
     by_status = {row["status"]: int(row["n"]) for row in questions}
     return {
         "entries": int(entries),
-        "stale": len(topics_to_compile(connection, placed_only=False)),
+        "stale": len(topics_to_compile(connection)) + unplaced_with_new_points(connection),
         "questions_eligible": len(eligible_board_ids(connection)),
         "questions_held": by_status.get("held", 0),
         "questions_total": sum(by_status.values()),

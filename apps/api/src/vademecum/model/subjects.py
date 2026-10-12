@@ -30,7 +30,7 @@ from .runner import runner_for
 logger = logging.getLogger("vademecum.subjects")
 
 GROUP_CHUNK = 120  # page titles in one grouping turn
-REGROUP_AFTER = 40  # new pages since the last grouping before their specialties are grouped again
+REGROUP_AFTER = 100  # new pages since the last grouping before their specialties are grouped again
 PLACE_CHUNK = 40  # new topics in one placing turn
 PLACE_PER_RUN = 200  # new topics placed by the model in one refresh; the rest wait for the next
 CANDIDATES_PER_TOPIC = 5
@@ -134,8 +134,8 @@ async def consolidate(database_path: Path, turn_factory: Any, *, folder: Path | 
         for start in range(0, len(members), GROUP_CHUNK):
             chunk = members[start : start + GROUP_CHUNK]
             key = f"{specialty}:{start}:{len(chunk)}"
-            if key in done or len(chunk) < 2:
-                done.add(key)
+            if key in done or len(chunk) < 2 or (since and not any(page["created_at"] > since for page in chunk)):
+                done.add(key)  # a regrouping asks only about chunks with a new page in them
                 continue
             handles = {f"g{index + 1}": page["id"] for index, page in enumerate(chunk)}
             try:

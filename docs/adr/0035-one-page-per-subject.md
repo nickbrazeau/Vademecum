@@ -30,7 +30,10 @@ The owner asked for pages to be combined and added to, not repeated.
    - First, by spelling: case, hyphens, punctuation and plural endings set aside.
    - Then, for a topic with pages it might belong on (by shared words), one model turn over
      topic names and page titles only decides: one of those pages, or its own.
-   - A topic with no candidate page gets its own page without a turn.
+   - A topic whose points are all on pages already gets no page: one would only repeat
+     them. It is looked at again when it brings a point of its own.
+   - The model may also put a new topic with another new topic; they start one page.
+   - A topic with nothing it could go with gets its own page without a turn.
    - Up to 200 topics are placed per refresh; the rest wait.
 4. **Existing pages are grouped, automatically.** The owner chose this over reviewing a
    proposal. Pages are grouped first by spelling, then by one model turn per specialty
@@ -39,8 +42,9 @@ The owner asked for pages to be combined and added to, not repeated.
      points.
    - Two pages the owner edited are never folded together.
    - A group over 80 points is left as it is.
-   - Grouping runs again over a specialty once 40 pages have been made since the last run, so
-     new topics that belong together still end up on one page.
+   - Grouping runs again once 100 pages have been made since the last run, asking only
+     about chunks with a new page in them, so new topics that belong together still end up on
+     one page.
 5. **Nothing is lost in a merge.** Before an absorbed page is removed, its board questions,
    flashcards, literature, Socratic sessions, podcast links and pending page changes move to
    the page that stays. Answers and reviews hang on the questions and cards, so they move
