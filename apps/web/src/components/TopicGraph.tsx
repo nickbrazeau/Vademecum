@@ -680,9 +680,23 @@ export function TopicGraph({
         <button type="button" className="button small" onClick={() => setView(fitted)}>
           Fit
         </button>
-        {opened.size > 0 ? (
+        {/* Each opened specialty folds back on its own (feedback of 11 October), or all at once. */}
+        {[...opened].map((id) => (
+          <button
+            key={id}
+            type="button"
+            className="button small"
+            onClick={() => {
+              setOpened((current) => new Set([...current].filter((entry) => entry !== id)))
+              if (selected !== null && graph.nodes.some((node) => node.id === selected && node.specialty === id)) onSelect(null)
+            }}
+          >
+            Fold {specialties.find((entry) => entry.id === id)?.name ?? id}
+          </button>
+        ))}
+        {opened.size > 1 ? (
           <button type="button" className="button small" onClick={() => setOpened(new Set())}>
-            Fold specialties
+            Fold all
           </button>
         ) : null}
         <button type="button" className="button small" onClick={() => setFresh((value) => value + 1)}>

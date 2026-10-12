@@ -306,6 +306,32 @@ describe('specialties folded and shaped (feedback of 10 October)', () => {
     expect(opened.nodes.map((entry) => entry.label).sort()).toEqual(['Atrial fibrillation', 'Endocarditis', 'Heart failure', 'Influenza'])
   })
 
+  it('folds an opened specialty back on its own (feedback of 11 October)', async () => {
+    const { TopicGraph } = await import('../src/components/TopicGraph')
+    const user = userEvent.setup()
+    const specialties = [{ id: 'cardiology', name: 'Cardiology' }] as Specialty[]
+    render(
+      <TopicGraph
+        topics={[card('Heart failure'), card('Atrial fibrillation'), card('Endocarditis'), flu]}
+        covered={[]}
+        links={[]}
+        specialties={specialties}
+        positions={[]}
+        openOnly
+        selected={null}
+        onSelect={() => undefined}
+      />
+    )
+    const graph = screen.getByRole('group', { name: 'Topic graph' })
+    expect(screen.queryByRole('button', { name: 'Fold Cardiology' })).not.toBeInTheDocument()
+    await user.click(within(graph).getByRole('button', { name: /^Cardiology/ }))
+    expect(within(graph).getByRole('button', { name: /^Heart failure/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Fold Cardiology' }))
+    expect(within(graph).queryByRole('button', { name: /^Heart failure/ })).not.toBeInTheDocument()
+    expect(within(graph).getByRole('button', { name: /^Cardiology/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Fold all' })).not.toBeInTheDocument()
+  })
+
   it('gives each of the fourteen specialties a shape of its own', async () => {
     const { shapeFor } = await import('../src/components/TopicGraph')
     const fourteen = Array.from({ length: 14 }, (_, index) => ({ id: `s${index}` }))

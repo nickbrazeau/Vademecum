@@ -51,8 +51,8 @@ tell similar things apart.
 ## Shapes and folded specialties
 
 Each specialty has its own shape, so colour can show what you know. A specialty with three or more
-topics starts as a single node, with the number of topics inside it. Tap it to open its topics, and
-use **Fold specialties** to close them again.
+topics starts as a single node, with the number of topics inside it. Tap it to open its topics. Each opened specialty gets a **Fold** button above the
+graph that closes it again, and **Fold all** closes every one.
 
 ## Colour by what you know
 
