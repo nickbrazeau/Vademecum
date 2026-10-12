@@ -6,7 +6,6 @@ Keychain: reads find nothing and writes say so."""
 
 from __future__ import annotations
 
-import shlex
 import subprocess
 import sys
 
@@ -39,13 +38,18 @@ def get(service: str, account: str) -> str | None:
     return value if found.returncode == 0 and value else None
 
 
+def _quoted(text: str) -> str:
+    if "\n" in text or "\r" in text:
+        raise KeychainUnavailable("a Keychain value cannot hold a line break")
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def put(service: str, account: str, secret: str) -> None:
     """Add or replace the item. The secret goes on standard input, never on a command line."""
     if not available():
         raise KeychainUnavailable("there is no Keychain on this system")
-    command = " ".join(
-        ["add-generic-password", "-U", "-s", shlex.quote(service), "-a", shlex.quote(account), "-w", shlex.quote(secret)]
-    )
+    # `security -i` reads double quotes with backslash escapes (single quotes it keeps as text).
+    command = " ".join(["add-generic-password", "-U", "-s", _quoted(service), "-a", _quoted(account), "-w", _quoted(secret)])
     done = subprocess.run([SECURITY, "-i"], input=command + "\n", capture_output=True, text=True, timeout=20)
     if done.returncode != 0 or get(service, account) != secret:
         raise KeychainUnavailable("the Keychain did not keep the secret")

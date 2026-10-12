@@ -185,6 +185,11 @@ class SealedStore:
             "key_id": fingerprint(self.key),
         }
 
+    def unsealed(self, prefixes: tuple[str, ...]) -> list[str]:
+        entries = [entry for prefix in prefixes for entry in self._entries(prefix) if entry[0] != MARKER]
+        sealed_names = {name for name, _size, is_it in entries if is_it}
+        return [name for name, _size, is_it in entries if not is_it and f"{name}.manifest" not in sealed_names]
+
     def mark_sealed(self) -> bool:
         if self.inner.get(MARKER) is not None:
             self._accept_plain = False

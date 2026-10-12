@@ -220,6 +220,9 @@ def main(mode: str, *, address: str | None = None) -> int:
                 print("The two did not match; nothing was changed.", file=sys.stderr)
                 return 2
             outcome = create(run=run, keychain=keychain, worker_dir=worker_dir, passphrase=first, say=say)
+    except keychain.KeychainUnavailable as exc:
+        print(f"Stopped: the Keychain could not keep a key ({exc}). Nothing more was changed.", file=sys.stderr)
+        return 1
     except SetupFailed as exc:
         print(f"Stopped at: {exc.step}.", file=sys.stderr)
         if exc.detail:

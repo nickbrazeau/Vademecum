@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT / "apps" / "api" / "src"))
 
 PUBLIC = {"/login", "/health", "/auth/passkey.js", "/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource"}
 EXTRA = ["/mcp", "/__seat/list", "/__seat/object/db/vademecum.sqlite3", "/__relay/wanted", "/passkeys", "/api/sync/status", "/api/sync/seat"]
-PAUSE = 1.1  # under the Worker's 60 a minute
+PAUSE = 2.0  # well under the Worker's 60 a minute, leaving room for the Mac's own sync
 
 
 def api_paths() -> list[str]:
@@ -44,17 +44,40 @@ def main(base: str) -> int:
     base = base.rstrip("/")
     targets = api_paths() + EXTRA
     failures: list[str] = []
-    with httpx.Client(timeout=60, follow_redirects=False) as client:
+    unverified: list[str] = []
+    with httpx.Client(timeout=90, follow_redirects=False) as client:
+
+        def ask(path: str) -> httpx.Response | None:
+            """A cold container or the rate limit is not an answer: wait and ask again."""
+            for attempt in range(5):
+                try:
+                    response = client.get(base + path)
+                except httpx.HTTPError:
+                    time.sleep(10 * (attempt + 1))
+                    continue
+                if response.status_code in (429, 502, 503):
+                    time.sleep(15 * (attempt + 1))
+                    continue
+                return response
+            return None
+
         for path in targets:
-            response = client.get(base + path)
-            body = response.content[:200]
-            if 200 <= response.status_code < 300 and path not in PUBLIC and body.strip():
+            response = ask(path)
+            if response is None:
+                unverified.append(path)
+            elif 200 <= response.status_code < 300 and path not in PUBLIC and response.content[:200].strip():
                 failures.append(f"GET {path} -> {response.status_code}")
             time.sleep(PAUSE)
-        health = client.get(base + "/health").json()
-        if set(health) != {"status"}:
-            failures.append(f"/health says more than ok: {sorted(health)}")
+        health = ask("/health")
+        if health is None:
+            unverified.append("/health")
+        elif set(health.json()) != {"status"}:
+            failures.append(f"/health says more than ok: {sorted(health.json())}")
     print(f"checked {len(targets) + 1} paths without signing in")
+    for path in unverified:
+        print(f"UNVERIFIED (no answer, or rate-limited): {path}")
+    if unverified:
+        failures.append(f"{len(unverified)} not verified")
     for failure in failures:
         print(f"OPEN: {failure}")
     print("all closed" if not failures else f"{len(failures)} open")

@@ -420,6 +420,10 @@ def record_sealing(data: Path, store: Store, results: dict[str, int]) -> None:
         return
     status = store.status(SEALED_PREFIXES)
     status["seal_ms"] = int(store.take_seal_seconds() * 1000)
+    say(f"sealing: {status['sealed']} of {status['objects']} sealed, {status['superseded']} superseded, {status['seal_ms']} ms sealing")
+    if status["plain"]:
+        # Which ones, so one that will not seal (a file that failed to restore) can be found.
+        say(f"not yet sealed: {', '.join(store.unsealed(SEALED_PREFIXES)[:10])}")
     if status["objects"] and status["plain"] == 0:
         status["marked"] = store.mark_sealed()
     status["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
