@@ -81,7 +81,13 @@ function Assessment({ session }: { session: SocraticSession }) {
   return (
     <section className="card" aria-labelledby="socratic-assessment-heading">
       <h3 id="socratic-assessment-heading">How it went</h3>
+      {session.focus ? (
+        <p className="muted small">
+          About the gap you flagged: “{session.focus}”
+        </p>
+      ) : null}
       {a.summary ? <p className="body">{a.summary}</p> : null}
+      <Rubric assessment={a} />
       {a.differential ? (
         <p className="body">
           <strong>Differential:</strong> {a.differential}
@@ -114,6 +120,57 @@ function Assessment({ session }: { session: SocraticSession }) {
   )
 }
 
+/** The launch prompt for a gap the learner flagged (feedback of 12 October). */
+export function gapPrompt(flagId: string): string {
+  return LAUNCH_PROMPT.replace('call socratic_start,', `call socratic_start with flag_id ${flagId},`)
+}
+
+const DOMAIN_LABEL: Record<string, string> = { differential: 'Differential', knowledge: 'Knowledge', treatment: 'Treatment' }
+
+/** The rubric, line by line (feedback of 12 October): each area's score, the learner's own
+ *  words it rests on, why that score, and what full credit needed. The total is the server's. */
+function Rubric({ assessment }: { assessment: SocraticSession['assessment'] }) {
+  if (assessment.rubric.length === 0) return null
+  return (
+    <div className="socratic-rubric">
+      <h4>
+        Grading{' '}
+        {assessment.out_of > 0 ? (
+          <span className="muted small">
+            {assessment.points} of {assessment.out_of} across the graded areas
+          </span>
+        ) : (
+          <span className="muted small">nothing graded</span>
+        )}
+      </h4>
+      <ul className="list">
+        {assessment.rubric.map((row) => (
+          <li key={row.domain}>
+            <p className="title">
+              {DOMAIN_LABEL[row.domain]}: {row.score === null ? <span className="muted">not graded</span> : <strong>{row.score} / 4</strong>}
+            </p>
+            {row.evidence ? (
+              <p className="body small">
+                <span className="muted">Your words:</span> “{row.evidence}”
+              </p>
+            ) : null}
+            {row.reason ? <p className="body small">{row.reason}</p> : null}
+            {row.full_credit ? (
+              <p className="body small">
+                <span className="muted">Full credit needed:</span> {row.full_credit}
+              </p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      <p className="muted small">
+        0 incorrect · 1 major errors · 2 partly right · 3 mostly complete · 4 complete and accurate. A score counts only on words
+        found in your answers; an area not asked or not answered is not graded and not counted against you.
+      </p>
+    </div>
+  )
+}
+
 /** The launch prompt for one page (Tutor mode from the Improvement Map). */
 export function pagePrompt(entryId: string): string {
   return LAUNCH_PROMPT.replace('call socratic_start,', `call socratic_start with entry_id ${entryId},`)
@@ -130,6 +187,10 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
   const [voiceOn, setVoiceOn] = useState(false)
   const [pasted, setPasted] = useState('')
   const [pastedTitle, setPastedTitle] = useState('')
+  // What a new session is about: a case ('') or a gap the learner flagged (its flag id).
+  const [startFrom, setStartFrom] = useState('')
+  const openFlags = useLoad(() => api.listFlags('open'), [])
+  const launchPrompt = entryId ? pagePrompt(entryId) : startFrom ? gapPrompt(startFrom) : LAUNCH_PROMPT
   const stopListening = useRef<() => void>(() => undefined)
   const stopSpeaking = useRef<() => void>(() => undefined)
 
@@ -254,11 +315,12 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
   }
 
   const start = () => act(async () => {
+    const flagId = entryId ? undefined : startFrom || undefined
     if (relayAvailable) {
       // The Mac writes the opening question; the page shows it when it comes.
-      return api.socraticStart(entryId, true)
+      return api.socraticStart(entryId, true, flagId)
     }
-    const started = await api.socraticStart(entryId)
+    const started = await api.socraticStart(entryId, false, flagId)
     // The first turn opens the dialogue: no answer yet, the tutor speaks first.
     return overview.can_answer_here ? api.socraticAnswer(started.session.id, '') : started
   })
@@ -286,12 +348,27 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
           literature reviewed for it, related pages, and its own knowledge, saying which is which. At the end, how you reasoned and
           what to revisit; each gap becomes a flag.
         </p>
+        {!entryId && openFlags.result.state === 'ready' && openFlags.result.value.length > 0 ? (
+          // A case, or one of the gaps already flagged (feedback of 12 October).
+          <label className="field socratic-start-from">
+            <span>Start from</span>
+            <select value={startFrom} onChange={(event) => setStartFrom(event.target.value)}>
+              <option value="">A case from your pages</option>
+              {openFlags.result.value.map((flag) => (
+                <option key={flag.id} value={flag.id}>
+                  Gap: {flag.text.length > 80 ? `${flag.text.slice(0, 79)}…` : flag.text}
+                  {flag.topic ? ` (${flag.topic})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {relayAvailable ? (
           <>
             {/* On the phone, ChatGPT's own voice is the tutor (feedback of 7 October): it calls the Socratic
                 tools, so the session is saved here as it goes, with Source awake or asleep. */}
             <HandOff
-              prompt={entryId ? pagePrompt(entryId) : LAUNCH_PROMPT}
+              prompt={launchPrompt}
               primary
               lead="The tutor in ChatGPT’s own voice: tap Continue in ChatGPT, then its voice button, and talk it through. The session is saved to Vademecum as you go, whether or not Source is awake."
             />
@@ -361,19 +438,19 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
         <div className="socratic-launch" hidden={relayAvailable}>
           <h3>Or with ChatGPT or Claude</h3>
           <div className="actions">
-            <a className="button" href={CHATGPT_LAUNCH} target="_blank" rel="noopener noreferrer">
+            <a className="button" href={launchLinks(launchPrompt).chatgpt} target="_blank" rel="noopener noreferrer">
               Open in ChatGPT
             </a>
-            <a className="button" href={CLAUDE_LAUNCH} target="_blank" rel="noopener noreferrer">
+            <a className="button" href={launchLinks(launchPrompt).claude} target="_blank" rel="noopener noreferrer">
               Open in Claude
             </a>
             <button
               type="button"
               className="button ghost"
               onClick={() => {
-                void navigator.clipboard?.writeText(LAUNCH_PROMPT).then(
+                void navigator.clipboard?.writeText(launchPrompt).then(
                   () => setNote('The prompt is copied. Paste it in a chat with Vademecum connected.'),
-                  () => setNote(LAUNCH_PROMPT)
+                  () => setNote(launchPrompt)
                 )
               }}
             >

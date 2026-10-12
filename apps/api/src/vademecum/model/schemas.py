@@ -393,18 +393,34 @@ FLASHCARD_SCHEMA = {
 #
 # One reply per exchange: the next open question and which probe it serves,
 # a sentence acknowledging the last answer without giving the answer away,
-# and -- only when done -- the assessment. No score, no grade.
+# and -- only when done -- the assessment: prose, and a rubric scored on the learner's own
+# words (feedback of 12 October). The total is added up by the server, never by the model.
+
+SOCRATIC_RUBRIC_ITEM = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["domain", "score", "evidence", "full_credit", "reason"],
+    "properties": {
+        "domain": {"type": "string", "enum": ["differential", "knowledge", "treatment"]},
+        # 0-4 against the stated anchors; -1 when the area was not asked or not answered.
+        "score": {"type": "integer", "minimum": -1, "maximum": 4},
+        "evidence": _string(300),
+        "full_credit": _string(300),
+        "reason": _string(300),
+    },
+}
 
 SOCRATIC_ASSESSMENT_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["differential", "treatment", "knowledge_strengths", "knowledge_gaps", "summary"],
+    "required": ["differential", "treatment", "knowledge_strengths", "knowledge_gaps", "summary", "rubric"],
     "properties": {
         "differential": _string(400),
         "treatment": _string(400),
         "knowledge_strengths": _string(400),
         "knowledge_gaps": {"type": "array", "maxItems": 5, "items": _string(120)},
         "summary": _string(600),
+        "rubric": {"type": "array", "maxItems": 3, "items": SOCRATIC_RUBRIC_ITEM},
     },
 }
 

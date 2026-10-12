@@ -72,6 +72,45 @@ describe('the Socratic tutor on Source', () => {
     expect(calls.filter((call) => call.url === '/api/socratic/soc_1/answer')[1]?.body).toEqual({ answer: 'Sepsis first.' })
   })
 
+  it('starts from a flagged gap when asked, and shows the grading line by line (feedback of 12 October)', async () => {
+    const graded = {
+      ...DONE,
+      focus_flag_id: 'flag_1',
+      focus: 'Not sure when lactate clearance changes management',
+      assessment: {
+        ...DONE.assessment,
+        rubric: [
+          { domain: 'differential', score: 3, evidence: 'Sepsis first.', full_credit: 'Name cardiogenic shock too.', reason: 'Sound, one cause missed.' },
+          { domain: 'knowledge', score: null, evidence: '', full_credit: 'Clearance targets.', reason: 'Not graded: not asked, or not answered.' },
+          { domain: 'treatment', score: null, evidence: '', full_credit: '', reason: 'Not graded: not asked, or not answered.' }
+        ],
+        points: 3,
+        out_of: 4
+      }
+    }
+    const calls = stub({
+      '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
+      '/api/flags': [{ id: 'flag_1', text: 'Not sure when lactate clearance changes management', topic: 'Lactate in sepsis', status: 'open', pile_id: null, created_at: 'x', updated_at: 'x', addressed_at: null }],
+      '/api/socratic': { open: null, recent: [], mode: 'codex', can_answer_here: true, note: '', disclosure: '' },
+      'POST /api/socratic': { session: { ...OPENED, transcript: [] }, note: '', gaps_filed: 0 },
+      'POST /api/socratic/soc_1/answer': { session: graded, note: '', gaps_filed: 0 }
+    })
+    const user = userEvent.setup()
+    render(<Tutor />)
+    await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
+    const choose = await screen.findByLabelText('Start from')
+    await user.selectOptions(choose, 'flag_1')
+    expect(screen.getByRole('link', { name: 'Open in ChatGPT' }).getAttribute('href')).toContain(encodeURIComponent('flag_id flag_1'))
+    await user.click(screen.getByRole('button', { name: 'Start a session' }))
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST' && call.url === '/api/socratic')?.body).toEqual({ flag_id: 'flag_1' }))
+    expect(await screen.findByText('3 of 4 across the graded areas')).toBeInTheDocument()
+    expect(screen.getByText(/About the gap you flagged/)).toBeInTheDocument()
+    expect(screen.getByText('3 / 4')).toBeInTheDocument()
+    expect(screen.getByText(/Name cardiogenic shock too/)).toBeInTheDocument()
+    expect(screen.getAllByText('not graded')).toHaveLength(2)
+  })
+
   it('in host mode says the conversation is the tutor and offers no answer box', async () => {
     stub({
       '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },

@@ -614,12 +614,25 @@ export interface SocraticTurn {
   probe: string
 }
 
+/** One area of the rubric (feedback of 12 October): a 0-4 score on the learner's own words, or not graded. */
+export interface SocraticRubricRow {
+  domain: 'differential' | 'knowledge' | 'treatment'
+  score: number | null
+  evidence: string
+  full_credit: string
+  reason: string
+}
+
 export interface SocraticAssessment {
   differential: string
   treatment: string
   knowledge_strengths: string
   knowledge_gaps: string[]
   summary: string
+  rubric: SocraticRubricRow[]
+  /** Added up on the server from the graded areas; out_of is 0 when nothing was graded. */
+  points: number
+  out_of: number
 }
 
 export interface SocraticSession {
@@ -641,6 +654,9 @@ export interface SocraticSession {
   waiting: boolean
   /** On the phone's copy: why the Mac could not write it, if it could not. */
   relay_error: string
+  /** A gap the learner flagged, when the session is about one rather than a case. */
+  focus_flag_id: string | null
+  focus: string
 }
 
 export interface SocraticOverview {

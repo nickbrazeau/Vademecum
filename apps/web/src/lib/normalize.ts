@@ -12,6 +12,7 @@
  */
 
 import type {
+  SocraticRubricRow,
   TodayRecall,
   KnowledgeState,
   LearnerModel,
@@ -1022,12 +1023,32 @@ function socraticSession(raw: unknown): SocraticSession {
       treatment: str(assessment.treatment),
       knowledge_strengths: str(assessment.knowledge_strengths),
       knowledge_gaps: strings(assessment.knowledge_gaps),
-      summary: str(assessment.summary)
+      summary: str(assessment.summary),
+      rubric: arr(assessment.rubric)
+        .map((item) => {
+          const row = obj(item)
+          const domain: SocraticRubricRow['domain'] | null =
+            row.domain === 'differential' || row.domain === 'knowledge' || row.domain === 'treatment' ? row.domain : null
+          return domain === null
+            ? null
+            : {
+                domain,
+                score: typeof row.score === 'number' && row.score >= 0 && row.score <= 4 ? row.score : null,
+                evidence: str(row.evidence),
+                full_credit: str(row.full_credit),
+                reason: str(row.reason)
+              }
+        })
+        .filter((row): row is SocraticRubricRow => row !== null),
+      points: num(assessment.points),
+      out_of: num(assessment.out_of)
     },
     exchanges: num(data.exchanges),
     origin: str(data.origin),
     waiting: data.waiting === true,
     relay_error: str(data.relay_error),
+    focus_flag_id: typeof data.focus_flag_id === 'string' ? data.focus_flag_id : null,
+    focus: str(data.focus),
     assessed: data.assessed === true || (data.assessed === undefined && status === 'done' && Boolean(str(assessment.summary) || str(assessment.differential))),
     created_at: str(data.created_at),
     finished_at: typeof data.finished_at === 'string' ? data.finished_at : null

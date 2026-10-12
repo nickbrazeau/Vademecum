@@ -327,6 +327,19 @@ def flashcard_prompt(page: str) -> str:
     return f"THE PAGE:\n{_fence(page)}"
 
 
+# How a session is scored (feedback of 12 October): the same anchors every time, on the
+# learner's own words, so the grade can be checked line by line.
+RUBRIC_RULES = (
+    "The 'rubric' scores each of 'differential', 'knowledge' and 'treatment' from 0 to 4: 0 "
+    "incorrect or not addressing it, 1 major errors or omissions, 2 partly right (the core, with "
+    "important gaps), 3 mostly complete and accurate, 4 complete and accurate. For each, "
+    "'evidence' is the learner's own words, quoted exactly from their answers (shorten with ... "
+    "if needed, never paraphrase), 'full_credit' is what a 4 would have needed, and 'reason' "
+    "says why this score and not the next one up. An area that was not asked, or that the "
+    "learner did not answer, gets score -1 and empty evidence: it is not graded, and not counted "
+    "against them. Give no overall score; it is added up from these."
+)
+
 SOCRATIC_DEVELOPER = (
     "You are a Socratic tutor for a resident. The supplied material is one encyclopedia page "
     "compiled from their own sources, with the id of each point in brackets; further context "
@@ -343,17 +356,23 @@ SOCRATIC_DEVELOPER = (
     "would change the plan) and 'knowledge' (the mechanism, the threshold, the exception). In "
     "'acknowledgement', one or two sentences on the learner's last answer: what was sound, what "
     "was missing, said plainly, without supplying what they have not yet said unless they are "
-    "stuck. After about eight exchanges, or sooner if the ground is covered, set 'done' true, "
-    "make 'probe' 'wrap_up', put a closing remark in 'question', and fill 'assessment': how they "
-    "reasoned through the differential, the treatment options and the knowledge, their "
-    "strengths, up to five gaps named as short topics, and a summary. Until then 'assessment' "
-    "fields are empty strings and an empty list. Never include a real patient's details."
+    "stuck. When a gap the learner flagged is given, the session is about that gap instead of a "
+    "case: open with one question that tests exactly it (a short clinical scenario only where "
+    "it helps), probe it from more than one side, and go into differential or treatment only as "
+    "far as the gap reaches. After about eight exchanges, or sooner if the ground is covered, "
+    "set 'done' true, make 'probe' 'wrap_up', put a closing remark in 'question', and fill "
+    "'assessment': how they reasoned through the differential, the treatment options and the "
+    "knowledge, their strengths, up to five gaps named as short topics, a summary, and the "
+    "'rubric'. " + RUBRIC_RULES + " Until then 'assessment' fields are empty strings and empty "
+    "lists. Never include a real patient's details."
 )
 
 
-def socratic_prompt(page: str, transcript: list[tuple[str, str]], exchanges: int, context: str = "") -> str:
-    lines = "\n".join(f"{'TUTOR' if role == 'tutor' else 'LEARNER'}: {text}" for role, text in transcript) or "(the session is just beginning: open with the presentation and the first question)"
-    body = f"THE PAGE:\n{page}\n\nFURTHER CONTEXT:\n{context or '(none)'}\n\nTHE DIALOGUE SO FAR:\n{lines}"
+def socratic_prompt(page: str, transcript: list[tuple[str, str]], exchanges: int, context: str = "", *, focus: str = "") -> str:
+    opening = "open on the gap below and the first question" if focus else "open with the presentation and the first question"
+    lines = "\n".join(f"{'TUTOR' if role == 'tutor' else 'LEARNER'}: {text}" for role, text in transcript) or f"(the session is just beginning: {opening})"
+    gap = f"THE GAP THE LEARNER FLAGGED, in their words:\n{focus}\n\n" if focus else ""
+    body = f"{gap}THE PAGE:\n{page or '(no page on this yet)'}\n\nFURTHER CONTEXT:\n{context or '(none)'}\n\nTHE DIALOGUE SO FAR:\n{lines}"
     return f"EXCHANGES SO FAR: {exchanges}\n\n{_fence(body)}"
 
 
@@ -437,7 +456,7 @@ SOCRATIC_REVIEW_DEVELOPER = (
     "how they reasoned through the differential, the treatment options and the underlying knowledge, "
     "in plain words, judged against current practice. Name up to five gaps, each a short topic worth "
     "revisiting. If a part was not discussed, say so in a few words rather than guessing. The summary "
-    "is two or three sentences addressed to the resident."
+    "is two or three sentences addressed to the resident. " + RUBRIC_RULES
 )
 
 

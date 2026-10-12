@@ -435,6 +435,7 @@ async def _relay_loop(database_path: Path, settings: Settings, turn_factory: Any
                     transcript=[(str(t.get("role")), str(t.get("text"))) for t in asked.get("transcript") or []],
                     exchanges=int(asked.get("exchanges") or 0),
                     turn_factory=turn_factory,
+                    focus=str(asked.get("focus") or ""),
                 )
                 await asyncio.to_thread(peer.relay_reply, str(asked.get("id")), payload)
                 logger.info("relay_answered")

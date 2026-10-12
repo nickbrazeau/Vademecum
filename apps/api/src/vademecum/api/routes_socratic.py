@@ -39,6 +39,8 @@ DISCLOSURE = (
 
 class StartIn(Strict):
     entry_id: RecordId | None = None
+    # Or a knowledge gap the learner flagged, instead of a case (feedback of 12 October).
+    flag_id: RecordId | None = None
     # From the phone's own tutor: the Mac answers each turn through the relay (feedback of 6 October).
     relay: bool = False
 
@@ -131,14 +133,14 @@ def start(
     current = store.open_session(connection)
     if current is not None:
         store.abandon(connection, current.id)
-    started = service.start(connection, entry_id=payload.entry_id, mode=mode)
+    started = service.start(connection, entry_id=payload.entry_id, mode=mode, flag_id=payload.flag_id)
     if started["session"] is None:
         raise ConflictError("no_page", started["note"])
     if relay is not None:
         # The phone's own tutor: the Mac writes the opening question.
         session = started["session"]
         relay.wake_mac()
-        relay.enqueue(session_id=session["id"], entry_id=session["entry_id"], transcript=[], exchanges=0)
+        relay.enqueue(session_id=session["id"], entry_id=session["entry_id"], transcript=[], exchanges=0, focus=session.get("focus", ""))
         return {"session": _with_relay(session, relay), "note": RELAY_FIRST, "disclosure": DISCLOSURE, "gaps_filed": 0}
     return {**started, "note": _mode_note(mode), "disclosure": DISCLOSURE}
 
@@ -220,7 +222,8 @@ async def answer(
             session = store.append(connection, session_id, role="learner", text=payload.answer)
         relay.wake_mac()
         relay.enqueue(
-            session_id=session_id, entry_id=session.entry_id, transcript=[dict(turn) for turn in session.transcript], exchanges=session.exchanges
+            session_id=session_id, entry_id=session.entry_id, transcript=[dict(turn) for turn in session.transcript], exchanges=session.exchanges,
+            focus=session.focus,
         )
         return {"session": _with_relay(session.as_dict(), relay), "note": RELAY_NEXT, "gaps_filed": 0}
     workspace = request.state.workspace

@@ -49,7 +49,7 @@ class Relay:
     def live(self) -> bool:
         return time.monotonic() - self.heartbeat < LIVE_SECONDS
 
-    def enqueue(self, *, session_id: str, entry_id: str | None, transcript: list[dict[str, str]], exchanges: int) -> str:
+    def enqueue(self, *, session_id: str, entry_id: str | None, transcript: list[dict[str, str]], exchanges: int, focus: str = "") -> str:
         # One turn per session at a time: a newer one replaces any still waiting.
         for request_id, request in list(self._pending.items()):
             if request["session_id"] == session_id:
@@ -63,6 +63,7 @@ class Relay:
             "entry_id": entry_id,
             "transcript": transcript,
             "exchanges": exchanges,
+            "focus": focus,
         }
         self._signal().set()
         return request_id

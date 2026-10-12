@@ -11,6 +11,7 @@ answers are stored for the session's own record and are never logged.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -38,6 +39,9 @@ class Session:
     created_at: str
     updated_at: str
     finished_at: str | None
+    # A gap the learner flagged, when the session is about one rather than a case (feedback of 12 October).
+    focus_flag_id: str | None = None
+    focus: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -76,17 +80,29 @@ def _session(row: sqlite3.Row) -> Session:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         finished_at=row["finished_at"],
+        focus_flag_id=row["focus_flag_id"] if "focus_flag_id" in row.keys() else None,
+        focus=(row["focus"] or "") if "focus" in row.keys() else "",
     )
 
 
-def create_session(connection: sqlite3.Connection, *, entry_id: str | None, topic: str, title: str, mode: str) -> Session:
+def create_session(
+    connection: sqlite3.Connection,
+    *,
+    entry_id: str | None,
+    topic: str,
+    title: str,
+    mode: str,
+    focus_flag_id: str | None = None,
+    focus: str = "",
+) -> Session:
     session_id = new_id("soc")
     now = utc_now()
     with transaction(connection) as tx:
         tx.execute(
-            "INSERT INTO socratic_sessions (id, entry_id, topic, title, mode, status, transcript, assessment, exchanges, created_at, updated_at, finished_at)"
-            " VALUES (?, ?, ?, ?, ?, 'open', '[]', '{}', 0, ?, ?, NULL)",
-            (session_id, entry_id, topic[:120], title[:120], mode, now, now),
+            "INSERT INTO socratic_sessions (id, entry_id, topic, title, mode, status, transcript, assessment, exchanges,"
+            " created_at, updated_at, finished_at, focus_flag_id, focus)"
+            " VALUES (?, ?, ?, ?, ?, 'open', '[]', '{}', 0, ?, ?, NULL, ?, ?)",
+            (session_id, entry_id, topic[:120], title[:120], mode, now, now, focus_flag_id, focus[:1000]),
         )
     return get_session(connection, session_id)
 
@@ -125,8 +141,65 @@ def append(connection: sqlite3.Connection, session_id: str, *, role: str, text: 
     return get_session(connection, session_id)
 
 
-def check_assessment(payload: dict[str, Any]) -> dict[str, Any]:
-    """The assessment the server keeps: bounded prose, named gaps, no verdict beyond words."""
+# The rubric (feedback of 12 October): each area scored against the same anchors, on the
+# learner's own words, with what full credit needed. The total is added up here, never taken
+# from the model.
+DOMAINS = ("differential", "knowledge", "treatment")
+SCORE_MAX = 4
+ANCHORS = {
+    0: "incorrect, or the answer given does not address it",
+    1: "major errors or omissions",
+    2: "partly right: the core, with important gaps",
+    3: "mostly complete and accurate, minor gaps",
+    4: "complete and accurate",
+}
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.casefold()).strip()
+
+
+def check_rubric(items: Any, transcript: tuple[dict[str, str], ...] | list[dict[str, str]]) -> dict[str, Any]:
+    """Each area once. A score stands only on the learner's own words: the evidence must be
+    found in what they said, else the area is not graded. An area with no evidence -- never
+    asked, or not answered -- is not graded either, and is not counted against them."""
+    said = " ".join(_plain(turn.get("text", "")) for turn in transcript if turn.get("role") == "learner")
+    rows: dict[str, dict[str, Any]] = {}
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict) or item.get("domain") not in DOMAINS or item["domain"] in rows:
+            continue
+        evidence = " ".join(str(item.get("evidence") or "").split())[:300]
+        # A quote may be shortened with an ellipsis: each part must be the learner's own words.
+        parts = [_plain(part) for part in re.split(r"\.\.\.|…", evidence)]
+        parts = [part for part in parts if part]
+        found = bool(parts) and all(part in said for part in parts)
+        try:
+            score = int(item.get("score"))
+        except (TypeError, ValueError):
+            score = -1
+        graded = found and 0 <= score <= SCORE_MAX
+        rows[item["domain"]] = {
+            "domain": item["domain"],
+            "score": score if graded else None,
+            "evidence": evidence if found else "",
+            "full_credit": " ".join(str(item.get("full_credit") or "").split())[:300],
+            "reason": " ".join(str(item.get("reason") or "").split())[:300]
+            if graded
+            else ("Not graded: " + ("the words quoted are not the learner's." if evidence and not found else "not asked, or not answered.")),
+        }
+    ordered = [rows.get(domain) or {"domain": domain, "score": None, "evidence": "", "full_credit": "", "reason": "Not graded: not asked, or not answered."} for domain in DOMAINS]
+    graded = [row for row in ordered if row["score"] is not None]
+    return {
+        "rubric": ordered,
+        "points": sum(row["score"] for row in graded),
+        "out_of": SCORE_MAX * len(graded),
+        "scale": ANCHORS,
+    }
+
+
+def check_assessment(payload: dict[str, Any], transcript: tuple[dict[str, str], ...] | list[dict[str, str]] = ()) -> dict[str, Any]:
+    """The assessment the server keeps: bounded prose, named gaps, and the rubric checked
+    against the transcript (feedback of 12 October)."""
     def text(key: str, limit: int) -> str:
         return " ".join(str(payload.get(key) or "").split())[:limit]
 
@@ -137,6 +210,7 @@ def check_assessment(payload: dict[str, Any]) -> dict[str, Any]:
         "knowledge_strengths": text("knowledge_strengths", 400),
         "knowledge_gaps": gaps,
         "summary": text("summary", 600),
+        **check_rubric(payload.get("rubric"), transcript),
     }
 
 
@@ -144,7 +218,7 @@ def finish(connection: sqlite3.Connection, session_id: str, assessment: dict[str
     session = get_session(connection, session_id)
     if session.status != "open":
         raise ValueError("closed")
-    checked = check_assessment(assessment)
+    checked = check_assessment(assessment, session.transcript)
     now = utc_now()
     with transaction(connection) as tx:
         tx.execute(
@@ -180,7 +254,7 @@ def import_session(
     # The table allows only its first statuses and modes: an imported session is
     # 'done' in mode 'host' (an assistant elsewhere was the tutor), its origin is
     # kept with the assessment, and an empty assessment means not yet assessed.
-    checked = {**(check_assessment(assessment) if assessment else {}), "origin": origin}
+    checked = {**(check_assessment(assessment, turns) if assessment else {}), "origin": origin}
     session_id = new_id("soc")
     now = utc_now()
     status = "done"
@@ -199,7 +273,7 @@ def import_session(
 def set_assessment(connection: sqlite3.Connection, session_id: str, *, assessment: dict[str, Any], title: str = "", topic: str = "", entry_id: str | None = None) -> Session:
     """An imported session, assessed afterwards."""
     session = get_session(connection, session_id)
-    checked = {**check_assessment(assessment), "origin": session.assessment.get("origin", "")}
+    checked = {**check_assessment(assessment, session.transcript), "origin": session.assessment.get("origin", "")}
     with transaction(connection) as tx:
         tx.execute(
             "UPDATE socratic_sessions SET status = 'done', assessment = ?, title = ?, topic = ?, entry_id = ?, updated_at = ? WHERE id = ?",

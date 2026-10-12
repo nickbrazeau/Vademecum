@@ -215,8 +215,16 @@ def _gather(connection: sqlite3.Connection) -> dict[str, Unit]:
         if at is None:
             continue
         gaps = _gaps(row["assessment"])
-        # Each gap named takes a fifth off; a session with no gaps named is a success.
-        outcome = max(0.15, 1.0 - 0.2 * len(gaps))
+        # The rubric's own score where there is one (feedback of 12 October); before rubrics,
+        # each gap named took a fifth off and a session with no gaps named was a success.
+        try:
+            data = json.loads(row["assessment"] or "{}")
+        except ValueError:
+            data = {}
+        if isinstance(data, dict) and int(data.get("out_of") or 0) > 0:
+            outcome = max(0.0, min(1.0, int(data.get("points") or 0) / int(data["out_of"])))
+        else:
+            outcome = max(0.15, 1.0 - 0.2 * len(gaps))
         for unit in unit_for(row["entry_id"], row["topic"]):
             unit.evidence.append(Evidence("socratic", outcome, at, "; ".join(gaps[:3])))
 

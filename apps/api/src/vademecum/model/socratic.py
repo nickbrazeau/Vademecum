@@ -85,7 +85,29 @@ def choose_page(connection, entry_id: str | None) -> pages.Entry | None:
     return pages.page_of_the_day(connection)
 
 
-def start(connection, *, entry_id: str | None, mode: str) -> dict[str, Any]:
+def start(connection, *, entry_id: str | None, mode: str, flag_id: str | None = None) -> dict[str, Any]:
+    """A case drawn from a page, as before; or, with ``flag_id``, a knowledge gap the learner
+    flagged (feedback of 12 October): its words go to the tutor, and the page on its topic,
+    if there is one, grounds it."""
+    if flag_id:
+        flag = flag_store.get_flag(connection, flag_id)
+        named = (flag.topic or "").strip() or flag.text.strip()
+        entry = None
+        if entry_id:
+            entry = pages.get_entry(connection, entry_id)
+        else:
+            found = pages.pages_matching(pages.current_page_index(connection), named, limit=1)
+            entry = pages.get_entry(connection, found[0]["id"]) if found else None
+        session = store.create_session(
+            connection,
+            entry_id=entry.id if entry else None,
+            topic=(flag.topic or (entry.topic if entry else named))[:120],
+            title=("Gap: " + (flag.topic or flag.text))[:120],
+            mode=mode,
+            focus_flag_id=flag.id,
+            focus=flag.text,
+        )
+        return {"session": session.as_dict(), "note": ""}
     entry = choose_page(connection, entry_id)
     if entry is None:
         return {"session": None, "note": NO_PAGE}
@@ -99,6 +121,8 @@ def material(connection, session: store.Session) -> dict[str, Any]:
     return {
         "session_id": session.id,
         "rules": prompts.SOCRATIC_DEVELOPER,
+        # A flagged gap the session is about, in the learner's own words; empty for a case.
+        "focus": session.focus,
         "page": page_material(connection, entry) if entry else "",
         "context": further_context(connection, entry) if entry else "",
         "transcript": [dict(turn) for turn in session.transcript],
@@ -216,6 +240,7 @@ async def compute_turn(
     transcript: list[tuple[str, str]],
     exchanges: int,
     turn_factory: Any,
+    focus: str = "",
 ) -> dict[str, Any]:
     """One tutor turn on this Mac's own connection: the page and the dialogue go to the
     model, the next question (or the assessment) comes back. Used for a session held
@@ -236,7 +261,7 @@ async def compute_turn(
         reply = await runner.run(
             instructions=prompts.BASE_INSTRUCTIONS,
             developer_instructions=prompts.SOCRATIC_DEVELOPER,
-            prompt=prompts.socratic_prompt(page, transcript, exchanges, context),
+            prompt=prompts.socratic_prompt(page, transcript, exchanges, context, focus=focus),
             output_schema=schemas.SOCRATIC_SCHEMA,
         )
     except BridgeError as exc:
@@ -274,11 +299,12 @@ async def answer(database_path: Path, session_id: str, learner_text: str, turn_f
         if learner_text.strip():
             session = store.append(connection, session_id, role="learner", text=learner_text)
         transcript = [(turn["role"], turn["text"]) for turn in session.transcript]
-        entry_id, exchanges = session.entry_id, session.exchanges
+        entry_id, exchanges, focus = session.entry_id, session.exchanges, session.focus
     finally:
         connection.close()
     payload = await compute_turn(
-        database_path, scope_id=session_id, entry_id=entry_id, transcript=transcript, exchanges=exchanges, turn_factory=turn_factory
+        database_path, scope_id=session_id, entry_id=entry_id, transcript=transcript, exchanges=exchanges, turn_factory=turn_factory,
+        focus=focus,
     )
     connection = connect(database_path)
     try:

@@ -27,6 +27,9 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         session_id: Annotated[
             str, Field(max_length=64, description="To carry on a session already open (begun on the phone), its id; the dialogue so far comes back.")
         ] = "",
+        flag_id: Annotated[
+            str, Field(max_length=64, description="A knowledge gap the owner flagged (flags_list), to make the session about that gap instead of a case.")
+        ] = "",
     ) -> dict[str, Any]:
         """Begin a Socratic session and become the tutor. The reply carries the
         page (compiled from the owner's own sources), further context already on
@@ -41,13 +44,15 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         socratic_turn; after about eight exchanges call socratic_finish with
         the assessment. With session_id, carry on a session the owner began
         in Vademecum on the phone: the dialogue so far comes back, and you ask the
-        next question."""
+        next question. With flag_id, the session is about a gap the owner flagged:
+        'focus' holds their words; open with one question that tests exactly it."""
         if session_id:
             # Carrying on a session begun elsewhere (the phone, its Mac now asleep): nothing new is opened.
             read = await call(api.get(f"/api/socratic/{session_id}"))
             material = await call(api.get(f"/api/socratic/{session_id}/material"))
             return {**read, **material, "note": "Carry on from the last line of the dialogue; do not repeat what was already asked."}
-        started = await call(api.post("/api/socratic", {"entry_id": entry_id} if entry_id else {}))
+        body = {key: value for key, value in (("entry_id", entry_id), ("flag_id", flag_id)) if value}
+        started = await call(api.post("/api/socratic", body))
         session = started.get("session") or {}
         material = await call(api.get(f"/api/socratic/{session['id']}/material")) if session.get("id") else {}
         return {**started, **material}
@@ -70,16 +75,31 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         knowledge_strengths: Annotated[str, Field(max_length=400)],
         knowledge_gaps: Annotated[list[str], Field(max_length=5, description="Up to five gaps, each a short topic.")],
         summary: Annotated[str, Field(max_length=600)],
+        rubric: Annotated[
+            list[dict[str, Any]],
+            Field(
+                max_length=3,
+                description=(
+                    'One per area: {"domain": "differential"|"knowledge"|"treatment", "score": 0-4, or -1 if not asked '
+                    'or not answered, "evidence": the owner\'s own words quoted exactly (shorten with ...), '
+                    '"full_credit": what a 4 needed, "reason": why this score and not the next one up}. '
+                    "0 incorrect, 1 major errors, 2 partly right, 3 mostly complete, 4 complete and accurate. "
+                    "Give no overall score: Vademecum adds it up, and grades only areas whose quote it finds in the owner's answers."
+                ),
+            ),
+        ] = [],  # noqa: B006
     ) -> dict[str, Any]:
-        """Close the session with the assessment. Each named gap becomes a flag on
-        the page's topic, so the Improvement Map and the flashcards take it up.
-        Tell the owner what was filed."""
+        """Close the session with the assessment and the rubric. Each named gap
+        becomes a flag on the page's topic, so the Improvement Map and the
+        flashcards take it up. Tell the owner what was filed, and read back
+        each area's score with the quote it rests on and what full credit needed."""
         assessment = {
             "differential": differential,
             "treatment": treatment,
             "knowledge_strengths": knowledge_strengths,
             "knowledge_gaps": knowledge_gaps,
             "summary": summary,
+            "rubric": rubric,
         }
         return await call(api.post(f"/api/socratic/{session_id}/finish", {"assessment": assessment}))
 
@@ -97,6 +117,19 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         summary: Annotated[str, Field(max_length=600)],
         title: Annotated[str, Field(max_length=120)] = "",
         origin: Annotated[str, Field(max_length=10, description="chatgpt or claude: which assistant was the tutor.")] = "chatgpt",
+        rubric: Annotated[
+            list[dict[str, Any]],
+            Field(
+                max_length=3,
+                description=(
+                    'One per area: {"domain": "differential"|"knowledge"|"treatment", "score": 0-4, or -1 if not asked '
+                    'or not answered, "evidence": the owner\'s own words quoted exactly (shorten with ...), '
+                    '"full_credit": what a 4 needed, "reason": why this score and not the next one up}. '
+                    "0 incorrect, 1 major errors, 2 partly right, 3 mostly complete, 4 complete and accurate. "
+                    "Give no overall score: Vademecum adds it up, and grades only areas whose quote it finds in the owner's answers."
+                ),
+            ),
+        ] = [],  # noqa: B006
     ) -> dict[str, Any]:
         """Save a Socratic or teaching session already held in this conversation
         -- one where the exchanges were not recorded as they happened -- into Vademecum, with
@@ -112,6 +145,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
             "knowledge_strengths": knowledge_strengths,
             "knowledge_gaps": knowledge_gaps,
             "summary": summary,
+            "rubric": rubric,
         }
         turns = [{"role": "tutor" if str(t.get("role")) in ("tutor", "assistant") else "learner", "text": str(t.get("text") or "")[:8000]} for t in transcript]
         return await call(
