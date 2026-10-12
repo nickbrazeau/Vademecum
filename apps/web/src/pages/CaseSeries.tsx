@@ -19,10 +19,10 @@ export const CASES_DISCLOSURE = {
   bullets: [
     'one fixed PubMed query naming the journal and article type, for the two NEJM series',
     'one fixed request each to clinicalproblemsolving.com and thecurbsiders.com for their latest episodes',
-    'for the teaching points: each case’s public title and show notes, once, to the Mac’s own model connection'
+    'for the teaching points: each case’s public title and show notes, once, to Source’s own model connection'
   ],
   destination:
-    'PubMed (NCBI), the two podcast sites, and the Mac’s own model connection (Codex or Claude, on your sign-in). No API key is used, and none of your material, notes, flags or answers is included.'
+    'PubMed (NCBI), the two podcast sites, and Source’s own model connection (Codex or Claude, on your sign-in). No API key is used, and none of your material, notes, flags or answers is included.'
 }
 
 /**
@@ -200,7 +200,7 @@ export function HubSettings({ onChanged }: { onChanged: () => void }) {
         onChange={(event) => setHours(event.target.value)}
       />
       <p className="muted small">
-        {settings.enabled ? `On, every ${settings.interval_hours} hour${settings.interval_hours === 1 ? '' : 's'} while Vademecum runs on this Mac.` : 'Off until you turn it on.'}{' '}
+        {settings.enabled ? `On, every ${settings.interval_hours} hour${settings.interval_hours === 1 ? '' : 's'} while Vademecum runs on Source.` : 'Off until you turn it on.'}{' '}
         {refreshLine}
       </p>
       <div className="actions">

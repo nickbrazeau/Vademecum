@@ -146,7 +146,7 @@ export function QuickFlagDialog({
           />
         </label>
 
-        <p className="muted small">Saved on this Mac. Not sent anywhere.</p>
+        <p className="muted small">Saved on Source. Not sent anywhere.</p>
 
         {failure ? (
           <p className="failure" role="alert">

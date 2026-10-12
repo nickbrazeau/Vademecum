@@ -15,7 +15,7 @@ describe('the privacy note', () => {
   it('distinguishes local storage from model transmission', () => {
     render(<PrivacyNote />)
     const section = within(screen.getByRole('region', { name: /where this is stored/i }))
-    for (const heading of ['On this Mac', 'Sent to a model', 'Kept in this browser']) {
+    for (const heading of ['On Source', 'Sent to a model', 'Kept in this browser']) {
       expect(section.getByText(heading).tagName).toBe('DT')
     }
   })

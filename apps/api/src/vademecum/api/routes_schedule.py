@@ -47,7 +47,7 @@ class ScheduleIn(BaseModel):
 def get_scheduler(request: Request) -> BuildScheduler:
     scheduler = getattr(request.app.state, "build_scheduler", None)
     if scheduler is None:
-        raise ConflictError("no_schedule", "This Vademecum has no build schedule; it is one owner's Mac that has one.")
+        raise ConflictError("no_schedule", "This Vademecum has no build schedule; only Source has one.")
     return scheduler
 
 

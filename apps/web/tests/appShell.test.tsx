@@ -123,7 +123,7 @@ describe('unavailable states', () => {
     )
     render(<App />)
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/not answering on this mac/i)
+    expect(alert).toHaveTextContent(/not answering on source/i)
     expect(alert).toHaveTextContent(/outcome could not be confirmed/i)
   })
 

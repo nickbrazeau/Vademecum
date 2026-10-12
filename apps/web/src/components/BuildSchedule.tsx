@@ -74,7 +74,7 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
         <>
           <p className="muted small">{schedule.disclosure}</p>
           <Switch
-            label="Build whenever the Mac is awake"
+            label="Build whenever Source is awake"
             checked={schedule.enabled}
             disabled={busy}
             onChange={(on) => void save({ enabled: on })}
@@ -83,7 +83,7 @@ export function BuildSchedule({ onBuilt }: { onBuilt?: () => void }) {
           {schedule.enabled && schedule.continuous && schedule.builder ? (
             <p className="small" role="status">
               {schedule.builder.reason}
-              {schedule.builder.batches ? ` ${schedule.builder.batches} batch${schedule.builder.batches === 1 ? '' : 'es'} built since the Mac started.` : ''}
+              {schedule.builder.batches ? ` ${schedule.builder.batches} batch${schedule.builder.batches === 1 ? '' : 'es'} built since Source started.` : ''}
             </p>
           ) : null}
           <div className="actions">

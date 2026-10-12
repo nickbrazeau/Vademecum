@@ -35,7 +35,7 @@ from starlette.responses import Response
 MUTATING = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 REFUSAL = (
-    "That request did not come from Vademecum running on this Mac, so it was "
+    "That request did not come from Vademecum running on Source, so it was "
     "refused before anything was read, written or sent."
 )
 

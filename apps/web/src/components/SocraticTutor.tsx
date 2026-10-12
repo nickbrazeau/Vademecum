@@ -289,14 +289,14 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
         {relayAvailable ? (
           <>
             {/* On the phone, ChatGPT's own voice is the tutor (feedback of 7 October): it calls the Socratic
-                tools, so the session is saved here as it goes, with the Mac awake or asleep. */}
+                tools, so the session is saved here as it goes, with Source awake or asleep. */}
             <HandOff
               prompt={entryId ? pagePrompt(entryId) : LAUNCH_PROMPT}
               primary
-              lead="The tutor in ChatGPT’s own voice: tap Continue in ChatGPT, then its voice button, and talk it through. The session is saved to Vademecum as you go, whether or not your Mac is awake."
+              lead="The tutor in ChatGPT’s own voice: tap Continue in ChatGPT, then its voice button, and talk it through. The session is saved to Vademecum as you go, whether or not Source is awake."
             />
             <details className="support-details">
-              <summary>Or here, typed, with your Mac as the tutor</summary>
+              <summary>Or here, typed, with Source as the tutor</summary>
               {overview.can_answer_here ? (
                 <>
             <p className="muted small">{overview.disclosure}</p>
@@ -321,14 +321,14 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
                 </>
               ) : macAsleep ? (
                 <p className="muted small" role="status">
-                  Your Mac is asleep; it can be the tutor here when it is awake.{' '}
+                  Source is asleep; it can be the tutor here when it is awake.{' '}
                   <button type="button" className="link-button" onClick={() => { setMacAsleep(false); reload() }}>
                     Look again
                   </button>
                 </p>
               ) : (
                 <p className="muted small" role="status">
-                  <span className="spinner" aria-hidden="true" /> Waking your Mac to be the tutor here…
+                  <span className="spinner" aria-hidden="true" /> Waking Source to be the tutor here…
                 </p>
               )}
             </details>
@@ -390,7 +390,7 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
           <summary>Bring in a session from ChatGPT or Claude</summary>
           <p className="muted small">
             Paste the whole conversation, as copied from the app. It is saved with its dialogue, named, assessed, and its gaps become
-            flags.{overview.can_answer_here ? '' : ' Assessing happens on the Mac, the next time you open the Tutor there.'}
+            flags.{overview.can_answer_here ? '' : ' Assessing happens on Source, the next time you open the Tutor there.'}
           </p>
           {overview.can_answer_here && overview.import_disclosure ? <p className="muted small">{overview.import_disclosure}</p> : null}
           <label className="field">
@@ -473,19 +473,19 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
         </ol>
         {session.waiting ? (
           <p className="muted socratic-waiting" role="status">
-            <span className="spinner" aria-hidden="true" /> Your Mac is writing the {session.transcript.length === 0 ? 'first' : 'next'} question…
+            <span className="spinner" aria-hidden="true" /> Source is writing the {session.transcript.length === 0 ? 'first' : 'next'} question…
           </p>
         ) : null}
         {session.status === 'open' && relayAvailable && macQuiet ? (
           <HandOff
             prompt={resumePrompt(session.id)}
             primary
-            lead="Your Mac has gone quiet, likely asleep. Carry on this same session in ChatGPT or Claude; it picks up from the last question."
+            lead="Source has gone quiet, likely asleep. Carry on this same session in ChatGPT or Claude; it picks up from the last question."
           />
         ) : null}
         {!session.waiting && session.relay_error ? (
           <div className="failure" role="alert">
-            <p>Your Mac could not write the next question ({session.relay_error}). Your answer is kept.</p>
+            <p>Source could not write the next question ({session.relay_error}). Your answer is kept.</p>
             <button type="button" className="button small" disabled={busy} onClick={() => void act(() => api.socraticAnswer(session.id, ''))}>
               Ask again
             </button>
@@ -503,7 +503,7 @@ export function SocraticTutor({ onNavigate, entryId }: { onNavigate?: (name: Rou
           relayAvailable ? (
             <>
               <details className="support-details">
-                <summary>Or answer here, typed, with your Mac as the tutor</summary>
+                <summary>Or answer here, typed, with Source as the tutor</summary>
             <label className="field">
               <span>Your answer</span>
               <textarea

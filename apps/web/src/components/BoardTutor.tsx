@@ -54,7 +54,7 @@ export function BoardTutor({
     return (
       <section className="card" aria-labelledby="board-empty-heading">
         <h2 id="board-empty-heading">No board questions yet</h2>
-        <p className="body">{view.empty_reason || 'There is no board bank on this Mac yet.'}</p>
+        <p className="body">{view.empty_reason || 'There is no board bank on Source yet.'}</p>
         <p className="muted">
           Questions are written from the{' '}
           <a href="/encyclopedia" onClick={go('encyclopedia')}>
@@ -139,7 +139,7 @@ export function BoardTutor({
         </fieldset>
         {!answered ? (
           <>
-            <p className="muted small">Checked on this Mac against the question’s key; no model is involved in checking it.</p>
+            <p className="muted small">Checked on Source against the question’s key; no model is involved in checking it.</p>
             <div className="actions">
               <button type="button" className="button primary" disabled={busy || choice === null} onClick={() => void check()}>
                 {busy ? 'Working…' : 'Check answer'}

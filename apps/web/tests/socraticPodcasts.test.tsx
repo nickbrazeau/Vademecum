@@ -44,7 +44,7 @@ function stub(routes: Record<string, unknown | ((body: unknown) => unknown)>) {
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('the Socratic tutor on the Mac', () => {
+describe('the Socratic tutor on Source', () => {
   it('starts with the tutor speaking first, takes an answer, and ends with the assessment and flagged gaps', async () => {
     let answered = 0
     const calls = stub({
@@ -90,14 +90,14 @@ describe('the Socratic tutor on the Mac', () => {
   })
 })
 
-describe("the phone's tutor, answered by the Mac", () => {
-  it('starts through the relay, shows the Mac writing, then the question', async () => {
+describe("the phone's tutor, answered by Source", () => {
+  it('starts through the relay, shows Source writing, then the question', async () => {
     let reads = 0
     const calls = stub({
       '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
       '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
       '/api/socratic': { open: null, recent: [], mode: 'host', can_answer_here: true, note: '', disclosure: '', relay: { available: true, live: true } },
-      'POST /api/socratic': { session: { ...OPENED, mode: 'host', transcript: [], waiting: true }, note: 'Your Mac is writing the first question.', gaps_filed: 0 },
+      'POST /api/socratic': { session: { ...OPENED, mode: 'host', transcript: [], waiting: true }, note: 'Source is writing the first question.', gaps_filed: 0 },
       '/api/socratic/soc_1': () => {
         reads += 1
         return { session: { ...OPENED, mode: 'host', waiting: false } }
@@ -108,13 +108,13 @@ describe("the phone's tutor, answered by the Mac", () => {
     await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
     await user.click(await screen.findByRole('button', { name: 'Start a session' }))
     expect(calls.find((call) => call.method === 'POST' && call.url === '/api/socratic')?.body).toEqual({ relay: true })
-    expect(await screen.findByText(/Your Mac is writing the first question/)).toBeInTheDocument()
+    expect(await screen.findByText(/Source is writing the first question/)).toBeInTheDocument()
     expect(await screen.findByText(/What is on your differential\?/, {}, { timeout: 4000 })).toBeInTheDocument()
     expect(reads).toBeGreaterThan(0)
     expect(calls.some((call) => call.url.endsWith('/answer'))).toBe(false)
   })
 
-  it('wakes the Mac and says so while it is not yet answering', async () => {
+  it('wakes Source and says so while it is not yet answering', async () => {
     stub({
       '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
       '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
@@ -123,18 +123,18 @@ describe("the phone's tutor, answered by the Mac", () => {
     const user = userEvent.setup()
     render(<Tutor />)
     await user.click(await screen.findByRole('button', { name: /^Socratic tutor/ }))
-    expect(await screen.findByText(/Waking your Mac to be the tutor/)).toBeInTheDocument()
+    expect(await screen.findByText(/Waking Source to be the tutor/)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Start a session' })).not.toBeInTheDocument()
     // ChatGPT's own voice is the phone's way in (feedback of 7 October); the Mac's tutor is the typed option.
     expect(screen.getByRole('link', { name: 'Continue in ChatGPT' })).toHaveClass('primary')
     expect(screen.getByText(/ChatGPT’s own voice/)).toBeInTheDocument()
-    expect(screen.getByText('Or here, typed, with your Mac as the tutor')).toBeInTheDocument()
+    expect(screen.getByText('Or here, typed, with Source as the tutor')).toBeInTheDocument()
     // The hand-off is there at once, one tap (feedback of 6 October).
     expect(screen.getByRole('link', { name: 'Continue in ChatGPT' }).getAttribute('href')).toMatch(/^https:\/\/chatgpt\.com\/\?q=.*socratic_start/)
     expect(screen.getByRole('link', { name: 'Continue in Claude' })).toBeInTheDocument()
   })
 
-  it('offers to carry the same session on in ChatGPT or Claude when the Mac goes quiet', async () => {
+  it('offers to carry the same session on in ChatGPT or Claude when Source goes quiet', async () => {
     stub({
       '/api/tutor/board/next': { question: null, cycle: {}, empty_reason: 'none' },
       '/api/tutor/next': { question: null, cycle: {}, empty_reason: 'none' },
@@ -206,7 +206,7 @@ describe('the Podcast tab', () => {
     const episode = (await screen.findByText('Lactate, two ways')).closest('li') as HTMLElement
     expect(within(episode).getByText('Lactate above 2 mmol/L marks hypoperfusion.')).toBeInTheDocument()
     await user.selectOptions(within(episode).getByLabelText('Host A voice'), 'Karen')
-    await user.click(within(episode).getByRole('button', { name: 'Render audio on this Mac' }))
+    await user.click(within(episode).getByRole('button', { name: 'Render audio on Source' }))
     await waitFor(() => expect(calls.find((call) => call.url === '/api/podcasts/pod_1/render')?.body).toEqual({ voice_a: 'Karen', voice_b: 'Daniel' }))
     await waitFor(() => expect(screen.getByText(/audio ready · 1 page · /)).toBeInTheDocument())
     expect(document.querySelector('audio')?.getAttribute('src')).toBe('/api/podcasts/pod_1/audio')
@@ -216,7 +216,7 @@ describe('the Podcast tab', () => {
     let listened = false
     const audio = { ...EPISODE, status: 'rendered', has_audio: true, audio_bytes: 120000, duration_seconds: 75 }
     const calls = stub({
-      '/api/podcasts': () => ({ episodes: [{ ...audio, archived: listened, listened_at: listened ? '2026-10-04T23:00:00Z' : null }], can_write: false, can_render: false, note: 'Episodes are written on the Mac.', disclosure: '' }),
+      '/api/podcasts': () => ({ episodes: [{ ...audio, archived: listened, listened_at: listened ? '2026-10-04T23:00:00Z' : null }], can_write: false, can_render: false, note: 'Episodes are written on Source.', disclosure: '' }),
       '/api/podcasts/voices': { voices: [], default: {} },
       '/api/encyclopedia': { entries: [], counts: {}, can_compile: false, running: false, last_refresh: null, note: '', disclosure: '' },
       'POST /api/podcasts/pod_1/listened': (body: unknown) => {
@@ -322,7 +322,7 @@ describe('the Podcast tab', () => {
     const link = screen.getByRole('link', { name: 'Continue in ChatGPT' })
     expect(link).toHaveClass('primary')
     expect(decodeURIComponent(link.getAttribute('href') ?? '')).toContain('session_id soc_1')
-    expect(screen.getByText('Or answer here, typed, with your Mac as the tutor')).toBeInTheDocument()
+    expect(screen.getByText('Or answer here, typed, with Source as the tutor')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'End session' })).toBeInTheDocument()
   })
 

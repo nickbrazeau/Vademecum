@@ -35,8 +35,8 @@ from .store import AccessStore, InviteError
 logger = logging.getLogger("vademecum_mcp.consent")
 
 NO_PASSPHRASE = (
-    "No passphrase has been set on the Mac yet, so nothing can be approved. On "
-    "the Mac, run: ./scripts/mcp.sh passphrase"
+    "No passphrase has been set on Source yet, so nothing can be approved. On "
+    "Source, run: ./scripts/mcp.sh passphrase"
 )
 EXPIRED = (
     "This sign-in request has expired or was already used. Start again from the "

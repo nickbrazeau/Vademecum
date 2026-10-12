@@ -11,7 +11,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 const PREFERENCES = { visible_tabs: ['today', 'settings'], order: ['today', 'settings'], tabs: [], daily_goal: 20, podcast_speed: 1 }
 
-describe("the Mac's model, on the phone", () => {
+describe("Source's model, on the phone", () => {
   it('shows the connection, plan and allowance as last seen', async () => {
     vi.stubGlobal(
       'fetch',
@@ -41,6 +41,6 @@ describe("the Mac's model, on the phone", () => {
     expect(await screen.findByText(/ChatGPT, through Codex · Pro Lite plan/)).toBeInTheDocument()
     expect(screen.getByText('Signed in')).toBeInTheDocument()
     expect(screen.getByText(/This week: 25% used/)).toBeInTheDocument()
-    expect(screen.getByText(/As the Mac saw it/)).toBeInTheDocument()
+    expect(screen.getByText(/As Source saw it/)).toBeInTheDocument()
   })
 })

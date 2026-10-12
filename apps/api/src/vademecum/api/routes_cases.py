@@ -25,7 +25,7 @@ router = APIRouter(prefix="/cases", tags=["cases"])
 DISCLOSURE = (
     "Keeping the hub updated sends fixed public requests, with nothing of yours in them, to PubMed "
     "(for the two NEJM series), clinicalproblemsolving.com and thecurbsiders.com. Writing teaching "
-    "points sends each case's public title and show notes, once, to the Mac's own model connection "
+    "points sends each case's public title and show notes, once, to Source's own model connection "
     "(Codex or Claude, on your sign-in; no API key). None of your material, notes, flags or answers "
     "is included in either."
 )
@@ -160,7 +160,7 @@ async def add_feed(payload: FeedIn, request: Request, connection: sqlite3.Connec
         }
     hub = get_hub(request)
     if hub is None or not hub.fetches_here:
-        raise ConflictError("on_the_mac", "Feeds are added on the Mac, which fetches the case series.")
+        raise ConflictError("on_the_mac", "Feeds are added on Source, which fetches the case series.")
     settings = request.app.state.settings
     fetcher = HttpsFetcher(host, timeout=settings.literature_request_timeout, contact_email=settings.literature_contact_email, owner_confirmed=frozenset({host}))
     try:

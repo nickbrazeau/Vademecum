@@ -195,7 +195,7 @@ async def drop_into_folder(
     settings = request.app.state.settings
     folder = current_sources_dir(settings) if settings.tenancy == "single" else None
     if folder is None:
-        raise store.ConflictError("not_in_this_mode", "Dropping files into the source folder works on the Mac, where the folder is.")
+        raise store.ConflictError("not_in_this_mode", "Dropping files into the source folder works on Source, where the folder is.")
     if len(files) > MAX_FILES_PER_REQUEST:
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"Drop at most {MAX_FILES_PER_REQUEST} files at a time.")
     tier_folder = TIER_FOLDERS.get(confidence, TIER_FOLDERS["mid"])
@@ -394,11 +394,11 @@ HOST_DESTINATION = (
     "Short public topic words still go from Vademecum to PubMed."
 )
 CODEX_DESTINATION = (
-    "Sent to OpenAI through the Codex process on this Mac, using your "
+    "Sent to OpenAI through the Codex process on Source, using your "
     "ChatGPT sign-in. No API key is used."
 )
 CLAUDE_DESTINATION = (
-    "Sent to Claude through the Claude Code CLI on this Mac, using your "
+    "Sent to Claude through the Claude Code CLI on Source, using your "
     "Claude sign-in. No API key is used."
 )
 

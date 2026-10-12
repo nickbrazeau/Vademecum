@@ -159,7 +159,7 @@ export function Tutor({ onNavigate }: { onNavigate?: (name: RouteName) => void }
           <div className="tutor-choices">
             <button type="button" className="button primary tutor-choice" onClick={() => setMode('questions')}>
               <strong>Board questions</strong>
-              <span className="small">ABIM-style vignettes from your encyclopedia, checked on this Mac</span>
+              <span className="small">ABIM-style vignettes from your encyclopedia, checked on Source</span>
             </button>
             <button type="button" className="button tutor-choice" onClick={() => setMode('socratic')}>
               <strong>Socratic tutor</strong>
@@ -279,7 +279,7 @@ function OpenTutor({ onNavigate, boardReason }: { onNavigate?: (name: RouteName)
       <div className="stack">
         <section className="card" aria-labelledby="tutor-empty-heading">
           <h2 id="tutor-empty-heading">No questions yet</h2>
-          <p className="body">{boardReason || (view.empty_reason === '' ? 'There is no question bank on this Mac yet.' : view.empty_reason)}</p>
+          <p className="body">{boardReason || (view.empty_reason === '' ? 'There is no question bank on Source yet.' : view.empty_reason)}</p>
           <p className="muted">
             Board questions are written from the Encyclopedia, which is compiled from the learning
             points a Build makes from files you add in{' '}

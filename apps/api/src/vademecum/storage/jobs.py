@@ -46,7 +46,7 @@ FAILURE_DETAIL = {
         "reported safety notices may still hold affected questions."
     ),
     "unavailable": (
-        "The Codex connection dropped. If the request had already left this Mac "
+        "The Codex connection dropped. If the request had already left Source "
         "we cannot tell how far it got; nothing was written, and previous "
         "material for this pile is unchanged."
     ),
@@ -90,7 +90,7 @@ FAILURE_DETAIL = {
         "material or coverage was saved; previous material for this pile is unchanged."
     ),
     "refused": "Codex refused the request.",
-    "internal": "Something went wrong on this Mac while building. Nothing was lost.",
+    "internal": "Something went wrong on Source while building. Nothing was lost.",
 }
 
 

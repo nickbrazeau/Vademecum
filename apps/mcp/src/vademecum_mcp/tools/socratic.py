@@ -3,7 +3,7 @@
 In a chat host -- in voice or in text -- the assistant IS the Socratic tutor:
 socratic_start hands it the page and the rules, it asks and listens, records
 each exchange with socratic_turn, and closes with socratic_finish. Podcast
-scripts are written on the Mac; from here they can be started, listed and read.
+scripts are written on Source; from here they can be started, listed and read.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     ) -> dict[str, Any]:
         """Begin a Socratic session and become the tutor. The reply carries the
         page (compiled from the owner's own sources), further context already on
-        the Mac (reviewed abstracts, related pages, case-series points), the
+        Source (reviewed abstracts, related pages, case-series points), the
         rules, and the dialogue so far. The page is the grounding; use the
         context, your own knowledge and web search to assess answers and to
         probe beyond the page, saying which is which and citing what you
@@ -124,7 +124,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     @mcp.tool(annotations=READ)
     async def podcast_list() -> dict[str, Any]:
         """The podcast episodes: title, status (draft, scripted, rendered), the pages
-        each was written from, length in words, and whether audio exists on the Mac."""
+        each was written from, length in words, and whether audio exists on Source."""
         data = await call(api.get("/api/podcasts"))
         return listing(data.get("episodes", []), note=data.get("note", ""), disclosure=data.get("disclosure", ""))
 
@@ -141,7 +141,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         title: Annotated[str, Field(max_length=120)] = "",
         request: Annotated[str, Field(max_length=300, description="With pick=request: what the episode should be about, in the owner's words.")] = "",
     ) -> dict[str, Any]:
-        """Write a podcast episode on the Mac's own model connection. With
+        """Write a podcast episode on Source's own model connection. With
         pick=request and the owner's words in `request`, it is grounded in the
         matching encyclopedia pages (or beyond them when none matches) and voiced
         straight away; podcast_list shows its progress. At most ten episodes wait

@@ -95,7 +95,7 @@ def suggestions(
         ),
         "note": (
             "Adding a topic does not switch on weekly checking. Weekly checks are "
-            "opt-in and only run while Vademecum is running on this Mac."
+            "opt-in and only run while Vademecum is running on Source."
         ),
     }
 

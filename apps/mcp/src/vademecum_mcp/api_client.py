@@ -38,14 +38,14 @@ from vademecum.config import ConfigError, is_loopback
 from . import __version__
 
 UNREACHABLE = (
-    "Vademecum is not running on the Mac, or the MCP server cannot reach it. "
+    "Vademecum is not running on Source, or the MCP server cannot reach it. "
     "Start it there with ./scripts/dev.sh and try again."
 )
 TIMED_OUT = (
-    "Vademecum on the Mac did not answer in time. If a build or a grading turn "
+    "Vademecum on Source did not answer in time. If a build or a grading turn "
     "was in progress it may still complete; check its status before retrying."
 )
-UNEXPECTED = "Vademecum on the Mac answered in a way this tool could not use."
+UNEXPECTED = "Vademecum on Source answered in a way this tool could not use."
 TOO_LARGE = "That file is larger than a tool result can carry. Open it in the web app instead."
 # A picture stored by intake is at most 6 MB; a schematic at most 512 KB.
 MAX_FILE_BYTES = 8 * 1024 * 1024

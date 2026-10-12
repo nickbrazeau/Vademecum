@@ -45,7 +45,7 @@ describe('Add source', () => {
     expect((upload.get('files') as File).name).toBe('Pasted note.md')
   })
 
-  it('on the Mac, files into the source folder under the chosen pile', async () => {
+  it('on Source, files into the source folder under the chosen pile', async () => {
     const calls = stub({
       '/api/piles': [PILE],
       'POST /api/sources/folder-drop': { folder: 'piles/highconfidence/Sepsis', files: [{ filename: 'lecture.pdf', status: 'placed' }] }

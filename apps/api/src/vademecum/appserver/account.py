@@ -72,7 +72,7 @@ DETAIL: dict[str, str] = {
         "Codex CLI, then try again."
     ),
     "spawn_failed": (
-        "Codex would not start on this Mac. No note, question or answer was sent anywhere."
+        "Codex would not start on Source. No note, question or answer was sent anywhere."
     ),
     "startup_failed": (
         "The Codex connection could not be set up. No note, question or answer was sent "
@@ -113,7 +113,7 @@ SIGNED_IN_DETAIL = (
     "only the content described in their previews when you explicitly approve those actions."
 )
 RATE_LIMITED_DETAIL = (
-    "Your Codex usage limit has been reached. Everything stored on this Mac is unaffected."
+    "Your Codex usage limit has been reached. Everything stored on Source is unaffected."
 )
 
 

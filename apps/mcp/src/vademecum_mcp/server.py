@@ -35,7 +35,7 @@ from .config import MCP_PATH, SCOPE, McpSettings
 # the boundaries; everything after is how the tools fit together.
 INSTRUCTIONS = (
     "Vademecum is the owner's private clinical-learning workspace, running on their own "
-    "Mac; these tools reach it through a tunnel the owner set up. It is educational: never "
+    "Source; these tools reach it through a tunnel the owner set up. It is educational: never "
     "present anything from it as clinical advice or as a substitute for clinical judgment, "
     "current institutional guidance or a specialist. Never put patient names, dates of "
     "birth, record numbers or other identifiers into any tool; restate in general terms. "
@@ -44,10 +44,10 @@ INSTRUCTIONS = (
     "The strongest thing Vademecum says about a claim is 'evidence-supported, machine "
     "reviewed'; nothing is verified, human-approved or clinically validated. "
     "A pile's Low/Medium/High is the owner's tier confidence in the material, not mastery. Material "
-    "comes in through the owner's source folder on this Mac (sources_folder says where; "
+    "comes in through the owner's source folder on Source (sources_folder says where; "
     "sync_sources reads it); pasted text goes in with add_text_source. Pictures found in "
     "sources are kept: list_images shows them and view_image returns one to look at; pages "
-    "with no text layer are read on the Mac and cited with an '(OCR)' locator. "
+    "with no text layer are read on Source and cited with an '(OCR)' locator. "
     "Encyclopedia pages carry figures taken from the owner's own sources, placed beside the "
     "paragraphs they belong to; use those. Draw a schematic only when the owner asks for one: "
     "then draw a self-contained SVG and "
@@ -58,13 +58,13 @@ INSTRUCTIONS = (
     "in the conversation, then answer in a sentence or two; open_vademecum takes a view "
     "for the page they asked about, including cases: the Case Series hub, where the NEJM case "
     "series, the Clinical Problem Solvers and The Curbsiders are gathered with links to the "
-    "originals, credit to their authors and hosts, and teaching points written on the Mac. "
+    "originals, credit to their authors and hosts, and teaching points written on Source. "
     "If the host cannot draw it, open_dashboard opens the "
-    "same thing in their browser on this Mac. app_request belongs to that app, not to you. "
-    "Builds on a timer: build_schedule reads or sets the Mac's own schedule (a standing consent; "
+    "same thing in their browser on Source. app_request belongs to that app, not to you. "
+    "Builds on a timer: build_schedule reads or sets Source's own schedule (a standing consent; "
     "show its disclosure and wait for a yes before turning it on) and build_now runs it at once. "
     "Transmission: build_start sends previewed excerpts, and tutor_grade sends one question, "
-    "its reference and the owner's answer, to the Mac's own model connection (Codex or Claude); "
+    "its reference and the owner's answer, to Source's own model connection (Codex or Claude); "
     "literature_check sends short public topic phrases to PubMed. Before build_start, show "
     "the owner build_preview's disclosure and excerpts and wait for an explicit yes. "
     "The encyclopedia: a Build's learning points are compiled, topic by topic, into pages whose "
@@ -77,7 +77,7 @@ INSTRUCTIONS = (
     "through the differential, the treatment options and the knowledge; the page grounds the "
     "session and your own knowledge and web search assess and extend it, said as such -- "
     "recording each exchange with socratic_turn and closing with socratic_finish. If a tutoring dialogue happened without those calls, save it afterwards with socratic_save. Podcasts: podcast_list and podcast_read "
-    "give the episodes and their scripts; podcast_create writes one on the Mac after the owner's "
+    "give the episodes and their scripts; podcast_create writes one on Source after the owner's "
     "yes to its disclosure. The older open-answer flow remains: "
     "tutor_next_question, let the owner answer in their own words, tutor_grade "
     "(or tutor_reveal then tutor_self_assess when grading is unavailable), then tutor_advance. "
@@ -101,7 +101,7 @@ def create_server(
     mcp = MCPServer(
         "Vademecum",
         title="Vademecum",
-        description="A private clinical-learning workspace on the owner's Mac.",
+        description="A private clinical-learning workspace on Source.",
         instructions=INSTRUCTIONS,
         version=__version__,
         auth=auth,

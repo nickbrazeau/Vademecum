@@ -15,14 +15,14 @@ import { PhiWarning } from './PhiWarning'
 import { TransmissionDisclosure } from './TransmissionDisclosure'
 
 export const REPORT_DISCLOSURE = {
-  headline: 'Adding a score report sends its text to the Mac’s own model connection, once.',
+  headline: 'Adding a score report sends its text to Source’s own model connection, once.',
   bullets: [
-    'The whole report, as read on this Mac: a PDF with a text layer, a picture of it, or a text file.',
+    'The whole report, as read on Source: a PDF with a text layer, a picture of it, or a text file.',
     'Nothing else: no notes, no sources, no answers.',
     'The model is told to omit anything that identifies you; remove it yourself first where you can.',
     'What comes back is kept only where it quotes the report. The map draws the areas; it judges nothing.'
   ],
-  destination: 'The Mac’s own model connection, Codex or Claude, on your sign-in. No API key is used.'
+  destination: 'Source’s own model connection, Codex or Claude, on your sign-in. No API key is used.'
 }
 
 const STANDING_LABEL = { below: 'below', at: 'at', above: 'above' } as const

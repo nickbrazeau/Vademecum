@@ -99,6 +99,8 @@ export function App() {
   // connection of the learner's own to show. Until health answers, and on the
   // owner's Mac, nothing changes.
   const [behindGateway, setBehindGateway] = useState(false)
+  // Source: the owner's computer, where the source folder is (not the cloud copy).
+  const [sourceComputer, setSourceComputer] = useState(false)
   // In host mode the assistant in the conversation is the model: there is
   // no connection of this machine's own to show (ADR 0009).
   const [hostMode, setHostMode] = useState(false)
@@ -137,6 +139,7 @@ export function App() {
       .then((health) => {
         if (!cancelled) {
           setBehindGateway(health.tenancy === 'multi' || health.behind_gateway === true)
+          setSourceComputer(health.tenancy !== 'multi' && health.behind_gateway !== true)
           setHostMode(health.model_mode === 'host')
         }
       })
@@ -198,8 +201,9 @@ export function App() {
             <Mark />
             <span>Vademecum</span>
           </h1>
-          {/* Beside Flag a gap: add a source from anywhere (feedback of 6 October). */}
-          {!inChat() ? (
+          {/* Beside Flag a gap, on Source only: sources are added where the source folder is
+              (feedback of 12 October). Not shown until the shell knows which copy this is. */}
+          {!inChat() && sourceComputer ? (
             <button type="button" className="button add-source-button" onClick={() => setSourceOpen(true)}>
               Add source
             </button>
@@ -234,7 +238,7 @@ export function App() {
         {online || compact ? null : (
           <p className="offline" role="status">
             This device is offline. The app shell is showing from the local cache; your saved work
-            is on the Mac and is untouched.
+            is on Source and is untouched.
           </p>
         )}
       </header>
@@ -260,7 +264,7 @@ export function App() {
       </footer>
 
       <QuickFlagDialog open={flagOpen} onClose={() => setFlagOpen(false)} onSaved={onSaved} />
-      <AddSourceDialog open={sourceOpen} onClose={() => setSourceOpen(false)} onPhone={hostMode} />
+      {sourceComputer ? <AddSourceDialog open={sourceOpen} onClose={() => setSourceOpen(false)} onPhone={hostMode} /> : null}
     </div>
   )
 }

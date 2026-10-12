@@ -1,7 +1,7 @@
 """The web app, one click from the conversation.
 
 The API serves the built web app at its own loopback address. This tool
-opens it in the learner's default browser, on this Mac, so the dashboard the
+opens it in the learner's default browser, on Source, so the dashboard the
 web app is -- Today, the sources, the Tutor, the Improvement Map's graph --
 is a sentence away from the chat. Nothing is served anywhere new and nothing
 leaves the machine: the browser talks to 127.0.0.1 exactly as the assistant
@@ -24,7 +24,7 @@ from ..config import McpSettings
 from ._shared import READ
 
 NOT_BUILT = (
-    "The web app has not been built on this Mac, so there is nothing to open. "
+    "The web app has not been built on Source, so there is nothing to open. "
     "Run ./scripts/install.sh again with Node installed, or ./scripts/dev.sh for the "
     "development server."
 )
@@ -36,7 +36,7 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None) -> No
     @mcp.tool(annotations=READ)
     async def open_dashboard() -> dict[str, Any]:
         """Open the Vademecum web app -- the dashboard -- in the owner's browser
-        on this Mac: Today, the source library, the Tutor, the Improvement Map
+        on Source: Today, the source library, the Tutor, the Improvement Map
         as a graph, and the model status. Use it when the owner wants to see
         or browse rather than be told, or asks for the dashboard, the web app
         or the map. The page is served from this machine only. Building and
@@ -53,7 +53,7 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None) -> No
         try:
             await api.get("/api/health")
         except ApiError:
-            return {"opened": False, "note": "Vademecum is not answering on this Mac right now."}
+            return {"opened": False, "note": "Vademecum is not answering on Source right now."}
         try:
             await api.get_bytes("/")
         except ApiError:
@@ -70,6 +70,6 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None) -> No
                 "window is behind this one."
                 if opened
                 else "This host did not let Vademecum open a browser. Give the owner the address as "
-                "a link; it opens on this Mac only."
+                "a link; it opens on Source only."
             ),
         }

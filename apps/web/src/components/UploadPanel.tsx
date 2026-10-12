@@ -104,7 +104,7 @@ function UploadForm({ pileId, defaultConfidence, onUploaded }: UploadPanelProps)
         </label>
         <p className="muted small">
           PDF, PowerPoint (.pptx), Word (.docx), plain text, Markdown and pictures (.png, .jpg). Files are copied
-          into your data directory on this Mac; adding a file does not send it to a model.
+          into your data directory on Source; adding a file does not send it to a model.
           Only readable text is extracted. No OCR or diagram interpretation is performed.
         </p>
         <PhiWarning />

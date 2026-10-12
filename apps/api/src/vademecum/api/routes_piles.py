@@ -71,7 +71,7 @@ def delete_pile(
     bring it back, and nothing is lost that the owner cannot recover from there."""
     settings = request.app.state.settings
     if everything and settings.sync_role_name == "foris":
-        raise store.ConflictError("on_the_mac", "A pile with files in it is deleted on the Mac, where its files are.")
+        raise store.ConflictError("on_the_mac", "A pile with files in it is deleted on Source, where its files are.")
     pile = store.get_pile(connection, pile_id)
     originals = store.delete_pile(connection, pile_id, everything=everything)
     if everything:

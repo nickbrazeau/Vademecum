@@ -38,8 +38,8 @@ DISALLOWED_TOOLS = "Bash,Read,Write,Edit,MultiEdit,NotebookEdit,Glob,Grep,LS,Web
 MAX_OUTPUT_BYTES = 2_000_000
 
 DETAIL = {
-    "signed_in": "Signed in to Claude through the Claude Code CLI on this Mac. Build and Grade send only the content described in their previews.",
-    "signed_out": "The Claude Code CLI on this Mac is not signed in. Open a terminal, run `claude`, and sign in with your Claude account; nothing is sent until then.",
+    "signed_in": "Signed in to Claude through the Claude Code CLI on Source. Build and Grade send only the content described in their previews.",
+    "signed_out": "The Claude Code CLI on Source is not signed in. Open a terminal, run `claude`, and sign in with your Claude account; nothing is sent until then.",
     "not_found": "The Claude Code CLI is not installed where Vademecum expects it. Install Claude Code, then try again.",
     "unavailable": "The Claude Code CLI did not answer. Nothing was sent.",
 }

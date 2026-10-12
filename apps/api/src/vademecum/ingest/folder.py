@@ -83,7 +83,7 @@ it -- and each folder inside a tier is a pile:
 
 Vademecum reads PDF, PowerPoint (.pptx), Word (.docx), text, Markdown and
 pictures (.png, .jpg). Pictures inside files are kept too, and pages with no
-text layer are read on this Mac. Schematics your assistant draws are filed
+text layer are read on Source. Schematics your assistant draws are filed
 under "schematics" here. Open this folder as a project in Codex and ask for
 Vademecum: the dashboard opens in the conversation (AGENTS.md says so).
 

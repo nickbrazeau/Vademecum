@@ -55,7 +55,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     @mcp.tool(annotations=READ, meta=CARD_CALLABLE)
     async def tutor_reveal(question_id: QuestionId) -> dict[str, Any]:
         """Show the reference answer and rubric for a question, with the source
-        passages they come from. Local to the Mac; nothing is transmitted. Use
+        passages they come from. Local to Source; nothing is transmitted. Use
         after the owner has answered, or when they ask to see it."""
         return await call(api.post("/api/tutor/reveal", {"question_id": question_id}))
 
@@ -69,7 +69,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         (outcome, feedback, strengths, missing_or_unsafe, improved_answer,
         uncertainty), and call tutor_record_grade with it. Do not grade from
         your own knowledge where the rubric is silent; use uncertainty. Without
-        `pending`, the Mac's own model connection grades and the result is the
+        `pending`, Source's own model connection grades and the result is the
         feedback itself. If grading is unavailable the result says so and
         includes the reference so the owner can use tutor_self_assess."""
         try:

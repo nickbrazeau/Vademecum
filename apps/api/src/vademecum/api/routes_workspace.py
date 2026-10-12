@@ -51,7 +51,7 @@ async def delete_workspace(
     if settings.tenancy != "multi":
         raise ConflictError(
             "not_in_this_mode",
-            "This workspace is the data directory on this Mac; remove it there.",
+            "This workspace is the data directory on Source; remove it there.",
         )
     revoked = request.app.state.token_resolver.revoke_all_for(workspace.learner_id)
     removed = await request.app.state.workspaces.delete(workspace.learner_id)

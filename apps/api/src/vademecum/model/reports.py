@@ -25,7 +25,7 @@ from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.reports")
 
-WAITING = "Waiting for the Mac's own model connection (codex or claude mode) to read it."
+WAITING = "Waiting for Source's own model connection (codex or claude mode) to read it."
 
 
 def check_areas(payload: dict[str, Any], text: str, specialty_ids: set[str]) -> list[dict[str, Any]]:

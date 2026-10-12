@@ -54,7 +54,7 @@ RUN_TIMEOUT_SECONDS = 1800.0
 POLL_SECONDS = 1.0
 
 NEEDS_CODEX = (
-    "Scheduled builds need the Mac's own model connection -- Codex or Claude -- which does the "
+    "Scheduled builds need Source's own model connection -- Codex or Claude -- which does the "
     "model turns while nobody is in a conversation. This Vademecum is in host mode; start it with "
     "`mcp.sh setup login --model codex` or `--model claude` and sign in on the Model page."
 )

@@ -31,7 +31,7 @@ board_router = APIRouter(prefix="/tutor/board", tags=["board"])
 
 COMPILE_DISCLOSURE = (
     "Compiling sends, per topic, the learning points already built from your sources -- their "
-    "claims, details, support labels and source names -- once, to the Mac's own model connection "
+    "claims, details, support labels and source names -- once, to Source's own model connection "
     "(Codex or Claude, on your sign-in; no API key), to write the page. Writing questions sends the "
     "page, its points, and as context the case-series teaching points in its specialty and your "
     "open flags on the topic. Nothing else; no source file is sent."
@@ -208,7 +208,7 @@ class RestoreIn(Strict):
 def restore_deleted(payload: RestoreIn, connection: sqlite3.Connection = Depends(get_connection), mode: str = Depends(get_model_mode)) -> dict[str, Any]:
     """Bring a deleted page back: it is written again at the next compile, on the Mac."""
     if mode not in ("codex", "claude"):
-        raise ConflictError("on_the_mac", "Pages are brought back on the Mac, where the encyclopedia is written.")
+        raise ConflictError("on_the_mac", "Pages are brought back on Source, where the encyclopedia is written.")
     return {"restored": store.restore_page(connection, payload.topic)}
 
 
@@ -230,7 +230,7 @@ def reveal_file(entry_id: str, request: Request, open_it: bool = False, connecti
     folder = getattr(request.app.state, "sources_folder", None)
     relative = page_files.file_of(connection, entry_id)
     if folder is None or relative is None or sys.platform != "darwin":
-        raise ConflictError("no_file", "This page's Markdown file is on the Mac, in the source folder under encyclopedia/.")
+        raise ConflictError("no_file", "This page's Markdown file is on Source, in the source folder under encyclopedia/.")
     path = (Path(folder) / relative).resolve()
     if not path.is_file() or Path(folder).resolve() not in path.parents:
         raise ConflictError("no_file", "The file is not there yet; it is written at the next folder scan.")
@@ -258,7 +258,7 @@ def delete_page(entry_id: str, request: Request, connection: sqlite3.Connection 
         page_changes.record(connection, entry_id, "delete")
         return {"deleted": store.delete_entry(connection, entry_id), "applied_on_the_mac": "at its next sync"}
     if mode not in ("codex", "claude"):
-        raise ConflictError("on_the_mac", "Pages are deleted on the Mac, where the encyclopedia is written; the phone follows at the next sync.")
+        raise ConflictError("on_the_mac", "Pages are deleted on Source, where the encyclopedia is written; the phone follows at the next sync.")
     gone = store.delete_entry(connection, entry_id)
     page_files.remove_file(connection, getattr(request.app.state, "sources_folder", None), entry_id)
     return {"deleted": gone}

@@ -134,7 +134,7 @@ def rotate(*, run: Callable[..., Result], keychain, address: str, config: list[s
     _put_secret(run, "VADEMECUM_SYNC_ACCEPT_TOKEN", token, config)
     _check(run(["deploy", *config]), "deploying the cloud copy")
     keychain.put(keychain.SYNC_TOKEN, host, token)
-    say("New store key and sync token in place; the Mac's token is in the Keychain.")
+    say("New store key and sync token in place; Source's token is in the Keychain.")
     return {"address": address}
 
 
@@ -181,7 +181,7 @@ def create(
     _check(run(["deploy", *config]), "the deploy that tells the copy its own address")
     write_setting("SYNC_PEER_URL", address)
     keychain.put(keychain.SYNC_TOKEN, host, sync_token)
-    say("This Mac syncs with it; the sync token and the backup key are in the Keychain.")
+    say("Source syncs with it; the sync token and the backup key are in the Keychain.")
     return {"address": address, "fingerprint": fingerprint(backup_key), "bucket": bucket}
 
 
@@ -231,5 +231,5 @@ def main(mode: str, *, address: str | None = None) -> int:
     check = subprocess.run([sys.executable, str(root / "scripts" / "check_cloud.py"), outcome["address"]], timeout=900)
     print()
     print(f"Open {outcome['address']} on your phone, sign in with the passphrase once, then Settings → Face ID and sessions → Add Face ID.")
-    print("Restart Vademecum on this Mac so it picks up the changes.")
+    print("Restart Vademecum on Source so it picks up the changes.")
     return 0 if check.returncode == 0 else 1

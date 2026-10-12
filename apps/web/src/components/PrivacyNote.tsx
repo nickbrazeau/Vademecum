@@ -12,7 +12,7 @@ export function PrivacyNote() {
     <section className="privacy" aria-labelledby="privacy-heading">
       <h2 id="privacy-heading">Where this is stored</h2>
       <dl>
-        <dt>On this Mac</dt>
+        <dt>On Source</dt>
         <dd>
           Your piles, uploaded sources, notes, generated points and questions, answers and flags are
           saved to a SQLite database and a data directory of your own. You can export it as readable
@@ -52,7 +52,7 @@ export function PrivacyNote() {
         <dt>Kept in this browser</dt>
         <dd>
           Only what you have typed and not yet saved. Browser storage is treated as disposable; the
-          database on the Mac is the real copy.
+          database on Source is the real copy.
         </dd>
       </dl>
     </section>

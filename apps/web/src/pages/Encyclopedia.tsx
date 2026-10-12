@@ -115,7 +115,7 @@ export function DissectionCard({ onChanged }: { onChanged: () => void }) {
     <section className="card" aria-labelledby="dissection-heading">
       <h2 id="dissection-heading">Dissect a pile</h2>
       {!state.can_run ? (
-        <p className="muted small">Building happens on your Mac; this copy shows what it has built.</p>
+        <p className="muted small">Building happens on Source; this copy shows what it has built.</p>
       ) : (
         <>
           <p className="muted small">{state.disclosure}</p>
@@ -252,7 +252,7 @@ export function EditablePage({
             <textarea rows={24} value={draft} disabled={busy} spellCheck onChange={(event) => setDraft(event.target.value)} />
           </label>
           <p className="muted small">
-            # heading, ## section, a blank line between paragraphs, - for a list, **bold**, *italic*. Saved on this Mac and to the page’s file in
+            # heading, ## section, a blank line between paragraphs, - for a list, **bold**, *italic*. Saved on Source and to the page’s file in
             your source folder under encyclopedia/.
           </p>
           <div className="actions">

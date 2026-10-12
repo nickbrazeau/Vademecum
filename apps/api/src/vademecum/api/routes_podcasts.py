@@ -30,9 +30,9 @@ router = APIRouter(prefix="/podcasts", tags=["podcasts"])
 
 DISCLOSURE = (
     "Writing an episode sends the chosen pages -- their text and the points they rest on -- with the "
-    "literature reviewed for them, related pages and case-series points already on this Mac, once, "
+    "literature reviewed for them, related pages and case-series points already on Source, once, "
     "to write the script. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
-    + " Rendering the audio happens on this Mac, with its own voices or the on-device Kokoro voices; the script is spoken on-device and sent nowhere."
+    + " Rendering the audio happens on Source, with its own voices or the on-device Kokoro voices; the script is spoken on-device and sent nowhere."
 )
 MAX_PAGES = 6
 
@@ -203,7 +203,7 @@ async def hear_pronunciation(payload: HearIn, source_dir: Path = Depends(get_sou
 
     directory = _voices_dir(source_dir)
     if not kokoro.ready(directory):
-        raise ConflictError("no_voices", "The natural voices are not installed on this Mac; run scripts/voices.sh.")
+        raise ConflictError("no_voices", "The natural voices are not installed on Source; run scripts/voices.sh.")
     # A spelling being tried is heard as it would be saved, without saving it.
     owner = lexicon.owner_entries(directory)
     trial = dict(owner)
@@ -308,10 +308,10 @@ async def render(
 def audio(episode_id: str, connection: sqlite3.Connection = Depends(get_connection), source_dir: Path = Depends(get_source_dir)) -> FileResponse:
     episode = store.get_episode(connection, episode_id)
     if not episode.audio_name:
-        raise ConflictError("no_audio", "This episode has not been rendered on the Mac.")
+        raise ConflictError("no_audio", "This episode has not been rendered on Source.")
     path = _podcasts_dir(source_dir) / episode.audio_name
     if not path.is_file():
-        raise ConflictError("no_audio", "The audio file is not on this machine; it stays on the Mac that rendered it.")
+        raise ConflictError("no_audio", "The audio file is not on this machine; it stays on Source, where it was rendered.")
     return FileResponse(path, media_type="audio/mp4", filename=f"{episode.title[:60] or 'episode'}.m4a")
 
 

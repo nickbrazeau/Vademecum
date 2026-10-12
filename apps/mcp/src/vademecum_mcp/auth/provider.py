@@ -77,7 +77,7 @@ class OwnerAuthorizationServer:
             raise RegistrationError(
                 "invalid_client_metadata",
                 "Too many clients are registered with this Vademecum. Run "
-                "`scripts/mcp.sh revoke-all` on the Mac to clear them.",
+                "`scripts/mcp.sh revoke-all` on Source to clear them.",
             )
         self.store.save_client(client_info)
 

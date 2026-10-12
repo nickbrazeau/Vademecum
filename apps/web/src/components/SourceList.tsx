@@ -69,7 +69,7 @@ function SourceRow({ source, onChanged }: { source: Source; onChanged: () => voi
         </p>
       ) : null}
       {source.excluded ? (
-        <p className="muted small">Excluded. It stays on this Mac and goes into no batch.</p>
+        <p className="muted small">Excluded. It stays on Source and goes into no batch.</p>
       ) : null}
 
       <div className="actions">

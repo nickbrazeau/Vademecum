@@ -22,7 +22,7 @@ def today(connection: sqlite3.Connection = Depends(get_connection)) -> dict:
 
 FILED_ON_THE_MAC = (
     "This is the copy of Vademecum that runs in the cloud for your phone. Flags are filed under "
-    "topics by your Mac's own model connection, and the topics come back here at the next sync."
+    "topics by Source's own model connection, and the topics come back here at the next sync."
 )
 
 

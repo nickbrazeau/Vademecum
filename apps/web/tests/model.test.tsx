@@ -42,7 +42,7 @@ const SIGNED_IN: ModelStatus = {
 const RATE_LIMITED: ModelStatus = {
   ...SIGNED_IN,
   state: 'rate_limited',
-  detail: 'Your Codex usage limit has been reached. Everything stored on this Mac is unaffected.',
+  detail: 'Your Codex usage limit has been reached. Everything stored on Source is unaffected.',
   rate_limits: {
     primary: { used_percent: 100, resets_at: '2026-08-30T18:00:00Z', window_minutes: 300 },
     secondary: null,
@@ -176,7 +176,7 @@ describe('the connection states', () => {
     )
     render(<Model />)
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent(/not answering on this mac/i)
+    expect(alert).toHaveTextContent(/not answering on source/i)
     // The explanation of what would be sent survives the failure.
     expect(screen.getByRole('region', { name: /what this sends/i })).toBeVisible()
   })
@@ -188,7 +188,7 @@ describe('the connection states', () => {
     await waitFor(() =>
       expect(screen.getByText(/this device is offline/i)).toBeVisible()
     )
-    expect(screen.getByText(/nothing saved on this mac is affected/i)).toBeVisible()
+    expect(screen.getByText(/nothing saved on source is affected/i)).toBeVisible()
   })
 
   it('still says it is offline when the request itself could not be made', async () => {

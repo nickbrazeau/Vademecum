@@ -126,7 +126,7 @@ def test_the_api_edits_a_page_marks_reviews_lists_new_cases_and_says_where_flags
         assert c.get("/api/today").json()["new_cases"] == []
 
         mapped = c.get("/api/improvement-map").json()
-        assert mapped["can_file_flags"] is False and "filed under topics by your Mac" in mapped["filing_note"]
+        assert mapped["can_file_flags"] is False and "filed under topics by Source" in mapped["filing_note"]
         assert c.get("/api/improvement-map/strengths").json() == {"specialties": [], "topic_count": 0}
 
 

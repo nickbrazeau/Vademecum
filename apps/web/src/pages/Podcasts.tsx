@@ -20,7 +20,7 @@ import { Loading } from '../components/Loading'
 const STATUS_LABEL: Record<PodcastEpisode['status'], string> = {
   draft: 'writing the script',
   scripted: 'script ready',
-  rendered: 'audio on the Mac',
+  rendered: 'audio on Source',
   failed: 'could not be written'
 }
 
@@ -230,7 +230,7 @@ function EpisodeCard({
         </div>
       ) : null}
       {episode.audio_elsewhere ? (
-        <p className="muted small">The audio comes over from the Mac with its next sync. The five newest unheard episodes are kept here.</p>
+        <p className="muted small">The audio comes over from Source with its next sync. The five newest unheard episodes are kept here.</p>
       ) : null}
       {episode.archived && !episode.has_audio ? (
         <p className="muted small">Listened to. The audio was deleted to save space; the script, take-homes and sources stay.</p>
@@ -238,7 +238,7 @@ function EpisodeCard({
       {episode.has_audio ? (
         <Player episode={episode} speed={speed} onEnded={finished} />
       ) : episode.status === 'scripted' && !episode.archived && !episode.audio_elsewhere ? (
-        <p className="muted small">The Mac is voicing this in natural voices; the player appears here when it is ready.</p>
+        <p className="muted small">Source is voicing this in natural voices; the player appears here when it is ready.</p>
       ) : null}
       {episode.has_audio || (canSpeak() && episode.script.length > 0) ? <SpeedPicker speed={speed} onSpeed={onSpeed} /> : null}
       {episode.script.length > 0 ? <Script episode={episode} speed={speed} onFinished={finished} /> : null}
@@ -280,7 +280,7 @@ function EpisodeCard({
       <div className="actions">
         {episode.script.length > 0 && canRender ? (
           <button type="button" className="button primary" disabled={busy} onClick={() => void act(() => api.renderPodcast(episode.id, { voice_a: voiceA, voice_b: voiceB }))}>
-            {busy ? 'Rendering…' : episode.has_audio ? 'Render again' : 'Render audio on this Mac'}
+            {busy ? 'Rendering…' : episode.has_audio ? 'Render again' : 'Render audio on Source'}
           </button>
         ) : null}
         {episode.status === 'failed' ? (
@@ -507,8 +507,8 @@ export function Podcasts({ onNavigate }: { onNavigate?: (name: RouteName) => voi
         {list.can_render ? (
           <p className="muted small">
             {voiceList.some((voice) => voice.name.startsWith('kokoro:'))
-              ? 'Kokoro voices are natural on-device voices; the Mac’s own are listed after them.'
-              : 'Voices are the Mac’s own. For natural voices, run scripts/voices.sh once on this Mac and restart Vademecum.'}
+              ? 'Kokoro voices are natural on-device voices; Source’s own are listed after them.'
+              : 'Voices are Source’s own. For natural voices, run scripts/voices.sh once on Source and restart Vademecum.'}
           </p>
         ) : null}
       </section>

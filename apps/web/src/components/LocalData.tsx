@@ -30,7 +30,7 @@ export function LocalData() {
       <h2 id="local-data-heading">Your local data</h2>
       <p className="muted">
         An export is readable JSON you can open in any editor. A backup is a consistent copy of the
-        database. Both are written into your data directory on this Mac.
+        database. Both are written into your data directory on Source.
       </p>
       <div className="actions">
         <button

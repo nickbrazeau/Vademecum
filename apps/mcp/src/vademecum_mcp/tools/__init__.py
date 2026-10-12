@@ -8,9 +8,9 @@ much the design as what is (ADR 0008):
   removed, with a confirmation word, because the folder is how material comes
   in and a folder needs a way out;
 * no file upload beyond pasted text -- files go into the source folder;
-* export and backup, which write into the records directory on this Mac and
+* export and backup, which write into the records directory on Source and
   return a file name, never a path;
-* open_dashboard, which opens the web app served from this Mac in the owner's
+* open_dashboard, which opens the web app served from Source in the owner's
   own browser, and open_vademecum, which has the host draw the same web app
   inside the conversation; the app's own requests go through app_request,
   which allows a fixed list of routes (ADR 0014).

@@ -27,8 +27,8 @@ router = APIRouter(prefix="/improvement-map/reports", tags=["reports"])
 # Said before the upload button and returned with the upload: uploading is the
 # explicit act that sends (ADR 0002, 0020).
 DISCLOSURE = (
-    "Uploading a score report sends its text -- the whole report, as read on this Mac -- to the "
-    "Mac's own model connection (Codex or Claude, on your sign-in; no API key), once, to read out "
+    "Uploading a score report sends its text -- the whole report, as read on Source -- to the "
+    "Source's own model connection (Codex or Claude, on your sign-in; no API key), once, to read out "
     "the content areas and your standing in each. Remove anything that identifies you first; "
     "the model is told to omit identifiers, and the areas it returns are kept only where they "
     "quote the report."

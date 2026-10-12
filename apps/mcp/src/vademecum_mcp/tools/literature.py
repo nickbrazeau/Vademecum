@@ -23,7 +23,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
     async def literature_topics() -> dict[str, Any]:
         """The public topics the owner watches on PubMed, the watch settings
         (whether the weekly check is on -- it is opt-in and runs only while
-        Vademecum runs on the Mac), and suggested topics drawn from what builds
+        Vademecum runs on Source), and suggested topics drawn from what builds
         have already produced."""
         topics = await call(api.get("/api/literature/topics"))
         settings = await call(api.get("/api/literature/settings"))

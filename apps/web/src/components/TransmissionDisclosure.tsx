@@ -23,7 +23,7 @@ export const GRADING_DISCLOSURE: Disclosure = {
     'its reference answer and rubric',
     'the answer you have typed'
   ],
-  destination: 'OpenAI, through Codex on this Mac. No API key is used.'
+  destination: 'OpenAI, through Codex on Source. No API key is used.'
 }
 
 /** Checking the literature. Topic words only — never your material. */

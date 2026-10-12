@@ -168,7 +168,7 @@ describe('the body draft', () => {
     await user.type(body, 'Two major criteria.')
     await user.click(screen.getByRole('button', { name: /add item/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not answering on this mac/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not answering on source/i)
     expect(loadDraft(itemDraftKey('pil_1'))).toBe('Two major criteria.')
   })
 

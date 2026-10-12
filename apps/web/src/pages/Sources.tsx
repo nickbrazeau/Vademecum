@@ -174,7 +174,7 @@ function ItemPanel({ pile, onChanged }: { pile: Pile; onChanged: () => void }) {
           />
         </label>
         <PhiWarning />
-        <p className="muted small">Saved on this Mac. Typing it transmits nothing.</p>
+        <p className="muted small">Saved on Source. Typing it transmits nothing.</p>
         <button type="submit" className="button primary" disabled={title.trim() === '' || saving}>
           {saving ? 'Saving…' : 'Add item'}
         </button>

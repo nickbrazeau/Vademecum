@@ -5,7 +5,6 @@
  */
 
 import { useState } from 'react'
-import { AddSourceDialog } from '../components/AddSourceDialog'
 import { BuildSchedule } from '../components/BuildSchedule'
 import { ConstructionProgress } from '../components/ConstructionProgress'
 import { DeletedPages } from '../components/DeletedPages'
@@ -20,7 +19,6 @@ import { Piles } from './Sources'
 
 export function Foundation() {
   const [token, setToken] = useState(0)
-  const [adding, setAdding] = useState(false)
   const pages = useLoad(() => api.encyclopediaList(), [token])
   const sheet = useLoad(() => api.today(), [token])
   const changed = () => setToken((value) => value + 1)
@@ -29,26 +27,8 @@ export function Foundation() {
   return (
     <div className="stack">
       <ConstructionProgress reloadToken={token} />
-      {/* On the Mac, straight into the source folder; elsewhere, uploaded to this copy. */}
-      {onTheMac ? (
-        <FolderDrop onPlaced={changed} />
-      ) : pages.result.state === 'ready' ? (
-        <section className="card" aria-labelledby="add-source-card-heading">
-          <h2 id="add-source-card-heading">Add a source</h2>
-          <p className="muted small">PDF, PowerPoint, Word, Markdown, text or a picture; or paste a note.</p>
-          <button type="button" className="button primary" onClick={() => setAdding(true)}>
-            Add a source
-          </button>
-          <AddSourceDialog
-            open={adding}
-            onClose={() => {
-              setAdding(false)
-              changed()
-            }}
-            onPhone
-          />
-        </section>
-      ) : null}
+      {/* On Source only, straight into the source folder (feedback of 12 October). */}
+      {onTheMac ? <FolderDrop onPlaced={changed} /> : null}
       <BuildSchedule onBuilt={changed} />
       <DissectionCard onChanged={changed} />
       {pages.result.state === 'ready' ? <CompileCard state={pages.result.value} onChanged={changed} /> : null}

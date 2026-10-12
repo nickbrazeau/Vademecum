@@ -28,7 +28,7 @@ logger = logging.getLogger("vademecum.cases")
 
 MAX_SLEEP_SECONDS = 3600.0
 NOT_HERE = (
-    "This Vademecum shows the cases Domi gathered. Fetching and the teaching points run on the Mac, "
+    "This Vademecum shows the cases Domi gathered. Fetching and the teaching points run on Source, "
     "and sync brings them here."
 )
 

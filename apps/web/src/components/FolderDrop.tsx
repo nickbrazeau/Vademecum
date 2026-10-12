@@ -107,7 +107,7 @@ export function FolderDrop({ onPlaced }: { onPlaced?: () => void }) {
           <input ref={input} type="file" multiple hidden onChange={(event) => add(event.target.files)} data-testid="folder-drop-input" />
         </div>
         <p className="muted small">
-          PDF, Word, PowerPoint, text and pictures. They are filed on this Mac in your source folder under piles/, then read in.
+          PDF, Word, PowerPoint, text and pictures. They are filed on Source in your source folder under piles/, then read in.
         </p>
         <div className="actions">
           <button type="submit" className="button primary" disabled={busy || files.length === 0 || pile.trim() === ''}>

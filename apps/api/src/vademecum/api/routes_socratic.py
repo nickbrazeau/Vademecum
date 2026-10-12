@@ -24,13 +24,13 @@ from .schemas import LearnerAnswer, RecordId, Strict
 router = APIRouter(prefix="/socratic", tags=["socratic"])
 
 IMPORT_DISCLOSURE = (
-    "Bringing in a session sends its transcript, once, to the Mac's own model connection to name and "
+    "Bringing in a session sends its transcript, once, to Source's own model connection to name and "
     "assess it. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
 )
 
 DISCLOSURE = (
     "Each answer you give sends the page the session is about, the abstracts reviewed for it, related "
-    "pages and case-series points already on this Mac, the dialogue so far and your answer, once per "
+    "pages and case-series points already on Source, the dialogue so far and your answer, once per "
     "exchange, to write the next question. The model also draws on its own knowledge beyond the page "
     "and says when it does. In codex mode: " + CODEX_DESTINATION + " In claude mode: " + CLAUDE_DESTINATION
     + " In a chat host the assistant you are talking to is the tutor, with its own web search."
@@ -73,15 +73,15 @@ class ImportIn(Strict):
     assessment: dict[str, Any] | None = None
 
 
-UNASSESSED = "Saved. It is assessed on the Mac: open the Tutor there and choose Assess."
+UNASSESSED = "Saved. It is assessed on Source: open the Tutor there and choose Assess."
 
 
 RELAY_WAKING = (
-    "Your Mac answers the tutor here: it is being woken now and is ready in a few seconds, as long as it is on, "
+    "Source answers the tutor here: it is being woken now and is ready in a few seconds, as long as it is on, "
     "awake and running Vademecum."
 )
-RELAY_FIRST = "Your Mac is writing the first question."
-RELAY_NEXT = "Your Mac is writing the next question."
+RELAY_FIRST = "Source is writing the first question."
+RELAY_NEXT = "Source is writing the next question."
 
 
 def _mode_note(mode: str) -> str:

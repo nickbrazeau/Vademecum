@@ -51,14 +51,25 @@ describe('the shell behind the gateway', () => {
     expect(form).toHaveAttribute('action', '/logout')
   })
 
-  it('changes nothing on the owner’s Mac', async () => {
+  it('changes nothing on the owner’s Source', async () => {
     stubApi({ status: 'ok', tenancy: 'single', model_mode: 'codex' })
     render(<App />)
     await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
   })
 
-  it('treats a health check that says nothing as the owner’s Mac', async () => {
+  it('adds sources on Source only, never on the cloud copy (feedback of 12 October)', async () => {
+    stubApi({ status: 'ok', tenancy: 'single', model_mode: 'codex', behind_gateway: false })
+    const { unmount } = render(<App />)
+    expect(await screen.findByRole('button', { name: 'Add source' })).toBeInTheDocument()
+    unmount()
+    stubApi({ status: 'ok', tenancy: 'single', model_mode: 'host', behind_gateway: true })
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Add source' })).not.toBeInTheDocument()
+  })
+
+  it('treats a health check that says nothing as the owner’s Source', async () => {
     stubApi({ status: 'ok' })
     render(<App />)
     await waitFor(() => expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument())

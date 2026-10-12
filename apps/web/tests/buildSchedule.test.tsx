@@ -51,7 +51,7 @@ describe('the build schedule panel', () => {
     const calls = stubApi(SCHEDULE)
     render(<BuildSchedule />)
     expect(await screen.findByText(/without a further prompt/)).toBeInTheDocument()
-    await userEvent.click(screen.getByLabelText(/Build whenever the Mac is awake/))
+    await userEvent.click(screen.getByLabelText(/Build whenever Source is awake/))
     await waitFor(() => expect(calls.some((c) => c.init?.method === 'PUT')).toBe(true))
     const put = calls.find((c) => c.init?.method === 'PUT')
     expect(JSON.parse(put!.init!.body as string)).toEqual({ enabled: true, times: ['07:00', '12:00', '18:00'], batches_per_run: 3, continuous: true })
@@ -75,9 +75,9 @@ describe('the build schedule panel', () => {
   })
 
   it('in host mode says why there is no switch', async () => {
-    stubApi({ ...SCHEDULE, model_mode: 'host', can_run: false, blocked_reason: 'Scheduled builds need the Mac’s own Codex connection.' })
+    stubApi({ ...SCHEDULE, model_mode: 'host', can_run: false, blocked_reason: 'Scheduled builds need Source’s own Codex connection.' })
     render(<BuildSchedule />)
-    expect(await screen.findByText(/need the Mac’s own Codex connection/)).toBeInTheDocument()
-    expect(screen.queryByLabelText(/Build whenever the Mac is awake/)).toBeNull()
+    expect(await screen.findByText(/need Source’s own Codex connection/)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Build whenever Source is awake/)).toBeNull()
   })
 })

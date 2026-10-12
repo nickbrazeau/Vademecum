@@ -11,7 +11,7 @@ export function Unavailable({ error, onRetry }: { error: ApiError; onRetry?: () 
       <p>{error.message}</p>
       {error.kind === 'unreachable' ? (
         <p className="muted">
-          This page is showing from the offline shell. Your saved work is on this Mac and is
+          This page is showing from the offline shell. Your saved work is on Source and is
           untouched.
         </p>
       ) : null}

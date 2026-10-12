@@ -54,7 +54,7 @@ describe('capture', () => {
 
   it('says where the text goes, next to the text', () => {
     render(<QuickFlagDialog open onClose={noop} onSaved={noop} />)
-    expect(screen.getByText(/saved on this mac\. not sent anywhere\./i)).toBeInTheDocument()
+    expect(screen.getByText(/saved on source\. not sent anywhere\./i)).toBeInTheDocument()
   })
 
   it('cannot be saved empty', async () => {
@@ -105,7 +105,7 @@ describe('capture', () => {
     await user.type(screen.getByLabelText(/what were you unsure about/i), 'Worth keeping')
     await user.click(screen.getByRole('button', { name: /save flag/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not answering on this mac/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not answering on source/i)
     expect(screen.getByRole('alert')).toHaveTextContent(/your text is still here/i)
     expect(screen.getByLabelText(/what were you unsure about/i)).toHaveValue('Worth keeping')
     expect(loadDraft(FLAG_DRAFT_KEY)).toBe('Worth keeping')

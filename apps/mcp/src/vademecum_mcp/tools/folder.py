@@ -29,7 +29,7 @@ def register(mcp: MCPServer, api: ApiClient, settings: McpSettings | None) -> No
     @mcp.tool(annotations=READ)
     async def sources_folder() -> dict[str, Any]:
         """Where the owner puts material: the path of their Vademecum source
-        folder on this Mac and how it is laid out. Tell them this path when
+        folder on Source and how it is laid out. Tell them this path when
         they ask how to add a lecture, a deck or a document. In a hosted
         Vademecum there is no folder and files come in through the web app."""
         folder = settings.resolve_sources_dir() if settings is not None else None

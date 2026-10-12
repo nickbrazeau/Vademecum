@@ -30,7 +30,7 @@ from . import prompts, schemas
 logger = logging.getLogger("vademecum.encyclopedia")
 
 WAITING = (
-    "Pages and board questions are written on the Mac's own model connection (codex or claude "
+    "Pages and board questions are written on Source's own model connection (codex or claude "
     "mode). This Vademecum shows what has been compiled."
 )
 MAX_COMPILES_PER_RUN = 12

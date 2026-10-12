@@ -164,7 +164,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         the dashboard, the web app, their sources, the Tutor, the map or the
         case series; pick the view that matches. If the host
         cannot draw it, open_dashboard opens the same thing in their browser.
-        Everything the dashboard shows comes from this Mac."""
+        Everything the dashboard shows comes from Source."""
         return {
             "app": "vademecum",
             "view": view,
@@ -181,7 +181,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         body: Annotated[dict[str, Any] | None, Field(description="The JSON body, for a write.")] = None,
     ) -> dict[str, Any]:
         """For the Vademecum dashboard drawn in this conversation, not for you:
-        the app's own requests to Vademecum on this Mac, limited to the routes
+        the app's own requests to Vademecum on Source, limited to the routes
         the dashboard uses. Use the named tools instead."""
         if not allowed(method, path):
             return {"ok": False, "status": 403, "error": {"code": "not_allowed", "message": NOT_ALLOWED}}

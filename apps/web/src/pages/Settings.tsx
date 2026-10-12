@@ -71,12 +71,12 @@ function MacModelSeen() {
   return (
     <div className="stack">
       <p className="muted small">
-        Here, in ChatGPT or Claude, the model is the assistant you are talking to. Your Mac does the building, the board questions, the podcasts and
+        Here, in ChatGPT or Claude, the model is the assistant you are talking to. Source does the building, the board questions, the podcasts and
         the Socratic tutor on its own connection:
       </p>
       {result.state === 'loading' ? <p className="muted">Reading…</p> : null}
       {result.state === 'ready' && seen === null ? (
-        <p className="muted">The Mac has not reported its connection yet. Open Settings on the Mac once, and it shows here after the next sync.</p>
+        <p className="muted">Source has not reported its connection yet. Open Settings on Source once, and it shows here after the next sync.</p>
       ) : null}
       {seen ? (
         <div className="model-seen">
@@ -95,7 +95,7 @@ function MacModelSeen() {
               <progress max={100} value={window.used_percent} aria-label={`${window.used_percent} percent used`} />
             </div>
           ))}
-          <p className="muted small">As the Mac saw it {momentLabel(seen.seen_at)}.</p>
+          <p className="muted small">As Source saw it {momentLabel(seen.seen_at)}.</p>
         </div>
       ) : null}
     </div>

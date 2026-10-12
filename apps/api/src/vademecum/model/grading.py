@@ -81,7 +81,7 @@ GRADING_DISCLOSURE = Disclosure(
         "Nothing from your other material, your other answers, or your files.",
     ),
     destination=(
-        "Sent to OpenAI through the Codex process on this Mac, using your ChatGPT "
+        "Sent to OpenAI through the Codex process on Source, using your ChatGPT "
         "sign-in. No API key is used."
     ),
 )
@@ -326,7 +326,7 @@ GRADING_FAILURE = {
         "Codex is not installed where Vademecum expects it, so nothing was sent. "
         "Install the ChatGPT app or the Codex CLI and try again."
     ),
-    "spawn_failed": "Codex would not start on this Mac, so nothing was sent.",
+    "spawn_failed": "Codex would not start on Source, so nothing was sent.",
     "not_started": "The Codex connection is not running, so nothing was sent.",
     # Dispatched: we genuinely cannot say what was received.
     "timeout": (
@@ -343,7 +343,7 @@ GRADING_FAILURE = {
         "nothing was graded or recorded."
     ),
     "unavailable": (
-        "The Codex connection was lost. If the request had already left this Mac we "
+        "The Codex connection was lost. If the request had already left Source we "
         "cannot tell how far it got; nothing was graded or recorded."
     ),
     "rate_limited": (
@@ -391,7 +391,7 @@ PRE_DISPATCH = frozenset(
 )
 
 UNKNOWN_FAILURE = (
-    "Grading did not complete. If the request had already left this Mac we cannot "
+    "Grading did not complete. If the request had already left Source we cannot "
     "tell how far it got; nothing was graded or recorded. Your answer is still here."
 )
 

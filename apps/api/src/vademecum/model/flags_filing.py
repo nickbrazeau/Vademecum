@@ -24,7 +24,7 @@ from . import prompts, schemas
 
 logger = logging.getLogger("vademecum.flags")
 
-WAITING = "Filing flags needs the Mac's own model connection (codex or claude mode)."
+WAITING = "Filing flags needs Source's own model connection (codex or claude mode)."
 
 
 async def file_unfiled(database_path: Path, turn_factory: Any) -> dict[str, Any]:

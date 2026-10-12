@@ -93,7 +93,7 @@ export function AddSourceDialog({ open, onClose, onPhone }: { open: boolean; onC
         const target = pileId === NEW_PILE ? await api.createPile({ title: pileName, tier: confidence }) : chosen!
         const report = await api.uploadSources(target.id, all, confidence)
         setDone(
-          `${report.accepted} added to ${target.title}${report.rejected ? `, ${report.rejected} not added` : ''}. Your Mac takes ${
+          `${report.accepted} added to ${target.title}${report.rejected ? `, ${report.rejected} not added` : ''}. Source takes ${
             report.accepted === 1 ? 'it' : 'them'
           } in at its next sync.`
         )
@@ -207,7 +207,7 @@ export function AddSourceDialog({ open, onClose, onPhone }: { open: boolean; onC
         {tooBig.length > 0 ? (
           <p className="failure small" role="alert">
             {tooBig.map((file) => file.name).join(', ')} {tooBig.length === 1 ? 'is' : 'are'} over 95 MB, more than the phone can send. Add{' '}
-            {tooBig.length === 1 ? 'it' : 'them'} on the Mac instead.
+            {tooBig.length === 1 ? 'it' : 'them'} on Source instead.
           </p>
         ) : null}
         <PhiWarning />

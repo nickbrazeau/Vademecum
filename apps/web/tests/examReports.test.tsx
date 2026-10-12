@@ -36,7 +36,7 @@ describe('the exam reports card', () => {
   it('states the disclosure, uploads a report and says what happens next', async () => {
     const calls = stubApi([])
     render(<ExamReports onChanged={() => undefined} />)
-    expect(await screen.findByText(/sends its text to the Mac’s own model connection/)).toBeInTheDocument()
+    expect(await screen.findByText(/sends its text to Source’s own model connection/)).toBeInTheDocument()
     const file = new File(['Infectious Disease: 38th percentile'], 'ite.txt', { type: 'text/plain' })
     await userEvent.upload(screen.getByLabelText('Add a score report'), file)
     await userEvent.click(screen.getByRole('button', { name: 'Add and read it' }))

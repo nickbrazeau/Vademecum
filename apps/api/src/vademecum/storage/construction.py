@@ -184,7 +184,7 @@ def progress(
 
 
 _UNREADABLE = {
-    "needs_ocr": "No readable text: a scan or picture the Mac could not read.",
+    "needs_ocr": "No readable text: a scan or picture Source could not read.",
     "encrypted": "Locked with a password, so it cannot be read.",
     "unreadable": "The file could not be read.",
 }

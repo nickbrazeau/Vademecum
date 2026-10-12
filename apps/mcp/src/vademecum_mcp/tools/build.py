@@ -49,7 +49,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         runs in host mode and YOU are the model: do the first pending turn as
         its `rules` say, using only its `material`, and submit the result with
         build_submit; keep going with each `next` until it is null. If `pending`
-        is empty, the Mac's own model connection runs the build; poll
+        is empty, Source's own model connection runs the build; poll
         build_status. A stale preview is refused: call build_preview again."""
         return await call(
             api.post(
@@ -63,7 +63,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         """The model work waiting on you for a pile's running build (host mode).
         Each turn carries instructions, rules, the exact material you may use,
         and the output_schema your result must match. Empty when nothing is
-        waiting or when the Mac runs its own model turns."""
+        waiting or when Source runs its own model turns."""
         return await call(api.get(f"/api/piles/{pile_id}/build/pending"))
 
     @mcp.tool(annotations=WRITE)
@@ -114,12 +114,12 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
         times: Annotated[list[str] | None, Field(description="Times of day, HH:MM, 24-hour, up to 8.", max_length=8)] = None,
         batches_per_run: Annotated[int | None, Field(description="Batches per pile per run, 1 to 10.", ge=1, le=10)] = None,
     ) -> dict[str, Any]:
-        """Builds on a timer (ADR 0018): at the given times each day the Mac works
+        """Builds on a timer (ADR 0018): at the given times each day Source works
         through every pile by itself, up to a few batches per pile, exactly as
         Build would. Called with no arguments it reports the schedule, the next
         run, the last run and the disclosure. Turning it on is a standing
         consent to what each run sends; show the owner the `disclosure` first
-        and wait for an explicit yes. Needs the Mac's own model connection (Codex or Claude)
+        and wait for an explicit yes. Needs Source's own model connection (Codex or Claude)
         (`can_run`); in host mode the reply says so."""
         current = await call(api.get("/api/build/schedule"))
         if enabled is None and times is None and batches_per_run is None:
@@ -133,7 +133,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
 
     @mcp.tool(annotations=TRANSMITS)
     async def build_now() -> dict[str, Any]:
-        """Build every pile with unbuilt passages now, on the Mac's own Codex
+        """Build every pile with unbuilt passages now, on Source's own Codex
         connection, in the background: the same send as Build for each pile,
         without a per-pile preview. Transmits. Ask the owner first and tell
         them build_schedule reports progress and the result."""
@@ -141,7 +141,7 @@ def register(mcp: MCPServer, api: ApiClient) -> None:
 
     @mcp.tool(annotations=READ)
     async def get_model_status() -> dict[str, Any]:
-        """Whether the Mac's Codex connection is signed in to ChatGPT, which
+        """Whether Source's Codex connection is signed in to ChatGPT, which
         plan, and how much of its usage window is used. No account identifiers
-        are ever included. Signing in is done on the Mac, not from here."""
+        are ever included. Signing in is done on Source, not from here."""
         return await call(api.get("/api/model/status"))

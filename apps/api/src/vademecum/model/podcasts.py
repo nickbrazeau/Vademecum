@@ -36,8 +36,8 @@ DEFAULT_VOICES = {"A": "Samantha", "B": "Daniel"}
 SAMPLE_RATE = 24000  # Kokoro's own rate; `say` renders at any rate asked
 PAUSE_SECONDS = 0.45
 RENDER_TIMEOUT_SECONDS = 600
-NEEDS_MODEL = "Writing a script needs the Mac's own model connection (codex or claude mode)."
-NEEDS_MAC = "Rendering audio happens on the Mac, with its own speech voices; this Vademecum can read the script aloud in the browser instead."
+NEEDS_MODEL = "Writing a script needs Source's own model connection (codex or claude mode)."
+NEEDS_MAC = "Rendering audio happens on Source, with its own speech voices; this Vademecum can read the script aloud in the browser instead."
 
 Synth = Callable[[str, str, Path], None]
 Encode = Callable[[Path, Path], None]
@@ -302,7 +302,7 @@ async def render(
         store.clear_progress(podcasts_dir, episode_id)
         connection = connect(database_path)
         try:
-            return store.set_failed(connection, episode_id, "Rendering the audio failed on this Mac. The script is unchanged.").as_dict()
+            return store.set_failed(connection, episode_id, "Rendering the audio failed on Source. The script is unchanged.").as_dict()
         finally:
             connection.close()
     store.clear_progress(podcasts_dir, episode_id)

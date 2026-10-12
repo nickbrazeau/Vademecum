@@ -36,7 +36,7 @@ def _parser() -> argparse.ArgumentParser:
     serve = commands.add_parser("serve", help="run the MCP server")
     mode = serve.add_mutually_exclusive_group()
     mode.add_argument("--http", action="store_true", help="streamable HTTP on 127.0.0.1 (default)")
-    mode.add_argument("--stdio", action="store_true", help="stdio, for a client on this Mac")
+    mode.add_argument("--stdio", action="store_true", help="stdio, for a client on Source")
     commands.add_parser("passphrase", help="set or replace the owner's passphrase")
     commands.add_parser("status", help="show configuration and connections")
     commands.add_parser("revoke-all", help="sign every connected assistant out")
@@ -52,11 +52,11 @@ def _parser() -> argparse.ArgumentParser:
     setup.add_argument("target", choices=["codex", "claude", "folder", "login", "sync", "cloud"])
     setup.add_argument("path", nargs="?", help="for `folder`: where the source folder should be; for `sync`: foris's https address")
     setup.add_argument("--remove", action="store_true", help="for `login`: stop starting at login")
-    setup.add_argument("--adopt", action="store_true", help="for `cloud`: seal an existing copy's backups with a key kept on this Mac")
+    setup.add_argument("--adopt", action="store_true", help="for `cloud`: seal an existing copy's backups with a key kept on Source")
     setup.add_argument("--rotate", action="store_true", help="for `cloud`: a new store key and sync token")
     setup.add_argument(
         "--model", choices=["host", "codex", "claude"], default="host",
-        help="for `login`: who does the model work; `codex` or `claude` lets the Mac build on a timer",
+        help="for `login`: who does the model work; `codex` or `claude` lets Source build on a timer",
     )
     return parser
 
@@ -138,7 +138,7 @@ def _status(settings: McpSettings) -> int:
     except ConfigError:
         endpoint = "(VADEMECUM_MCP_PUBLIC_URL not set; HTTP mode needs it)"
     print(f"MCP endpoint:        {endpoint}")
-    print(f"API on this Mac:     {settings.api_base_url}")
+    print(f"API on Source:     {settings.api_base_url}")
     print(f"Tenancy:             {settings.tenancy}")
     if settings.tenancy == "multi":
         print(f"Learners:            {summary['learners']} (open invites: {summary['open_invites']})")
@@ -368,7 +368,7 @@ def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None
             keychain.delete(keychain.SYNC_TOKEN, current)
         write_setting("SYNC_PEER_URL", "")
         write_setting("SYNC_TOKEN", "")
-        print("This Mac no longer syncs with foris.")
+        print("Source no longer syncs with foris.")
         return 0
     if not peer_url:
         print("Give foris's https address: setup sync https://...", file=sys.stderr)
@@ -397,7 +397,7 @@ def _setup_sync(peer_url: str | None, *, remove: bool = False, token: str | None
         print("The sync token is kept in the Keychain.")
     else:
         write_setting("SYNC_TOKEN", token)
-    print(f"This Mac syncs with {origin} (recorded in {settings_file_path().name}).")
+    print(f"Source syncs with {origin} (recorded in {settings_file_path().name}).")
     print("Vademecum syncs every five minutes while it runs; `python -m vademecum sync` runs one round now.")
     print("Restart Vademecum (or the assistant) so the running copy picks this up.")
     return 0

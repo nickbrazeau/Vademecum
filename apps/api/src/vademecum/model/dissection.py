@@ -39,7 +39,7 @@ ALL_PILES = "all"
 EVERY_PILE_TITLE = "every pile"
 
 NEEDS_MODEL = (
-    "Dissecting a pile needs the Mac's own model connection -- Codex or Claude -- which does the "
+    "Dissecting a pile needs Source's own model connection -- Codex or Claude -- which does the "
     "model turns while nobody is in a conversation. This Vademecum is in host mode."
 )
 BATCHES_BETWEEN_COMPILES = 5
@@ -274,7 +274,7 @@ class Dissector:
             except Exception as exc:  # noqa: BLE001 - the agent outlives any one failure
                 failures += 1
                 logger.error("dissection_error error=%s", type(exc).__name__)
-                await self._back_off(failures, f"Something failed on this Mac ({type(exc).__name__}).")
+                await self._back_off(failures, f"Something failed on Source ({type(exc).__name__}).")
 
     def _state_value(self, key: str) -> Any:
         connection = connect(self._database_path)

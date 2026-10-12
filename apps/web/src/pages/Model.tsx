@@ -161,7 +161,7 @@ function WhatIsSent() {
         <dd>
           <strong>No learning content from these connection controls.</strong> This page reads whether Codex is signed in and
           how much of your plan you have used, and can sign you in. Those operations run through
-          Codex on this Mac, and Codex contacts OpenAI to answer them, so this page is not an
+          Codex on Source, and Codex contacts OpenAI to answer them, so this page is not an
           offline page. Its sign-in and status controls do not send your notes or answers.
         </dd>
 
@@ -263,7 +263,7 @@ export function Model() {
   const offlineNotice = online ? null : (
     <p className="warn" role="status">
       This device is offline. The connection to Codex cannot be checked from here; nothing saved on
-      this Mac is affected.
+      Source is affected.
     </p>
   )
 
@@ -298,8 +298,8 @@ export function Model() {
           {status
             ? status.detail
             : claudeMode
-              ? 'Checking whether the Claude Code CLI on this Mac is signed in. No note, question or answer is sent.'
-              : 'Checking whether Codex on this Mac is signed in. That check goes through Codex, which contacts OpenAI to answer it; no note, question or answer is sent.'}
+              ? 'Checking whether the Claude Code CLI on Source is signed in. No note, question or answer is sent.'
+              : 'Checking whether Codex on Source is signed in. That check goes through Codex, which contacts OpenAI to answer it; no note, question or answer is sent.'}
         </p>
 
         {failure ? (
@@ -330,7 +330,7 @@ export function Model() {
         {state === 'unavailable' ? (
           <p className="muted small">
             No note, question or answer was sent anywhere. Restarting stops the Codex process on
-            this Mac and starts a fresh one; your notes and flags are untouched either way.
+            Source and starts a fresh one; your notes and flags are untouched either way.
           </p>
         ) : null}
       </section>

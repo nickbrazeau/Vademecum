@@ -97,7 +97,7 @@ export function asApiError(error: unknown): ApiError {
 }
 
 export const UNREACHABLE_MESSAGE =
-  'Vademecum is not answering on this Mac. The request’s outcome could not be confirmed. Reconnect and check its status before trying again.'
+  'Vademecum is not answering on Source. The request’s outcome could not be confirmed. Reconnect and check its status before trying again.'
 
 interface ErrorBody {
   error?: { code?: string; message?: string; fields?: FieldProblem[] }
@@ -116,7 +116,7 @@ function kindFor(status: number): FailureKind {
 }
 
 export const IN_CHAT_FILES_MESSAGE =
-  'In the conversation, files come in through your source folder on the Mac; ask the assistant to sync it.'
+  'In the conversation, files come in through your source folder on Source; ask the assistant to sync it.'
 export const IN_CHAT_REMOVAL_MESSAGE =
   'Removing things is done in the browser dashboard, or by asking the assistant, which will confirm with you first.'
 

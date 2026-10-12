@@ -195,7 +195,7 @@ def test_a_build_feeds_a_page_which_feeds_board_questions(tmp_path: Path) -> Non
 
         before = c.get("/api/encyclopedia").json()
         assert before["entries"] == [] and before["counts"]["stale"] >= 1 and before["can_compile"] is True
-        assert "once, to the Mac's own model connection" in before["disclosure"]
+        assert "once, to Source's own model connection" in before["disclosure"]
         assert {"id": "nephrology", "name": "Nephrology"} in before["specialties"], "the subjects pages are shelved under"
         assert c.get("/api/today").json()["page"] is None
 
@@ -553,7 +553,7 @@ def test_the_phones_copy_does_not_delete_pages(tmp_path: Path) -> None:
         finally:
             connection.close()
         refused = c.delete(f"/api/encyclopedia/{entry.id}")
-        assert refused.status_code == 409 and "on the Mac" in refused.text
+        assert refused.status_code == 409 and "on Source" in refused.text
 
 
 def test_a_deleted_page_is_not_written_back_by_anything_in_flight(connection) -> None:

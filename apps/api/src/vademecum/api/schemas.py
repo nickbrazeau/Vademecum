@@ -207,8 +207,8 @@ class Health(BaseModel):
     model_mode: Literal["codex", "host", "claude"] = Field(
         default="codex",
         description=(
-            "Who does the model work. `codex`: the local Codex child on this Mac. "
-            "`claude`: the Claude Code CLI on this Mac, on the owner's Claude sign-in (ADR 0019). "
+            "Who does the model work. `codex`: the local Codex child on Source. "
+            "`claude`: the Claude Code CLI on Source, on the owner's Claude sign-in (ADR 0019). "
             "`host`: the learner's assistant through pending/submit tools; this process "
             "never calls a model (ADR 0009)."
         ),

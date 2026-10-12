@@ -420,7 +420,7 @@ export function ImprovementMap({ reloadToken, onNavigate }: { reloadToken: numbe
           <div className="unfiled">
             <p className="muted small">
               {value.unfiled_flag_count} flag{value.unfiled_flag_count === 1 ? ' has' : 's have'} no topic yet.
-              Filing sends their text, once, to the Mac&rsquo;s own model connection, which names a
+              Filing sends their text, once, to Source&rsquo;s own model connection, which names a
               topic for each; nothing else goes. They are safe where they are either way.
             </p>
             <div className="actions">

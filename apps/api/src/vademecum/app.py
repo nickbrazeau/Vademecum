@@ -72,7 +72,7 @@ API_PREFIX = "/api"
 
 DESCRIPTION = (
     "Local-first clinical-learning workspace, bound to loopback. Your material is stored "
-    "on this Mac. Two explicit actions transmit content, each after showing exactly what "
+    "on Source. Two explicit actions transmit content, each after showing exactly what "
     "would be sent: Build learning material sends the source excerpts you previewed, and "
     "Grade sends one question, its reference answer and your typed answer. Both go to "
     "OpenAI through the local Codex process using ChatGPT sign-in; no API key is used. "

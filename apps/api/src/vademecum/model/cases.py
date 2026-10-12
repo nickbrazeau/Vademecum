@@ -29,7 +29,7 @@ from . import prompts, schemas
 logger = logging.getLogger("vademecum.cases")
 
 WAITING = (
-    "Teaching points are written on the Mac's own model connection (codex or claude mode). "
+    "Teaching points are written on Source's own model connection (codex or claude mode). "
     "Until then each case shows its title, who made it and the link to the original."
 )
 MAX_SYNTHESES_PER_REFRESH = 40
